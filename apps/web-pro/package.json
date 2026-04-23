@@ -1,0 +1,27 @@
+{
+  "name": "web-pro",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "next dev -p 3003",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "16.2.3",
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
+    "tailwindcss": "^4.0.0",
+    "shadcn-ui": "latest",
+    "@tanstack/react-query": "5.99.0",
+    "@tanstack/react-table": "8.21.3",
+    "react-hook-form": "7.72.1",
+    "@fitmax/validation": "*"
+  },
+  "devDependencies": {
+    "typescript": "6.0.2",
+    "@types/node": "^22.0.0",
+    "@types/react": "19.0.0",
+    "@types/react-dom": "19.0.0"
+  }
+}
