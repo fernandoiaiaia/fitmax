@@ -1,166 +1,168 @@
 "use client";
 
 import Link from "next/link";
-import {
-  Card,
-  Avatar,
-  Text,
-  H2,
-  XStack,
-  YStack,
-  Circle,
-  Image,
-} from "tamagui";
 
-// Mock Data
-// Reduzido para garantir que caiba em telas padrão sem estourar limites verticais
 const consultasMock = [
-  { id: 1, profissional: "Dra. Letícia Marques", especialidade: "Endocrinologista", data: "Hoje, 14:30", avatar: "https://picsum.photos/200/200?random=50", color: "$blue4", colorText: "$blue10" },
-  { id: 2, profissional: "Marcelo Strong", especialidade: "Treinador PRO", data: "Amanhã, 09:00", avatar: "https://picsum.photos/200/200?random=52", color: "$color4", colorText: "$color11" },
-  { id: 3, profissional: "Dr. Vinícius Almeida", especialidade: "Nutrólogo", data: "Qua, 16:00", avatar: "https://picsum.photos/200/200?random=60", color: "$color4", colorText: "$color11" },
+  { id: 1, name: "Dra. Letícia Marques",  specialty: "Endocrinologia · Presencial", time: "Hoje, 14:30",   avatar: "https://picsum.photos/200/200?random=50", badgeColor: "#10b981", badgeBg: "rgba(16,185,129,0.12)", status: "Confirmada" },
+  { id: 2, name: "Marcelo Strong",         specialty: "Fisioterapia · Online",       time: "Amanhã, 09:00", avatar: "https://picsum.photos/200/200?random=52", badgeColor: "#eab308", badgeBg: "rgba(234,179,8,0.12)",   status: "Pendente" },
+  { id: 3, name: "Dr. Vinícius Almeida",   specialty: "Nutrologia · Online",         time: "Qua, 16:00",    avatar: "https://picsum.photos/200/200?random=60", badgeColor: "#60a5fa", badgeBg: "rgba(96,165,250,0.12)", status: "Agendada" },
 ];
 
 const agendaMock = [
-  { id: 1, titulo: "Avaliação Nutrológica", horario: "14:30 - 15:30", color: "$purple9", time: "Em breve" },
-  { id: 2, titulo: "Liberação Miofascial", horario: "18:00 - 19:00", color: "$blue9", time: "Hoje" },
+  { id: 1, title: "Avaliação Nutrológica", time: "14:30 – 15:30", label: "Em breve", dotColor: "#a78bfa" },
+  { id: 2, title: "Liberação Miofascial",  time: "18:00 – 19:00", label: "Hoje",     dotColor: "#10b981" },
+  { id: 3, title: "Treino de Força",       time: "20:00 – 21:00", label: "Hoje",     dotColor: "#f97316" },
 ];
 
-// O usuário solicitou APENAS 4 imagens para encaixar sem exigir rolagem
-const feedThumbnails = [
-  "/sports_medicine_1776777873933.png",
-  "/crossfit_class_1776777890905.png",
-  "/fitness_yoga_1776776568182.png",
-  "/nutrition_food_1776777905763.png",
+const statsMock = [
+  { label: "Treinos feitos",   value: "24",   sub: "+3 esta semana",  color: "#10b981" },
+  { label: "Consultas ativas", value: "3",    sub: "1 hoje",          color: "#60a5fa" },
+  { label: "Sequência atual",  value: "7d",   sub: "Seu recorde: 14d", color: "#a78bfa" },
+  { label: "Taxa de adesão",   value: "92%",  sub: "Último mês",      color: "#f97316" },
 ];
+
+const feedThumbnails = [
+  { src: "/sports_medicine_1776777873933.png", label: "Medicina Esportiva" },
+  { src: "/crossfit_class_1776777890905.png",  label: "CrossFit" },
+  { src: "/fitness_yoga_1776776568182.png",    label: "Yoga & Mobilidade" },
+  { src: "/nutrition_food_1776777905763.png",  label: "Nutrição" },
+];
+
+const UsersIcon = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
+const HomeIcon  = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
+const ClockIcon = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
+const ArrowIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>;
 
 export default function PainelPage() {
   return (
-    // Usa YStack flex=1 para travar na contenção máxima da tela
-    <YStack flex={1} backgroundColor="$background" padding="$3" $gtSm={{ padding: "$4" }} gap="$3" width="100%">
-      
-      <H2 color="$color12" size="$5" fontWeight="bold">Sua Visão Geral</H2>
-      
-      {/* Container Pai: Mantido 100% estrito sobre o tamanho restante disponível */}
-      <XStack flex={1} flexDirection="column" $gtMd={{ flexDirection: "row" }} gap="$3" width="100%">
-        
-        {/* LEFT COLUMN: Feed Widget (60%) */}
-        <YStack flex={1} $gtMd={{ flex: 1.5 }} height="100%">
-          <Link href="/painel/feed" style={{ textDecoration: 'none', display: 'flex', flex: 1 }}>
-            <Card width="100%" flex={1} borderWidth={1} backgroundColor="$color2" borderColor="$borderColor" hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }} cursor="pointer" animation="quick" overflow="hidden">
-              <Card.Header padding="$4" paddingBottom={0}>
-                <XStack justifyContent="space-between" alignItems="center">
-                  <YStack>
-                    <H2 size="$4" fontWeight="bold" color="$color12">Destaques do Feed</H2>
-                    <Text color="$color11" fontSize={12}>As 4 novidades mais recentes</Text>
-                  </YStack>
-                  <Circle size="$2.5" backgroundColor="$green4">
-                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
-                  </Circle>
-                </XStack>
-              </Card.Header>
-              
-              {/* Padding super compactado para caber o mosaico simétrico */}
-              <YStack padding="$3" paddingTop="$2" flex={1} justifyContent="center" overflow="hidden">
-                 <XStack flexWrap="wrap" gap="$2" width="100%" justifyContent="space-between" alignContent="center" height="100%">
-                   {feedThumbnails.map((src, idx) => (
-                     <YStack key={idx} width="calc(50% - 4px)" height="calc(50% - 4px)" borderRadius="$3" overflow="hidden" backgroundColor="$color4" position="relative">
-                        <Image src={src} width="100%" height="100%" objectFit="cover" />
-                        {idx === 3 && (
-                          <YStack position="absolute" top={0} left={0} right={0} bottom={0} backgroundColor="rgba(0,0,0,0.6)" alignItems="center" justifyContent="center">
-                            <Text color="white" fontWeight="bold" fontSize={20}>+8</Text>
-                          </YStack>
-                        )}
-                     </YStack>
-                   ))}
-                 </XStack>
-              </YStack>
+    <div className="painel-root">
 
-            </Card>
-          </Link>
-        </YStack>
+      {/* Heading */}
+      <div className="painel-heading">
+        <div>
+          <h1 className="painel-heading__title">Sua Visão Geral</h1>
+          <p className="painel-heading__sub">Domingo, 27 de abril de 2026</p>
+        </div>
+      </div>
 
-        {/* RIGHT COLUMN: Stacked Widgets (40%) */}
-        <YStack flex={1} gap="$3" height="100%">
-          
-          {/* TOP RIGHT: Consultas Widget */}
-          <Link href="/painel/consultas" style={{ textDecoration: 'none', display: 'flex', flex: 1 }}>
-            <Card width="100%" flex={1} borderWidth={1} backgroundColor="$color2" borderColor="$borderColor" hoverStyle={{ backgroundColor: "$color3", borderColor: "$blue8" }} cursor="pointer" animation="quick" overflow="hidden">
-              <Card.Header padding="$4" paddingBottom={0}>
-                <XStack justifyContent="space-between" alignItems="center">
-                  <YStack>
-                    <H2 size="$4" fontWeight="bold" color="$color12">Consultas Pendentes</H2>
-                    <Text color="$color11" fontSize={12}>3 confirmadas esta semana</Text>
-                  </YStack>
-                  <Circle size="$2.5" backgroundColor="$blue4">
-                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                  </Circle>
-                </XStack>
-              </Card.Header>
-              
-              {/* Densidade máxima para comportar 3 itens em telas pequenas */}
-              <YStack padding="$3" flex={1} gap="$2" justifyContent="center" overflow="hidden">
-                {consultasMock.map((c) => (
-                  <XStack key={c.id} gap="$2" alignItems="center" backgroundColor="$background" padding="$2" borderRadius="$3" borderWidth={1} borderColor="$borderColor">
-                    <Avatar circular size="$2.5" backgroundColor="$color4">
-                      <Avatar.Image src={c.avatar} />
-                    </Avatar>
-                    <YStack flex={1}>
-                      <Text color="$color12" fontWeight="bold" fontSize={13} numberOfLines={1}>{c.profissional}</Text>
-                      <Text color="$color11" fontSize={11} numberOfLines={1}>{c.especialidade}</Text>
-                    </YStack>
-                    <XStack backgroundColor={c.color} paddingHorizontal="$2" paddingVertical={2} borderRadius="$10">
-                      <Text color={c.colorText} fontSize={10} fontWeight="bold">{c.data}</Text>
-                    </XStack>
-                  </XStack>
-                ))}
-              </YStack>
+      {/* Stats row */}
+      <div className="painel-stats">
+        {statsMock.map((s, i) => (
+          <div key={i} className="painel-stat-card" id={`stat-${i}`}>
+            <span className="painel-stat-card__val" style={{ color: s.color }}>{s.value}</span>
+            <span className="painel-stat-card__label">{s.label}</span>
+            <span className="painel-stat-card__sub">{s.sub}</span>
+            <div className="painel-stat-card__bar" style={{ background: s.color }} />
+          </div>
+        ))}
+      </div>
 
-            </Card>
-          </Link>
+      {/* Main grid */}
+      <div className="painel-grid">
 
-          {/* BOTTOM RIGHT: Agenda Widget */}
-          <Link href="/painel/agenda" style={{ textDecoration: 'none', display: 'flex', flex: 1 }}>
-            <Card width="100%" flex={1} borderWidth={1} backgroundColor="$color2" borderColor="$borderColor" hoverStyle={{ backgroundColor: "$color3", borderColor: "$purple8" }} cursor="pointer" animation="quick" overflow="hidden">
-              <Card.Header padding="$4" paddingBottom={0}>
-                <XStack justifyContent="space-between" alignItems="center">
-                  <YStack>
-                    <H2 size="$4" fontWeight="bold" color="$color12">Sua Agenda</H2>
-                    <Text color="$color11" fontSize={12}>Suas prioridades de hoje</Text>
-                  </YStack>
-                  <Circle size="$2.5" backgroundColor="$purple4">
-                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c084fc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                  </Circle>
-                </XStack>
-              </Card.Header>
+        {/* LEFT: Feed widget */}
+        <Link href="/painel/feed" className="painel-card painel-card--feed" id="card-feed">
+          <div className="painel-card__header">
+            <div>
+              <h2 className="painel-card__title">Destaques do Feed</h2>
+              <p className="painel-card__sub">Últimas publicações da plataforma</p>
+            </div>
+            <div className="painel-card__icon-circle" style={{ background: "rgba(16,185,129,0.12)" }}>
+              <HomeIcon />
+            </div>
+          </div>
 
-              <YStack padding="$3" flex={1} gap="$2" paddingTop="$2" justifyContent="center" overflow="hidden">
-                {agendaMock.map((a, idx) => (
-                  <XStack key={a.id} gap="$2" alignItems="flex-start">
-                    {/* Visual Timeline ajustada */}
-                    <YStack alignItems="center" width={12}>
-                      <Circle size={10} backgroundColor={a.color} marginTop="$2" borderWidth={2} borderColor="$background" zIndex={2} />
-                      {idx < agendaMock.length - 1 && (
-                         <YStack width={2} height={42} backgroundColor="$borderColor" marginTop={-4} zIndex={1} />
-                      )}
-                    </YStack>
-                    
-                    <YStack flex={1} backgroundColor="$background" padding="$2" paddingHorizontal="$3" borderRadius="$3" borderWidth={1} borderColor="$borderColor">
-                      <XStack justifyContent="space-between" alignItems="center" marginBottom={2}>
-                         <Text color="$color12" fontWeight="bold" fontSize={13} numberOfLines={1}>{a.titulo}</Text>
-                         <Text color={a.color} fontSize={10} fontWeight="bold" flexShrink={0}>{a.time}</Text>
-                      </XStack>
-                      <Text color="$color11" fontSize={12}>{a.horario}</Text>
-                    </YStack>
-                  </XStack>
-                ))}
-              </YStack>
+          <div className="painel-feed-mosaic">
+            {feedThumbnails.map((item, idx) => (
+              <div key={idx} className="painel-feed-mosaic__cell">
+                <img src={item.src} alt={item.label} className="painel-feed-mosaic__img" />
+                {idx === 3 && (
+                  <div className="painel-feed-mosaic__overlay"><span>+8</span></div>
+                )}
+              </div>
+            ))}
+          </div>
 
-            </Card>
+          <div className="painel-card__footer-link">
+            Ver feed completo <ArrowIcon />
+          </div>
+        </Link>
+
+        {/* RIGHT column */}
+        <div className="painel-right-col">
+
+          {/* Consultas widget */}
+          <Link href="/painel/consultas" className="painel-card" id="card-consultas">
+            <div className="painel-card__header">
+              <div>
+                <h2 className="painel-card__title">Consultas Pendentes</h2>
+                <p className="painel-card__sub">3 confirmadas esta semana</p>
+              </div>
+              <div className="painel-card__icon-circle" style={{ background: "rgba(96,165,250,0.12)" }}>
+                <UsersIcon />
+              </div>
+            </div>
+
+            <div className="painel-consult-list">
+              {consultasMock.map((c) => (
+                <div key={c.id} className="painel-consult-item">
+                  <img src={c.avatar} alt={c.name} className="painel-consult-item__avatar" />
+                  <div className="painel-consult-item__info">
+                    <p className="painel-consult-item__name">{c.name}</p>
+                    <p className="painel-consult-item__meta">{c.specialty}</p>
+                  </div>
+                  <span
+                    className="painel-consult-item__badge"
+                    style={{ color: c.badgeColor, background: c.badgeBg, border: `1px solid ${c.badgeColor}40` }}
+                  >
+                    {c.time}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="painel-card__footer-link">
+              Ver todas as consultas <ArrowIcon />
+            </div>
           </Link>
 
-        </YStack>
+          {/* Agenda widget */}
+          <Link href="/painel/agenda" className="painel-card" id="card-agenda">
+            <div className="painel-card__header">
+              <div>
+                <h2 className="painel-card__title">Sua Agenda</h2>
+                <p className="painel-card__sub">Prioridades de hoje</p>
+              </div>
+              <div className="painel-card__icon-circle" style={{ background: "rgba(167,139,250,0.12)" }}>
+                <ClockIcon />
+              </div>
+            </div>
 
-      </XStack>
-    </YStack>
+            <div className="painel-timeline">
+              {agendaMock.map((a, idx) => (
+                <div key={a.id} className="painel-timeline__item">
+                  <div className="painel-timeline__track">
+                    <div className="painel-timeline__dot" style={{ background: a.dotColor, boxShadow: `0 0 6px ${a.dotColor}` }} />
+                    {idx < agendaMock.length - 1 && <div className="painel-timeline__line" />}
+                  </div>
+                  <div className="painel-timeline__body">
+                    <div className="painel-timeline__body-top">
+                      <span className="painel-timeline__body-title">{a.title}</span>
+                      <span className="painel-timeline__body-label" style={{ color: a.dotColor }}>{a.label}</span>
+                    </div>
+                    <p className="painel-timeline__body-time">{a.time}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="painel-card__footer-link">
+              Ver agenda completa <ArrowIcon />
+            </div>
+          </Link>
+
+        </div>
+      </div>
+    </div>
   );
 }

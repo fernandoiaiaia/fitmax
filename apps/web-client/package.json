@@ -9,9 +9,6 @@
   },
   "dependencies": {
     "@fitmax/validation": "*",
-    "@tamagui/config": "^2.0.0-rc.41",
-    "@tamagui/core": "^2.0.0-rc.41",
-    "@tamagui/next-plugin": "^2.0.0-rc.41",
     "@tanstack/react-query": "5.99.0",
     "@tanstack/react-table": "8.21.3",
     "framer-motion": "^12.38.0",
@@ -19,17 +16,13 @@
     "react": "19.2.5",
     "react-dom": "19.2.5",
     "react-hook-form": "7.72.1",
-    "react-native-web": "^0.21.2",
-    "shadcn-ui": "latest",
-    "tailwindcss": "^4.0.0",
-    "tamagui": "^2.0.0-rc.41",
-    "tamagui-loader": "^2.0.0-rc.41"
+    "tailwindcss": "^4.0.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.4",
     "@types/node": "^22.0.0",
     "@types/react": "19.0.0",
     "@types/react-dom": "19.0.0",
-    "typescript": "6.0.2",
-    "webpack": "^5.106.2"
+    "typescript": "6.0.2"
   }
 }

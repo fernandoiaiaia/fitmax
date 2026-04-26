@@ -1,20 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Card,
-  Avatar,
-  Text,
-  H2,
-  XStack,
-  YStack,
-  ScrollView,
-  Button,
-  Circle,
-  Separator,
-} from "tamagui";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 type ConsultaStatus = "a_confirmar" | "pendente" | "agendada" | "em_andamento";
 
@@ -29,8 +15,6 @@ interface Consulta {
   status: ConsultaStatus;
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
 const consultaEmAndamento = {
   nome: "Dra. Letícia Marques",
   especialidade: "Endocrinologista",
@@ -39,299 +23,100 @@ const consultaEmAndamento = {
 };
 
 const proximasConsultas: Consulta[] = [
-  {
-    id: 1,
-    horario: "09:00",
-    nome: "Dr. Roberto Alves",
-    especialidade: "Ortopedia",
-    modalidade: "Presencial",
-    data: "Hoje, 22/04",
-    avatar: "https://picsum.photos/200/200?random=21",
-    status: "agendada",
-  },
-  {
-    id: 2,
-    horario: "11:00",
-    nome: "Dra. Ana Souza",
-    especialidade: "Nutrição",
-    modalidade: "Online",
-    data: "Hoje, 22/04",
-    avatar: "https://picsum.photos/200/200?random=23",
-    status: "pendente",
-  },
-  {
-    id: 3,
-    horario: "14:30",
-    nome: "Dra. Letícia Marques",
-    especialidade: "Endocrinologia",
-    modalidade: "Presencial",
-    data: "Hoje, 22/04",
-    avatar: "https://picsum.photos/200/200?random=50",
-    status: "em_andamento",
-  },
-  {
-    id: 4,
-    horario: "09:00",
-    nome: "Dr. Vinícius Almeida",
-    especialidade: "Nutrologia",
-    modalidade: "Online",
-    data: "Amanhã, 23/04",
-    avatar: "https://picsum.photos/200/200?random=60",
-    status: "a_confirmar",
-  },
-  {
-    id: 5,
-    horario: "16:00",
-    nome: "Marcelo Strong",
-    especialidade: "Fisioterapia",
-    modalidade: "Presencial",
-    data: "24/04",
-    avatar: "https://picsum.photos/200/200?random=52",
-    status: "agendada",
-  },
-  {
-    id: 6,
-    horario: "10:30",
-    nome: "Bruno Silva",
-    especialidade: "Medicina Esportiva",
-    modalidade: "Online",
-    data: "25/04",
-    avatar: "https://picsum.photos/200/200?random=25",
-    status: "pendente",
-  },
+  { id: 1, horario: "09:00", nome: "Dr. Roberto Alves", especialidade: "Ortopedia", modalidade: "Presencial", data: "Hoje, 22/04", avatar: "https://picsum.photos/200/200?random=21", status: "agendada" },
+  { id: 2, horario: "11:00", nome: "Dra. Ana Souza", especialidade: "Nutrição", modalidade: "Online", data: "Hoje, 22/04", avatar: "https://picsum.photos/200/200?random=23", status: "pendente" },
+  { id: 3, horario: "14:30", nome: "Dra. Letícia Marques", especialidade: "Endocrinologia", modalidade: "Presencial", data: "Hoje, 22/04", avatar: "https://picsum.photos/200/200?random=50", status: "em_andamento" },
+  { id: 4, horario: "09:00", nome: "Dr. Vinícius Almeida", especialidade: "Nutrologia", modalidade: "Online", data: "Amanhã, 23/04", avatar: "https://picsum.photos/200/200?random=60", status: "a_confirmar" },
+  { id: 5, horario: "16:00", nome: "Marcelo Strong", especialidade: "Fisioterapia", modalidade: "Presencial", data: "24/04", avatar: "https://picsum.photos/200/200?random=52", status: "agendada" },
+  { id: 6, horario: "10:30", nome: "Bruno Silva", especialidade: "Medicina Esportiva", modalidade: "Online", data: "25/04", avatar: "https://picsum.photos/200/200?random=25", status: "pendente" },
 ];
 
-// ─── Status Config ────────────────────────────────────────────────────────────
-
-const statusConfig: Record<
-  ConsultaStatus,
-  {
-    label: string;
-    bg: string;
-    color: string;
-    border: string;
-    borderWidth: number;
-    actionLabel?: string;
-    actionBg?: string;
-    actionColor?: string;
-  }
-> = {
-  a_confirmar: {
-    label: "A CONFIRMAR",
-    bg: "transparent",
-    color: "#a1a1aa",
-    border: "#3f3f46",
-    borderWidth: 1,
-  },
-  pendente: {
-    label: "PENDENTE",
-    bg: "rgba(234,179,8,0.15)",
-    color: "#facc15",
-    border: "rgba(234,179,8,0.3)",
-    borderWidth: 1,
-    actionLabel: "Pagar",
-    actionBg: "#facc15",
-    actionColor: "#0a0a0a",
-  },
-  agendada: {
-    label: "AGENDADA",
-    bg: "rgba(16,185,129,0.15)",
-    color: "#10b981",
-    border: "rgba(16,185,129,0.3)",
-    borderWidth: 1,
-    actionLabel: "Reagendar",
-    actionBg: "rgba(16,185,129,0.2)",
-    actionColor: "#10b981",
-  },
-  em_andamento: {
-    label: "EM ANDAMENTO",
-    bg: "rgba(59,130,246,0.15)",
-    color: "#60a5fa",
-    border: "rgba(59,130,246,0.3)",
-    borderWidth: 1,
-  },
+const statusConfig: Record<ConsultaStatus, { label: string; bg: string; color: string; border: string; actionLabel?: string; actionStyle?: string; actionColor?: string }> = {
+  a_confirmar: { label: "A CONFIRMAR", bg: "transparent", color: "#a1a1aa", border: "#3f3f46" },
+  pendente: { label: "PENDENTE", bg: "rgba(234,179,8,0.15)", color: "#facc15", border: "rgba(234,179,8,0.3)", actionLabel: "Pagar", actionStyle: "bg-[#facc15]", actionColor: "text-[#0a0a0a]" },
+  agendada: { label: "AGENDADA", bg: "rgba(16,185,129,0.15)", color: "#10b981", border: "rgba(16,185,129,0.3)", actionLabel: "Reagendar", actionStyle: "bg-emerald-500/20", actionColor: "text-[#10b981]" },
+  em_andamento: { label: "EM ANDAMENTO", bg: "rgba(59,130,246,0.15)", color: "#60a5fa", border: "rgba(59,130,246,0.3)" },
 };
 
-// ─── Icon Components ──────────────────────────────────────────────────────────
-
-function IconCalendar() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
-  );
-}
-
-function IconFilter() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="4" y1="6" x2="20" y2="6" />
-      <line x1="8" y1="12" x2="16" y2="12" />
-      <line x1="12" y1="18" x2="12" y2="18" />
-    </svg>
-  );
-}
+const statusFilters = ["Todas", "Agendadas", "Pendentes", "A Confirmar", "Em Andamento"];
 
 function IconClock() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
-    </svg>
-  );
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
 }
-
-function IconMoreVertical() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="5" r="1" />
-      <circle cx="12" cy="12" r="1" />
-      <circle cx="12" cy="19" r="1" />
-    </svg>
-  );
+function IconCalendar() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
 }
-
+function IconFilter() {
+  return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="12" y1="18" x2="12" y2="18"/></svg>;
+}
 function IconTrendingUp() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-      <polyline points="17 6 23 6 23 12" />
-    </svg>
-  );
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
 }
-
 function IconDollar() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="12" y1="1" x2="12" y2="23" />
-      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-    </svg>
-  );
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>;
 }
-
-// ─── Status Badge ─────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: ConsultaStatus }) {
   const cfg = statusConfig[status];
   return (
-    <YStack
-      paddingHorizontal={10}
-      paddingVertical={4}
-      borderRadius={999}
-      borderWidth={cfg.borderWidth}
-      style={{
-        backgroundColor: cfg.bg,
-        borderColor: cfg.border,
-      }}
+    <span
+      className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide border"
+      style={{ backgroundColor: cfg.bg, color: cfg.color, borderColor: cfg.border }}
     >
-      <Text fontSize={10} fontWeight="700" letterSpacing={0.6} style={{ color: cfg.color }}>
-        {cfg.label}
-      </Text>
-    </YStack>
+      {cfg.label}
+    </span>
   );
 }
-
-// ─── Consulta Card Row ────────────────────────────────────────────────────────
 
 function ConsultaRow({ consulta }: { consulta: Consulta }) {
   const cfg = statusConfig[consulta.status];
   const isAndamento = consulta.status === "em_andamento";
-
   return (
-    <XStack
-      alignItems="center"
-      gap="$3"
-      paddingVertical="$3"
-      paddingHorizontal="$4"
-      borderRadius="$5"
-      borderWidth={1}
-      borderColor={isAndamento ? "rgba(59,130,246,0.25)" : "$borderColor"}
-      backgroundColor={isAndamento ? "rgba(59,130,246,0.05)" : "$color2"}
-      style={{ transition: "background 0.15s" }}
+    <div
+      className="flex items-center gap-3 py-3 px-4 rounded-xl border transition-colors"
+      style={{
+        borderColor: isAndamento ? "rgba(59,130,246,0.25)" : "#262626",
+        backgroundColor: isAndamento ? "rgba(59,130,246,0.05)" : "#141414",
+      }}
     >
-      {/* Horário */}
-      <YStack alignItems="center" minWidth={44}>
-        <Text color="$color11" fontSize={11} fontWeight="600">
-          {consulta.horario}
-        </Text>
-        {isAndamento && (
-          <Circle size={6} backgroundColor="#60a5fa" marginTop={3} />
-        )}
-      </YStack>
+      {/* Hora */}
+      <div className="flex flex-col items-center min-w-[44px]">
+        <span className="text-[#71717a] text-[11px] font-semibold">{consulta.horario}</span>
+        {isAndamento && <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1" />}
+      </div>
 
-      <Separator vertical borderColor="$borderColor" height={36} />
+      <div className="w-px bg-[#262626] h-9 flex-shrink-0" />
 
       {/* Avatar */}
-      <Avatar circular size="$4" backgroundColor="$color4">
-        <Avatar.Image src={consulta.avatar} />
-        <Avatar.Fallback alignItems="center" justifyContent="center">
-          <Text color="$color12" fontSize={14} fontWeight="bold">
-            {consulta.nome[0]}
-          </Text>
-        </Avatar.Fallback>
-      </Avatar>
+      <div className="w-10 h-10 rounded-full overflow-hidden bg-[#262626] flex-shrink-0">
+        <img src={consulta.avatar} className="w-full h-full object-cover" alt={consulta.nome} />
+      </div>
 
       {/* Info */}
-      <YStack flex={1} gap={2}>
-        <Text color="$color12" fontSize={14} fontWeight="700" numberOfLines={1}>
-          {consulta.nome}
-        </Text>
-        <Text color="$color11" fontSize={12} numberOfLines={1}>
-          {consulta.especialidade} · {consulta.modalidade}
-        </Text>
-        <XStack alignItems="center" gap="$1" marginTop={2}>
-          <YStack style={{ color: "#71717a" }}>
-            <IconClock />
-          </YStack>
-          <Text color="$color11" fontSize={11}>
-            {consulta.data}
-          </Text>
-        </XStack>
-      </YStack>
+      <div className="flex-1 flex flex-col gap-0.5 min-w-0">
+        <p className="text-white text-sm font-bold truncate">{consulta.nome}</p>
+        <p className="text-[#71717a] text-xs truncate">{consulta.especialidade} · {consulta.modalidade}</p>
+        <div className="flex items-center gap-1 mt-0.5 text-[#71717a]">
+          <IconClock />
+          <span className="text-[11px]">{consulta.data}</span>
+        </div>
+      </div>
 
       {/* Status + Action */}
-      <XStack alignItems="center" gap="$2" flexShrink={0}>
+      <div className="flex items-center gap-2 flex-shrink-0">
         <StatusBadge status={consulta.status} />
-
         {cfg.actionLabel && (
-          <Button
-            size="$2"
-            borderRadius="$10"
-            paddingHorizontal="$3"
-            style={{
-              backgroundColor: cfg.actionBg,
-              borderWidth: 0,
-            }}
-            hoverStyle={{ opacity: 0.85 }}
-            pressStyle={{ opacity: 0.7 }}
-          >
-            <Text fontSize={12} fontWeight="700" style={{ color: cfg.actionColor }}>
-              {cfg.actionLabel}
-            </Text>
-          </Button>
+          <button className={`${cfg.actionStyle} ${cfg.actionColor} text-xs font-bold px-3 py-1 rounded-full`}>
+            {cfg.actionLabel}
+          </button>
         )}
-
-        <Button
-          size="$2"
-          circular
-          chromeless
-          paddingHorizontal="$1"
-          style={{ color: "#71717a" }}
-          hoverStyle={{ backgroundColor: "$color3" }}
-        >
-          <IconMoreVertical />
-        </Button>
-      </XStack>
-    </XStack>
+        <button className="p-1 rounded-full hover:bg-[#262626] text-[#71717a]">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+        </button>
+      </div>
+    </div>
   );
 }
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
-const statusFilters = ["Todas", "Agendadas", "Pendentes", "A Confirmar", "Em Andamento"];
 
 export default function ConsultasPage() {
   const [statusFilter, setStatusFilter] = useState("Todas");
@@ -347,306 +132,152 @@ export default function ConsultasPage() {
   });
 
   return (
-    <ScrollView flex={1} backgroundColor="$background">
-      <YStack
-        padding="$4"
-        gap="$5"
-        maxWidth={1100}
-        marginHorizontal="auto"
-        width="100%"
-        paddingBottom="$8"
-      >
-        {/* ── Cabeçalho ───────────────────────────────────────────────── */}
-        <YStack gap="$4">
-          <XStack justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap="$3">
-            <YStack gap="$1">
-              <H2 color="$color12" size="$7" fontWeight="800" letterSpacing={-0.5}>
-                Consultas
-              </H2>
-              <Text color="$color11" fontSize={14}>
-                Gerencie seus agendamentos e acompanhe o status de cada consulta
-              </Text>
-            </YStack>
+    <div className="flex-1 overflow-auto bg-[#0f0f0f]">
+      <div className="px-4 py-6 flex flex-col gap-5 max-w-[1100px] mx-auto w-full pb-16">
 
-            {/* Filtro de Período */}
-            <XStack gap="$2">
-              <XStack
-                alignItems="center"
-                gap="$2"
-                paddingHorizontal="$3"
-                paddingVertical="$2"
-                borderRadius="$4"
-                borderWidth={1}
-                borderColor="$borderColor"
-                backgroundColor="$color2"
-                cursor="pointer"
-                hoverStyle={{ borderColor: "$green8" }}
-              >
-                <YStack style={{ color: "#a1a1aa" }}>
-                  <IconCalendar />
-                </YStack>
-                <Text color="$color11" fontSize={13}>
-                  {dateRange}
-                </Text>
-                <YStack style={{ color: "#a1a1aa" }}>
-                  <IconFilter />
-                </YStack>
-              </XStack>
+        {/* Header */}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-white font-extrabold text-3xl tracking-tight">Consultas</h2>
+            <p className="text-[#71717a] text-sm mt-1">Gerencie seus agendamentos e acompanhe o status de cada consulta</p>
+          </div>
+          <div className="flex gap-2">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#262626] bg-[#141414] cursor-pointer hover:border-emerald-600 transition-colors text-[#a1a1aa]">
+              <IconCalendar /><span className="text-[#71717a] text-sm">{dateRange}</span><IconFilter />
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#262626] bg-[#141414] cursor-pointer hover:border-emerald-600 transition-colors text-[#a1a1aa]">
+              <span className="text-[#71717a] text-sm">Todas</span><IconFilter />
+            </div>
+          </div>
+        </div>
 
-              {/* Filtro de status dropdown */}
-              <XStack
-                alignItems="center"
-                gap="$2"
-                paddingHorizontal="$3"
-                paddingVertical="$2"
-                borderRadius="$4"
-                borderWidth={1}
-                borderColor="$borderColor"
-                backgroundColor="$color2"
-                cursor="pointer"
-                hoverStyle={{ borderColor: "$green8" }}
-              >
-                <Text color="$color11" fontSize={13}>
-                  Todas
-                </Text>
-                <YStack style={{ color: "#a1a1aa" }}>
-                  <IconFilter />
-                </YStack>
-              </XStack>
-            </XStack>
-          </XStack>
-        </YStack>
+        {/* Cards row */}
+        <div className="flex flex-wrap md:flex-nowrap gap-4">
 
-        {/* ── Cards de Resumo + Em Andamento + Visão Geral ────────────── */}
-        <XStack gap="$4" flexWrap="wrap" $gtMd={{ flexWrap: "nowrap" }}>
+          {/* Left: Resumo + Em Andamento */}
+          <div className="flex flex-col gap-4 flex-1 min-w-[280px]">
 
-          {/* Bloco esquerdo: Resumo + Em Andamento empilhados */}
-          <YStack gap="$4" flex={1} minWidth={280}>
+            {/* Resumo */}
+            <div className="rounded-2xl border border-[#262626] bg-[#141414] p-4 flex flex-col gap-4">
+              <p className="text-[#71717a] text-xs font-semibold uppercase tracking-wide">Resumo do Período</p>
+              <div className="flex gap-4">
+                <div className="flex-1 flex flex-col gap-2 p-3 rounded-xl bg-[#0f0f0f] border border-[#262626]">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0"><IconTrendingUp /></div>
+                    <span className="text-[#71717a] text-xs">Agendamentos</span>
+                  </div>
+                  <p className="text-white font-extrabold text-3xl leading-none">142</p>
+                  <p className="text-emerald-500 text-xs font-semibold">+12% vs mês anterior</p>
+                </div>
+                <div className="flex-1 flex flex-col gap-2 p-3 rounded-xl bg-[#0f0f0f] border border-[#262626]">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0"><IconDollar /></div>
+                    <span className="text-[#71717a] text-xs">Valor Gerado</span>
+                  </div>
+                  <p className="text-white font-extrabold text-2xl leading-none">R$1.000</p>
+                  <p className="text-emerald-500 text-xs font-semibold">+8% vs mês anterior</p>
+                </div>
+              </div>
+            </div>
 
-            {/* Card: Resumo */}
-            <Card
-              borderWidth={1}
-              borderColor="$borderColor"
-              backgroundColor="$color2"
-              borderRadius="$6"
-              padding="$4"
-              gap="$4"
-            >
-              <XStack justifyContent="space-between" alignItems="center" marginBottom="$1">
-                <Text color="$color11" fontSize={13} fontWeight="600" textTransform="uppercase" letterSpacing={0.5}>
-                  Resumo do Período
-                </Text>
-              </XStack>
+            {/* Em Andamento */}
+            <div className="rounded-2xl border border-emerald-500/30 overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.04))", backgroundColor: "#141414" }}>
+              <div className="h-0.5" style={{ background: "linear-gradient(to right, #10b981, transparent)" }} />
+              <div className="p-4 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#71717a] text-xs font-semibold uppercase tracking-wide">Em Andamento</span>
+                  <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/15">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" style={{ boxShadow: "0 0 6px #10b981" }} />
+                    <span className="text-emerald-500 text-xs font-bold">Ao vivo</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-emerald-500 flex-shrink-0 bg-[#262626]">
+                    <img src={consultaEmAndamento.avatar} className="w-full h-full object-cover" alt={consultaEmAndamento.nome} />
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <p className="text-white font-extrabold text-base">{consultaEmAndamento.nome}</p>
+                    <p className="text-[#71717a] text-sm">{consultaEmAndamento.especialidade}</p>
+                    <div className="flex items-center gap-1 text-emerald-500 mt-0.5">
+                      <IconClock />
+                      <span className="text-xs font-semibold">{consultaEmAndamento.horario}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-              <XStack gap="$4">
-                {/* Agendamentos por mês */}
-                <YStack flex={1} gap="$2" padding="$3" borderRadius="$4" backgroundColor="$background" borderWidth={1} borderColor="$borderColor">
-                  <XStack gap="$2" alignItems="center">
-                    <Circle size={32} backgroundColor="rgba(16,185,129,0.12)">
-                      <YStack style={{ color: "#10b981" }}>
-                        <IconTrendingUp />
-                      </YStack>
-                    </Circle>
-                    <Text color="$color11" fontSize={12}>Agendamentos</Text>
-                  </XStack>
-                  <Text color="$color12" fontSize={32} fontWeight="800" lineHeight={36}>
-                    142
-                  </Text>
-                  <Text color="$green9" fontSize={11} fontWeight="600">
-                    +12% vs mês anterior
-                  </Text>
-                </YStack>
-
-                {/* Valor total */}
-                <YStack flex={1} gap="$2" padding="$3" borderRadius="$4" backgroundColor="$background" borderWidth={1} borderColor="$borderColor">
-                  <XStack gap="$2" alignItems="center">
-                    <Circle size={32} backgroundColor="rgba(16,185,129,0.12)">
-                      <YStack style={{ color: "#10b981" }}>
-                        <IconDollar />
-                      </YStack>
-                    </Circle>
-                    <Text color="$color11" fontSize={12}>Valor Gerado</Text>
-                  </XStack>
-                  <Text color="$color12" fontSize={28} fontWeight="800" lineHeight={32}>
-                    R$1.000
-                  </Text>
-                  <Text color="$green9" fontSize={11} fontWeight="600">
-                    +8% vs mês anterior
-                  </Text>
-                </YStack>
-              </XStack>
-            </Card>
-
-            {/* Card: Em andamento */}
-            <Card
-              borderWidth={1}
-              borderColor="rgba(16,185,129,0.3)"
-              borderRadius="$6"
-              overflow="hidden"
-              style={{
-                background: "linear-gradient(135deg, rgba(16,185,129,0.1) 0%, rgba(16,185,129,0.04) 100%)",
-                backgroundColor: "#141414",
-              }}
-            >
-              {/* Subtle glow bar top */}
-              <YStack height={2} style={{ background: "linear-gradient(to right, #10b981, transparent)" }} />
-
-              <YStack padding="$4" gap="$3">
-                <XStack justifyContent="space-between" alignItems="center">
-                  <Text color="$color11" fontSize={12} fontWeight="600" textTransform="uppercase" letterSpacing={0.5}>
-                    Em Andamento
-                  </Text>
-                  <XStack alignItems="center" gap="$2" paddingHorizontal="$2" paddingVertical={4} borderRadius={999} backgroundColor="rgba(16,185,129,0.15)">
-                    <Circle size={7} backgroundColor="#10b981" style={{ boxShadow: "0 0 6px #10b981" }} />
-                    <Text color="#10b981" fontSize={11} fontWeight="700">
-                      Ao vivo
-                    </Text>
-                  </XStack>
-                </XStack>
-
-                <XStack alignItems="center" gap="$3">
-                  <Avatar circular size="$6" borderWidth={2} borderColor="#10b981">
-                    <Avatar.Image src={consultaEmAndamento.avatar} />
-                    <Avatar.Fallback alignItems="center" justifyContent="center" backgroundColor="$color4">
-                      <Text color="$color12" fontWeight="bold" fontSize={20}>L</Text>
-                    </Avatar.Fallback>
-                  </Avatar>
-
-                  <YStack flex={1} gap={3}>
-                    <Text color="$color12" fontSize={16} fontWeight="800">
-                      {consultaEmAndamento.nome}
-                    </Text>
-                    <Text color="$color11" fontSize={13}>
-                      {consultaEmAndamento.especialidade}
-                    </Text>
-                    <XStack alignItems="center" gap="$1" marginTop={2}>
-                      <YStack style={{ color: "#10b981" }}>
-                        <IconClock />
-                      </YStack>
-                      <Text color="#10b981" fontSize={12} fontWeight="600">
-                        {consultaEmAndamento.horario}
-                      </Text>
-                    </XStack>
-                  </YStack>
-                </XStack>
-              </YStack>
-            </Card>
-          </YStack>
-
-          {/* Card: Visão Geral do Dia */}
-          <Card
-            flex={1}
-            minWidth={220}
-            $gtMd={{ maxWidth: 260 }}
-            borderWidth={1}
-            borderColor="$borderColor"
-            backgroundColor="$color2"
-            borderRadius="$6"
-            padding="$4"
-          >
-            <Text color="$color11" fontSize={12} fontWeight="600" textTransform="uppercase" letterSpacing={0.5} marginBottom="$4">
-              Visão Geral do Dia
-            </Text>
-
-            <YStack gap="$3">
+          {/* Right: Visão geral do dia */}
+          <div className="rounded-2xl border border-[#262626] bg-[#141414] p-4 flex-1 min-w-[220px] md:max-w-[260px]">
+            <p className="text-[#71717a] text-xs font-semibold uppercase tracking-wide mb-4">Visão Geral do Dia</p>
+            <div className="flex flex-col gap-3">
               {[
                 { label: "Total de Consultas", value: "8", color: "#fafafa", icon: "📅" },
                 { label: "Confirmadas", value: "5", color: "#10b981", icon: "✅" },
                 { label: "Pendentes", value: "2", color: "#facc15", icon: "⏳" },
                 { label: "Tempo Médio", value: "52min", color: "#60a5fa", icon: "⏱" },
               ].map((item, i) => (
-                <XStack
-                  key={i}
-                  alignItems="center"
-                  justifyContent="space-between"
-                  paddingVertical="$3"
-                  paddingHorizontal="$3"
-                  borderRadius="$4"
-                  backgroundColor="$background"
-                  borderWidth={1}
-                  borderColor="$borderColor"
-                >
-                  <XStack alignItems="center" gap="$2">
-                    <Text fontSize={16}>{item.icon}</Text>
-                    <Text color="$color11" fontSize={13}>
-                      {item.label}
-                    </Text>
-                  </XStack>
-                  <Text fontWeight="800" fontSize={18} style={{ color: item.color }}>
-                    {item.value}
-                  </Text>
-                </XStack>
+                <div key={i} className="flex items-center justify-between py-3 px-3 rounded-xl bg-[#0f0f0f] border border-[#262626]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{item.icon}</span>
+                    <span className="text-[#71717a] text-sm">{item.label}</span>
+                  </div>
+                  <span className="font-extrabold text-lg" style={{ color: item.color }}>{item.value}</span>
+                </div>
               ))}
-            </YStack>
-          </Card>
-        </XStack>
+            </div>
+          </div>
+        </div>
 
-        {/* ── Seção: Próximas Consultas ────────────────────────────────── */}
-        <YStack gap="$4">
-          <XStack justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="$3">
-            <YStack gap={2}>
-              <H2 color="$color12" size="$5" fontWeight="800">
-                Próximas Consultas
-              </H2>
-              <Text color="$color11" fontSize={13}>
-                {filteredConsultas.length} consultas encontradas
-              </Text>
-            </YStack>
-          </XStack>
+        {/* Próximas Consultas */}
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-white font-extrabold text-xl">Próximas Consultas</h2>
+              <p className="text-[#71717a] text-sm">{filteredConsultas.length} consultas encontradas</p>
+            </div>
+          </div>
 
-          {/* Filtros de Status */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <XStack gap="$2" paddingBottom="$1">
+          {/* Status filters */}
+          <div className="overflow-x-auto">
+            <div className="flex gap-2 pb-1">
               {statusFilters.map((filter) => {
                 const isActive = statusFilter === filter;
                 return (
-                  <Button
+                  <button
                     key={filter}
-                    size="$3"
-                    borderRadius="$10"
-                    borderWidth={1}
-                    borderColor={isActive ? "transparent" : "$borderColor"}
-                    backgroundColor={isActive ? "#10b981" : "transparent"}
-                    onPress={() => setStatusFilter(filter)}
-                    hoverStyle={!isActive ? { borderColor: "$green8", backgroundColor: "rgba(16,185,129,0.06)" } : { opacity: 0.9 }}
-                    pressStyle={{ opacity: 0.75 }}
-                    paddingHorizontal="$4"
+                    onClick={() => setStatusFilter(filter)}
+                    className={[
+                      "px-4 py-2 rounded-full text-sm border transition-colors whitespace-nowrap",
+                      isActive
+                        ? "bg-emerald-500 text-white border-transparent font-bold"
+                        : "bg-transparent text-[#71717a] border-[#262626] hover:border-emerald-600 hover:bg-emerald-500/5",
+                    ].join(" ")}
                   >
-                    <Text fontWeight={isActive ? "700" : "500"} fontSize={13} color={isActive ? "white" : "$color11"}>
-                      {filter}
-                    </Text>
-                  </Button>
+                    {filter}
+                  </button>
                 );
               })}
-            </XStack>
-          </ScrollView>
+            </div>
+          </div>
 
-          {/* Lista */}
-          <YStack gap="$2">
+          {/* List */}
+          <div className="flex flex-col gap-2">
             {filteredConsultas.length === 0 ? (
-              <YStack
-                alignItems="center"
-                justifyContent="center"
-                paddingVertical="$10"
-                gap="$3"
-                borderRadius="$5"
-                borderWidth={1}
-                borderColor="$borderColor"
-                backgroundColor="$color2"
-              >
-                <Text fontSize={32}>📭</Text>
-                <Text color="$color11" fontSize={14} textAlign="center">
-                  Nenhuma consulta encontrada para este filtro.
-                </Text>
-              </YStack>
+              <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-xl border border-[#262626] bg-[#141414]">
+                <span className="text-4xl">📭</span>
+                <p className="text-[#71717a] text-sm text-center">Nenhuma consulta encontrada para este filtro.</p>
+              </div>
             ) : (
               filteredConsultas.map((consulta) => (
                 <ConsultaRow key={consulta.id} consulta={consulta} />
               ))
             )}
-          </YStack>
-        </YStack>
-      </YStack>
-    </ScrollView>
+          </div>
+        </div>
+
+      </div>
+    </div>
   );
 }
