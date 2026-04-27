@@ -1,223 +1,462 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 
-type ActiveTab = "dados" | "senha";
-interface ShowPasswords { atual: boolean; nova: boolean; confirmar: boolean; }
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const documentosMock = [
-  { id: 1, nome: "foto.pdf" },
-  { id: 2, nome: "foto.pdf" },
+type Aba = "dados" | "plano" | "notificacoes" | "senha";
+
+interface ShowPasswords {
+  atual: boolean;
+  nova: boolean;
+  confirmar: boolean;
+}
+
+// ─── Mock ─────────────────────────────────────────────────────────────────────
+
+const PLANOS = [
+  {
+    id: "free", nome: "Free", preco: "R$ 0", periodo: "grátis",
+    features: ["Até 5 consultas/mês", "Busca de profissionais", "Suporte por e-mail"],
+    color: "#71717a", ativo: false,
+  },
+  {
+    id: "plus", nome: "Plus", preco: "R$ 29", periodo: "/mês",
+    features: ["Consultas ilimitadas", "Histórico completo", "Avaliações e favoritos", "Suporte prioritário", "Notificações avançadas"],
+    color: "#10b981", ativo: true, destaque: true,
+  },
+  {
+    id: "premium", nome: "Premium", preco: "R$ 59", periodo: "/mês",
+    features: ["Tudo do Plus", "Consulta de emergência", "Acesso antecipado", "Gerenciador familiar", "Integração wearables"],
+    color: "#a78bfa", ativo: false,
+  },
 ];
 
-function IconLock() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>;
-}
-function IconEye() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>;
-}
-function IconEyeOff() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>;
-}
-function IconDownload() {
-  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
-}
-function IconDocument() {
-  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="17" x2="15" y2="17"/></svg>;
-}
-function IconTrash() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>;
-}
-function IconSave() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>;
-}
+// ─── Icons ────────────────────────────────────────────────────────────────────
 
-function FormField({ label, value, onChange, placeholder = "", type = "text" }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string;
-}) {
+const IconLock = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </svg>
+);
+
+const IconEye = ({ open }: { open: boolean }) => open ? (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+  </svg>
+) : (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+    <line x1="1" y1="1" x2="23" y2="23" />
+  </svg>
+);
+
+const IconSave = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+    <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
+  </svg>
+);
+
+const IconTrash = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    <path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+  </svg>
+);
+
+const IconCheck = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+const IconStar = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="#facc15" stroke="#facc15" strokeWidth="1">
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+  </svg>
+);
+
+const IconCamera = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+    <circle cx="12" cy="13" r="4" />
+  </svg>
+);
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-2">
-      <label className="text-[#71717a] text-sm font-semibold">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="h-[52px] px-4 rounded-lg border border-[#262626] bg-[#1c1c1c] text-white text-sm outline-none focus:border-emerald-500/50 transition-colors"
-      />
+    <div className="cfg2-field">
+      <label className="cfg2-field__label">{label}</label>
+      {children}
     </div>
   );
 }
 
-function PasswordField({ label, placeholder, show, onToggle, value, onChange }: {
-  label: string; placeholder: string; show: boolean; onToggle: () => void; value: string; onChange: (v: string) => void;
+function TextInput({ id, type = "text", placeholder, value, onChange, disabled }: {
+  id: string; type?: string; placeholder?: string;
+  value: string; onChange: (v: string) => void; disabled?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-2">
-      <label className="text-[#71717a] text-sm font-semibold">{label}</label>
-      <div className="flex items-center gap-2 px-3 rounded-lg border border-[#262626] bg-[#1c1c1c] focus-within:border-emerald-500/50 transition-colors">
-        <div className="flex-shrink-0"><IconLock /></div>
+    <input
+      id={id} type={type} placeholder={placeholder} value={value}
+      onChange={(e) => onChange(e.target.value)} disabled={disabled}
+      className={`cfg2-input${disabled ? " cfg2-input--disabled" : ""}`}
+    />
+  );
+}
+
+function PasswordField({ id, label, placeholder, show, onToggle, value, onChange }: {
+  id: string; label: string; placeholder: string;
+  show: boolean; onToggle: () => void;
+  value: string; onChange: (v: string) => void;
+}) {
+  return (
+    <Field label={label}>
+      <div className="cfg2-pwd-wrap">
+        <span className="cfg2-pwd-lock"><IconLock /></span>
         <input
-          type={show ? "text" : "password"}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="flex-1 h-12 bg-transparent text-white text-sm outline-none"
+          id={id} type={show ? "text" : "password"} placeholder={placeholder}
+          value={value} onChange={(e) => onChange(e.target.value)}
+          className="cfg2-input cfg2-input--pwd"
         />
-        <button type="button" onClick={onToggle} className="flex-shrink-0 p-1 rounded hover:bg-emerald-500/10 transition-colors">
-          {show ? <IconEyeOff /> : <IconEye />}
+        <button type="button" className="cfg2-eye-btn" onClick={onToggle} id={`toggle-${id}`}>
+          <IconEye open={show} />
+        </button>
+      </div>
+    </Field>
+  );
+}
+
+// ─── Toggle de notificação ────────────────────────────────────────────────────
+
+function NotifToggle({ id, label, desc, value, onChange }: {
+  id: string; label: string; desc: string; value: boolean; onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="cfg2-notif-row">
+      <div className="cfg2-notif-row__text">
+        <p className="cfg2-notif-row__label">{label}</p>
+        <p className="cfg2-notif-row__desc">{desc}</p>
+      </div>
+      <button
+        id={id}
+        role="switch"
+        aria-checked={value}
+        className={`cfg2-toggle${value ? " cfg2-toggle--on" : ""}`}
+        onClick={() => onChange(!value)}
+      >
+        <span className="cfg2-toggle__thumb" />
+      </button>
+    </div>
+  );
+}
+
+// ─── Aba Dados Pessoais ───────────────────────────────────────────────────────
+
+function AbaDados() {
+  const avatarRef = useRef<HTMLInputElement>(null);
+  const [nome, setNome]       = useState("Gabriel Silas");
+  const [cpf, setCpf]         = useState("123.456.789-10");
+  const [nasc, setNasc]       = useState("15/06/1995");
+  const [tel, setTel]         = useState("(11) 95346-4325");
+  const [email, setEmail]     = useState("gabriel@fitmax.com");
+  const [username, setUser]   = useState("@gabrielsilas");
+  const [objetivo, setObj]    = useState("Hipertrofia");
+  const [saved, setSaved]     = useState(false);
+
+  function handleSave() { setSaved(true); setTimeout(() => setSaved(false), 2500); }
+
+  return (
+    <div className="cfg2-content">
+
+      {/* Card de perfil */}
+      <div className="cfg2-profile-card">
+        <div className="cfg2-profile-card__avatar-wrap">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="https://picsum.photos/200/200?random=1" alt="Gabriel Silas" className="cfg2-profile-card__avatar" />
+          <button className="cfg2-profile-card__cam" onClick={() => avatarRef.current?.click()} id="btn-trocar-avatar">
+            <IconCamera />
+          </button>
+          <input ref={avatarRef} type="file" accept="image/*" style={{ display: "none" }} id="input-avatar" />
+        </div>
+        <div className="cfg2-profile-card__info">
+          <p className="cfg2-profile-card__name">{nome}</p>
+          <p className="cfg2-profile-card__meta">{email}</p>
+          <span className="cfg2-profile-card__badge">Plano Plus · Ativo</span>
+        </div>
+      </div>
+
+      <div className="cfg2-separator" />
+
+      {/* Dados básicos */}
+      <p className="cfg2-section-title">Dados Pessoais</p>
+
+      <div className="cfg2-row">
+        <Field label="Nome completo">
+          <TextInput id="input-nome" value={nome} onChange={setNome} placeholder="Seu nome completo" />
+        </Field>
+        <Field label="CPF">
+          <TextInput id="input-cpf" value={cpf} onChange={setCpf} placeholder="000.000.000-00" />
+        </Field>
+      </div>
+
+      <div className="cfg2-row">
+        <Field label="Data de nascimento">
+          <TextInput id="input-nascimento" value={nasc} onChange={setNasc} placeholder="DD/MM/AAAA" />
+        </Field>
+        <Field label="Telefone">
+          <TextInput id="input-telefone" type="tel" value={tel} onChange={setTel} placeholder="(00) 00000-0000" />
+        </Field>
+      </div>
+
+      <Field label="E-mail">
+        <TextInput id="input-email" type="email" value={email} onChange={setEmail} placeholder="seu@email.com" />
+      </Field>
+
+      <Field label="Nome de usuário">
+        <TextInput id="input-username" value={username} onChange={setUser} placeholder="@usuario" />
+      </Field>
+
+      <div className="cfg2-separator" />
+
+      {/* Objetivo fitness — exclusivo do cliente */}
+      <p className="cfg2-section-title">Objetivo Fitness</p>
+
+      <div className="cfg2-obj-grid">
+        {["Hipertrofia", "Emagrecimento", "Saúde Geral", "Performance", "Reabilitação", "Flexibilidade"].map((obj) => (
+          <button
+            key={obj}
+            id={`obj-${obj.toLowerCase().replace(/\s/g, "-")}`}
+            className={`cfg2-obj-btn${objetivo === obj ? " cfg2-obj-btn--active" : ""}`}
+            onClick={() => setObj(obj)}
+          >
+            {obj}
+          </button>
+        ))}
+      </div>
+
+      <div className="cfg2-separator" />
+
+      <div className="cfg2-footer">
+        <a href="#" className="cfg2-termos" id="link-termos">Ler Termos de Uso e Política de Privacidade</a>
+        <div className="cfg2-footer__btns">
+          <button className={`cfg2-btn-save${saved ? " cfg2-btn-save--done" : ""}`} id="btn-salvar-dados" onClick={handleSave}>
+            {saved ? <><IconCheck /> Salvo!</> : <><IconSave /> Salvar alterações</>}
+          </button>
+          <button className="cfg2-btn-delete" id="btn-excluir-conta"><IconTrash /> Excluir conta</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Aba Meu Plano ────────────────────────────────────────────────────────────
+
+function AbaPlano() {
+  return (
+    <div className="cfg2-content">
+      <p className="cfg2-section-title">Plano Atual</p>
+
+      <div className="cfg2-plan-current">
+        <div>
+          <span className="cfg2-plan-current__badge">ATIVO</span>
+          <p className="cfg2-plan-current__name">Plus</p>
+          <p className="cfg2-plan-current__price">R$ 29<span>/mês</span></p>
+        </div>
+        <div className="cfg2-plan-current__meta">
+          <p>Renovação em <strong>21 dias</strong></p>
+          <p>Próxima cobrança: <strong>17/05/2026</strong></p>
+        </div>
+      </div>
+
+      <div className="cfg2-separator" />
+      <p className="cfg2-section-title">Comparar planos</p>
+
+      <div className="cfg2-plans-grid">
+        {PLANOS.map((p) => (
+          <div key={p.id} className={`cfg2-plan${p.destaque ? " cfg2-plan--destaque" : ""}`} style={p.destaque ? { borderColor: p.color } : {}}>
+            {p.destaque && (
+              <span className="cfg2-plan__tag" style={{ background: p.color }}>
+                <IconStar /> Popular
+              </span>
+            )}
+            <p className="cfg2-plan__name" style={{ color: p.color }}>{p.nome}</p>
+            <p className="cfg2-plan__price">{p.preco}<span>{p.periodo}</span></p>
+            <ul className="cfg2-plan__features">
+              {p.features.map((f) => (
+                <li key={f}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <button id={`btn-plano-${p.id}`} className={`cfg2-plan__btn${p.ativo ? " cfg2-plan__btn--active" : ""}`} style={!p.ativo ? { borderColor: p.color, color: p.color } : {}}>
+              {p.ativo ? "Plano atual" : "Selecionar"}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="cfg2-separator" />
+      <div className="cfg2-footer">
+        <p className="cfg2-cancel-note">Ao cancelar, você perde o acesso ao Plus no fim do período.</p>
+        <button className="cfg2-btn-delete" id="btn-cancelar-assinatura"><IconTrash /> Cancelar assinatura</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Aba Notificações ─────────────────────────────────────────────────────────
+
+function AbaNotificacoes() {
+  const [notifs, setNotifs] = useState({
+    confirmacao: true,
+    lembrete: true,
+    cancelamento: true,
+    novosProfissionais: false,
+    dicas: false,
+    email: true,
+    whatsapp: false,
+    push: true,
+  });
+
+  const toggle = (key: keyof typeof notifs) => setNotifs((p) => ({ ...p, [key]: !p[key] }));
+  const [saved, setSaved] = useState(false);
+  function handleSave() { setSaved(true); setTimeout(() => setSaved(false), 2500); }
+
+  return (
+    <div className="cfg2-content cfg2-content--narrow">
+
+      <p className="cfg2-section-title">Consultas</p>
+      <div className="cfg2-notif-group">
+        <NotifToggle id="notif-confirmacao"        label="Confirmação de agendamento"   desc="Receba quando uma consulta for confirmada"        value={notifs.confirmacao}         onChange={() => toggle("confirmacao")} />
+        <NotifToggle id="notif-lembrete"           label="Lembrete de consulta"          desc="Notificação 1h antes da consulta"                value={notifs.lembrete}            onChange={() => toggle("lembrete")} />
+        <NotifToggle id="notif-cancelamento"       label="Cancelamentos"                 desc="Alertas de consultas canceladas ou reagendadas"   value={notifs.cancelamento}        onChange={() => toggle("cancelamento")} />
+      </div>
+
+      <div className="cfg2-separator" />
+      <p className="cfg2-section-title">Descoberta</p>
+      <div className="cfg2-notif-group">
+        <NotifToggle id="notif-novos-profissionais" label="Novos profissionais"           desc="Profissionais que combinam com seu objetivo"     value={notifs.novosProfissionais}  onChange={() => toggle("novosProfissionais")} />
+        <NotifToggle id="notif-dicas"              label="Dicas de saúde"                desc="Conteúdo personalizado baseado no seu objetivo"   value={notifs.dicas}               onChange={() => toggle("dicas")} />
+      </div>
+
+      <div className="cfg2-separator" />
+      <p className="cfg2-section-title">Canais</p>
+      <div className="cfg2-notif-group">
+        <NotifToggle id="notif-email"    label="E-mail"     desc="Notificações por e-mail"        value={notifs.email}     onChange={() => toggle("email")} />
+        <NotifToggle id="notif-whatsapp" label="WhatsApp"   desc="Notificações via WhatsApp"      value={notifs.whatsapp}  onChange={() => toggle("whatsapp")} />
+        <NotifToggle id="notif-push"     label="Push"       desc="Notificações no navegador"      value={notifs.push}      onChange={() => toggle("push")} />
+      </div>
+
+      <div className="cfg2-separator" />
+      <div className="cfg2-footer cfg2-footer--end">
+        <button className={`cfg2-btn-save${saved ? " cfg2-btn-save--done" : ""}`} id="btn-salvar-notificacoes" onClick={handleSave}>
+          {saved ? <><IconCheck /> Salvo!</> : <><IconSave /> Salvar preferências</>}
         </button>
       </div>
     </div>
   );
 }
 
-export default function ConfigPage() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>("dados");
-  const [nome, setNome] = useState("Carol Santos");
-  const [cpf, setCpf] = useState("123.456.789-10");
-  const [dataNasc, setDataNasc] = useState("15/06/1980");
-  const [telefone, setTelefone] = useState("(11) 95346-4325");
-  const [email, setEmail] = useState("carol@gmail.com");
+// ─── Aba Alterar Senha ────────────────────────────────────────────────────────
+
+function AbaSenha() {
   const [senhaAtual, setSenhaAtual] = useState("");
-  const [novaSenha, setNovaSenha] = useState("");
-  const [confirmarSenha, setConfirmarSenha] = useState("");
-  const [showPass, setShowPass] = useState<ShowPasswords>({ atual: false, nova: false, confirmar: false });
-  const togglePass = (field: keyof ShowPasswords) => setShowPass((prev) => ({ ...prev, [field]: !prev[field] }));
+  const [novaSenha, setNovaSenha]   = useState("");
+  const [confirmar, setConfirmar]   = useState("");
+  const [show, setShow] = useState<ShowPasswords>({ atual: false, nova: false, confirmar: false });
+  const [saved, setSaved] = useState(false);
+
+  const toggle = (f: keyof ShowPasswords) => setShow((p) => ({ ...p, [f]: !p[f] }));
+
+  let strength = 0;
+  if (novaSenha.length >= 8) strength++;
+  if (novaSenha.length >= 10 && /[A-Z]/.test(novaSenha)) strength++;
+  if (novaSenha.length >= 12 && /[0-9]/.test(novaSenha)) strength++;
+  if (novaSenha.length >= 14 && /[^a-zA-Z0-9]/.test(novaSenha)) strength++;
+
+  const strengthColors = ["#f43f5e", "#f97316", "#facc15", "#10b981"];
+  const strengthLabel  = ["Muito curta", "Fraca", "Razoável", "Forte"];
+
+  function handleSave() { setSaved(true); setTimeout(() => setSaved(false), 2500); }
 
   return (
-    <div className="flex-1 overflow-auto bg-[#0f0f0f]">
-      <div className="px-4 py-6 flex flex-col gap-5 max-w-[860px] mx-auto w-full pb-16">
+    <div className="cfg2-content cfg2-content--narrow">
+      <PasswordField id="input-senha-atual" label="Senha atual" placeholder="Insira sua senha atual" show={show.atual} onToggle={() => toggle("atual")} value={senhaAtual} onChange={setSenhaAtual} />
+      <PasswordField id="input-nova-senha" label="Nova senha" placeholder="Insira sua nova senha" show={show.nova} onToggle={() => toggle("nova")} value={novaSenha} onChange={setNovaSenha} />
 
-        {/* Header */}
-        <div>
-          <h2 className="text-white font-extrabold text-3xl tracking-tight">Configurações</h2>
-          <p className="text-[#71717a] text-sm mt-1">Gerencie suas preferências e dados da conta.</p>
+      {novaSenha.length > 0 && (
+        <div className="cfg2-strength">
+          <div className="cfg2-strength__bar">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="cfg2-strength__seg" style={{ background: i < strength ? strengthColors[strength - 1] : "rgba(255,255,255,0.08)" }} />
+            ))}
+          </div>
+          <p className="cfg2-strength__label" style={{ color: strength > 0 ? strengthColors[strength - 1] : "#52525b" }}>
+            {strength === 0 ? "Senha muito curta" : strengthLabel[strength - 1]}
+          </p>
         </div>
+      )}
 
-        {/* Tabs */}
-        <div className="flex flex-col gap-0">
-          <div className="flex">
-            {(["dados", "senha"] as ActiveTab[]).map((tab) => {
-              const isActive = activeTab === tab;
-              const label = tab === "dados" ? "Dados pessoais" : "Alterar senha";
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className="px-4 py-3 rounded-none bg-transparent border-none cursor-pointer transition-colors"
-                >
-                  <span
-                    className="text-base font-medium transition-colors"
-                    style={{ color: isActive ? "#10b981" : "#71717a", fontWeight: isActive ? 700 : 500 }}
-                  >
-                    {label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <div className="relative h-0.5 bg-[#262626]">
-            <div
-              className="absolute h-0.5 w-1/2 bg-emerald-500 rounded-full transition-all duration-200"
-              style={{ left: activeTab === "dados" ? "0%" : "50%" }}
-            />
-          </div>
-        </div>
+      <PasswordField id="input-confirmar-senha" label="Confirmar nova senha" placeholder="Confirme sua nova senha" show={show.confirmar} onToggle={() => toggle("confirmar")} value={confirmar} onChange={setConfirmar} />
 
-        {/* Tab content */}
-        {activeTab === "dados" ? (
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-wrap gap-4 sm:flex-nowrap">
-                <div className="flex-1 min-w-[220px]"><FormField label="Nome" value={nome} onChange={setNome} placeholder="Seu nome completo" /></div>
-                <div className="flex-1 min-w-[220px]"><FormField label="CPF" value={cpf} onChange={setCpf} placeholder="000.000.000-00" /></div>
-              </div>
-              <div className="flex flex-wrap gap-4 sm:flex-nowrap">
-                <div className="flex-1 min-w-[220px]"><FormField label="Data de nascimento" value={dataNasc} onChange={setDataNasc} placeholder="DD/MM/AAAA" /></div>
-                <div className="flex-1 min-w-[220px]"><FormField label="Telefone" value={telefone} onChange={setTelefone} placeholder="(00) 00000-0000" type="tel" /></div>
-              </div>
-              <FormField label="E-mail" value={email} onChange={setEmail} placeholder="seu@email.com" type="email" />
-            </div>
-
-            <div className="border-t border-[#262626]" />
-
-            {/* Documentos */}
-            <div className="flex flex-col gap-3">
-              <p className="text-white text-base font-bold">Documentos</p>
-              <div className="flex flex-col gap-2">
-                {documentosMock.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="flex items-center justify-between px-4 py-3 rounded-lg border border-[#262626] bg-[#1c1c1c] hover:border-emerald-500/30 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <IconDocument />
-                      <span className="text-white text-sm">{doc.nome}</span>
-                    </div>
-                    <button className="p-1.5 rounded-full hover:bg-emerald-500/10 transition-colors">
-                      <IconDownload />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="border-t border-[#262626]" />
-
-            {/* Footer */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="text-emerald-500 text-sm font-medium underline cursor-pointer hover:text-emerald-400 transition-colors">
-                Ler Termos de Uso e Política de Privacidade
-              </span>
-              <div className="flex items-center gap-3">
-                <button className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 transition-colors text-white font-bold text-sm">
-                  <IconSave /> Salvar alterações
-                </button>
-                <button className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-red-500/30 bg-red-500/12 hover:bg-red-500/20 transition-colors text-[#f43f5e] font-bold text-sm">
-                  <IconTrash /> Excluir conta
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-4 max-w-[600px]">
-              <PasswordField label="Senha atual" placeholder="Insira sua senha atual" show={showPass.atual} onToggle={() => togglePass("atual")} value={senhaAtual} onChange={setSenhaAtual} />
-              <PasswordField label="Nova senha" placeholder="Insira sua nova senha" show={showPass.nova} onToggle={() => togglePass("nova")} value={novaSenha} onChange={setNovaSenha} />
-              <PasswordField label="Confirmar nova senha" placeholder="Confirme sua nova senha" show={showPass.confirmar} onToggle={() => togglePass("confirmar")} value={confirmarSenha} onChange={setConfirmarSenha} />
-            </div>
-
-            {/* Strength indicator */}
-            {novaSenha.length > 0 && (
-              <div className="flex flex-col gap-2 max-w-[600px]">
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4].map((i) => {
-                    let filled = false;
-                    if (novaSenha.length >= 8 && i <= 1) filled = true;
-                    if (novaSenha.length >= 10 && /[A-Z]/.test(novaSenha) && i <= 2) filled = true;
-                    if (novaSenha.length >= 12 && /[0-9]/.test(novaSenha) && i <= 3) filled = true;
-                    if (novaSenha.length >= 14 && /[^a-zA-Z0-9]/.test(novaSenha) && i <= 4) filled = true;
-                    const color = filled ? (i <= 1 ? "#f43f5e" : i <= 2 ? "#f97316" : i <= 3 ? "#facc15" : "#10b981") : "#262626";
-                    return <div key={i} className="flex-1 h-1 rounded-full transition-colors" style={{ backgroundColor: color }} />;
-                  })}
-                </div>
-                <p className="text-[#71717a] text-xs">
-                  {novaSenha.length < 8 ? "Senha muito curta" : novaSenha.length < 12 ? "Senha fraca — adicione letras maiúsculas e números" : "Senha forte ✓"}
-                </p>
-              </div>
-            )}
-
-            <div className="border-t border-[#262626]" />
-
-            <div className="flex justify-end">
-              <button className="flex items-center gap-2 px-6 py-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 transition-colors text-white font-bold text-base">
-                <IconSave /> Salvar
-              </button>
-            </div>
-          </div>
-        )}
+      <div className="cfg2-separator" />
+      <div className="cfg2-footer cfg2-footer--end">
+        <button className={`cfg2-btn-save${saved ? " cfg2-btn-save--done" : ""}`} id="btn-salvar-senha" onClick={handleSave}>
+          {saved ? <><IconCheck /> Salvo!</> : <><IconSave /> Salvar</>}
+        </button>
       </div>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+const ABAS: { id: Aba; label: string }[] = [
+  { id: "dados",         label: "Dados pessoais" },
+  { id: "plano",         label: "Meu plano" },
+  { id: "notificacoes",  label: "Notificações" },
+  { id: "senha",         label: "Alterar senha" },
+];
+
+export default function ConfigPage() {
+  const [aba, setAba] = useState<Aba>("dados");
+
+  return (
+    <div className="cfg2-page">
+
+      <div>
+        <h1 className="cfg2-header__title">Configurações</h1>
+        <p className="cfg2-header__sub">Gerencie suas preferências e dados da conta.</p>
+      </div>
+
+      <div className="cfg2-tabs">
+        <div className="cfg2-tabs__bar">
+          {ABAS.map((a) => (
+            <button key={a.id} id={`tab-${a.id}`} className={`cfg2-tab${aba === a.id ? " cfg2-tab--active" : ""}`} onClick={() => setAba(a.id)}>
+              {a.label}
+            </button>
+          ))}
+        </div>
+        <div className="cfg2-tabs__track">
+          <div
+            className="cfg2-tabs__indicator"
+            style={{
+              width: `${100 / ABAS.length}%`,
+              left: `${(ABAS.findIndex((a) => a.id === aba) / ABAS.length) * 100}%`,
+            }}
+          />
+        </div>
+      </div>
+
+      {aba === "dados"        && <AbaDados />}
+      {aba === "plano"        && <AbaPlano />}
+      {aba === "notificacoes" && <AbaNotificacoes />}
+      {aba === "senha"        && <AbaSenha />}
     </div>
   );
 }

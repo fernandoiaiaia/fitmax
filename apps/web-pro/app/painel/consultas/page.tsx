@@ -168,6 +168,7 @@ function ConsultaRow({ c }: { c: Consulta }) {
       <div className="cns-row__sep" />
 
       {/* Avatar */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={c.avatar} alt={c.nome} className="cns-row__avatar" />
 
       {/* Info */}
@@ -286,6 +287,7 @@ export default function ConsultasPage() {
                 </span>
               </div>
               <div className="cns-card--live__body">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={consultaEmAndamento.avatar}
                   alt={consultaEmAndamento.nome}
@@ -308,10 +310,10 @@ export default function ConsultasPage() {
           <p className="cns-card__label">Visão Geral do Dia</p>
           <div className="cns-day-list">
             {[
-              { icon: "📅", label: "Total de Consultas", value: "8",     color: "#fafafa" },
-              { icon: "✅", label: "Confirmadas",         value: "5",     color: "#10b981" },
-              { icon: "⏳", label: "Pendentes",           value: "2",     color: "#facc15" },
-              { icon: "⏱",  label: "Tempo Médio",         value: "52min", color: "#60a5fa" },
+              { icon: "📅", label: "Total de Consultas", value: "12",    color: "#fafafa" },
+              { icon: "✅", label: "Confirmadas",         value: "9",     color: "#10b981" },
+              { icon: "⏳", label: "Pendentes",           value: "3",     color: "#facc15" },
+              { icon: "⏱",  label: "Tempo Médio",         value: "48min", color: "#60a5fa" },
             ].map((item, i) => (
               <div key={i} className="cns-day-item" id={`day-item-${i}`}>
                 <div className="cns-day-item__left">
