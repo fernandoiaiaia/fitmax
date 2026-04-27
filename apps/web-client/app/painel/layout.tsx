@@ -6,8 +6,8 @@ import { usePathname } from "next/navigation";
 
 const menuItems = [
   { label: "Painel",        href: "/painel",              icon: "grid" },
-  { label: "Feed",          href: "/painel/feed",         icon: "home" },
   { label: "Consultas",     href: "/painel/consultas",    icon: "users" },
+  { label: "Feed",          href: "/painel/feed",         icon: "home" },
   { label: "Histórico",     href: "/painel/historico",    icon: "history" },
   { label: "Configurações", href: "/painel/config",       icon: "settings" },
 ];

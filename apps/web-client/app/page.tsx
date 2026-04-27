@@ -31,7 +31,17 @@ export default function LoginPage() {
         <div className="login-split__form">
           {/* Logo */}
           <div className="ls-logo">
-            <img src="/brand-logo.png" alt="FitMax" />
+            <div className="ls-logo-brand">
+              <div className="ls-logo-brand__icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                </svg>
+              </div>
+              <div className="ls-logo-brand__text">
+                <span className="ls-logo-brand__name">Fit<span>Max</span></span>
+                <span className="ls-logo-brand__badge">Client</span>
+              </div>
+            </div>
           </div>
 
           <div className="ls-heading">

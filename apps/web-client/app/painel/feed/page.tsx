@@ -364,26 +364,28 @@ export default function FeedPage() {
             className="feed-compose__avatar"
           />
           <div className="feed-compose__input-wrap">
-            <input
-              type="text"
-              placeholder="Compartilhe algo com a comunidade..."
-              className="feed-compose__input"
-              id="input-nova-publicacao"
-            />
-            <div className="feed-compose__actions">
-              <button className="feed-compose__btn" id="btn-post-image" title="Imagem">
-                <ImageIcon /> Foto
-              </button>
-              <button className="feed-compose__btn" id="btn-post-video" title="Vídeo">
-                <VideoIcon /> Vídeo
-              </button>
-              <button className="feed-compose__btn" id="btn-post-link" title="Link">
-                <LinkIcon /> Link
-              </button>
-              <button className="feed-compose__submit" id="btn-publicar">
-                Publicar
-              </button>
+            <div className="feed-compose__left">
+              <input
+                type="text"
+                placeholder="Compartilhe algo com a comunidade..."
+                className="feed-compose__input"
+                id="input-nova-publicacao"
+              />
+              <div className="feed-compose__actions">
+                <button className="feed-compose__btn" id="btn-post-image" title="Imagem">
+                  <ImageIcon /> Foto
+                </button>
+                <button className="feed-compose__btn" id="btn-post-video" title="Vídeo">
+                  <VideoIcon /> Vídeo
+                </button>
+                <button className="feed-compose__btn" id="btn-post-link" title="Link">
+                  <LinkIcon /> Link
+                </button>
+              </div>
             </div>
+            <button className="feed-compose__submit" id="btn-publicar">
+              Publicar
+            </button>
           </div>
         </div>
 
