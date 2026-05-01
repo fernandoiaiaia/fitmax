@@ -13,6 +13,7 @@
     "test": "turbo run test"
   },
   "devDependencies": {
+    "@types/react-native": "^0.72.8",
     "turbo": "latest"
   },
   "engines": {
