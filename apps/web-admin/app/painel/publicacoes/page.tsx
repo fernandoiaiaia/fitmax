@@ -1,7 +1,7 @@
 //@ts-nocheck
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ScrollView, YStack, XStack, H2, Text, Card, Button, Avatar, Separator, Circle, Image } from "tamagui";
 
 type Status = "ativa" | "banida" | "denunciada";
@@ -80,6 +80,14 @@ const IconX = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" 
 export default function PublicacoesPage() {
   const [search, setSearch] = useState("");
   const [filtroStatus, setFiltroStatus] = useState<Status | "todas">("todas");
+  const [isSmall, setIsSmall] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsSmall(window.innerWidth <= 660);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   const filtered = publicacoes.filter(p => {
     const matchStatus = filtroStatus === "todas" || p.status === filtroStatus;
@@ -129,11 +137,11 @@ export default function PublicacoesPage() {
         </ScrollView>
 
         {/* Grid */}
-        <XStack flexWrap="wrap" gap="$4">
+        <XStack flexWrap="wrap" gap="$4" style={{ flexDirection: isSmall ? 'column' : 'row' }}>
           {filtered.map(p => {
              const stat = statusLabel[p.status];
              return (
-               <Card cursor="pointer" animation="quick" key={p.id} flex={1} minWidth={300} maxWidth={400} backgroundColor="$color2" borderWidth={1} borderColor={p.status === "banida" ? "rgba(244,63,94,0.3)" : p.status === "denunciada" ? "rgba(245,158,11,0.3)" : "$borderColor"} borderRadius="$4" overflow="hidden" hoverStyle={{ borderColor: "$green8", backgroundColor: "$color3" }}>
+               <Card cursor="pointer" animation="quick" key={p.id} flex={1} minWidth={300} maxWidth={isSmall ? undefined : 400} backgroundColor="$color2" borderWidth={1} borderColor={p.status === "banida" ? "rgba(244,63,94,0.3)" : p.status === "denunciada" ? "rgba(245,158,11,0.3)" : "$borderColor"} borderRadius="$4" overflow="hidden" hoverStyle={{ borderColor: "$green8", backgroundColor: "$color3" }}>
                  {/* Header */}
                  <XStack padding="$4" alignItems="center" justifyContent="space-between">
                     <XStack gap="$3" alignItems="center">

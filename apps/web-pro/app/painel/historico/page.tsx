@@ -1,7 +1,7 @@
 //@ts-nocheck
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import {
   Card,
   Avatar,
@@ -47,6 +47,17 @@ const historico: ConsultaHistorico[] = [
 const PERIODOS = ["Semana", "Mês", "Ano", "Tudo"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function useOutsideClick(ref: React.RefObject<HTMLElement>, cb: () => void) {
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) cb();
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [ref, cb]);
+}
+
 
 const mesLabels: Record<string, string> = {
   "2026-04": "Abril 2026",
@@ -132,7 +143,7 @@ function ConsultaCard({ c }: { c: ConsultaHistorico }) {
 
       {/* Footer */}
       <XStack paddingHorizontal="$4" paddingVertical="$2" borderTopWidth={1} borderColor="$borderColor">
-        <Button size="$2" chromeless paddingHorizontal="$2" gap="$1" hoverStyle={{ backgroundColor: "$color4" }}>
+        <Button size="$2" chromeless paddingHorizontal="$2" gap="$1" borderWidth={1} borderColor="transparent" hoverStyle={{ backgroundColor: "$color4", borderColor: "$green8" }}>
           <Text color="$color10"><ExternalLinkIcon /></Text>
           <Text color="$color11" fontSize={12}>Ver detalhes</Text>
         </Button>
@@ -145,6 +156,9 @@ function ConsultaCard({ c }: { c: ConsultaHistorico }) {
 
 export default function HistoricoPage() {
   const [periodo, setPeriodo] = useState("Mês");
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const headerMenuRef = useRef<HTMLDivElement>(null);
+  useOutsideClick(headerMenuRef, useCallback(() => setHeaderMenuOpen(false), []));
 
   const grupos = agruparPorMes(historico);
   const meses = Object.keys(grupos).sort((a, b) => b.localeCompare(a));
@@ -164,21 +178,51 @@ export default function HistoricoPage() {
       <YStack padding="$4" $gtSm={{ padding: "$6" }} gap="$5" maxWidth={1100} marginHorizontal="auto" width="100%">
         
         {/* Cabeçalho */}
-        <XStack justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap="$3">
+        <XStack className="pro-page-header" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap="$3">
           <YStack gap="$1">
             <H2 color="$color12" size="$6" fontWeight="bold">Histórico</H2>
             <Text color="$color11" fontSize={14}>Consultas realizadas, pagamentos e linha do tempo de atendimentos.</Text>
           </YStack>
-          <XStack gap="$2" flexWrap="wrap">
-            {PERIODOS.map((p) => {
-              const isActive = periodo === p;
-              return (
-                <Button key={p} size="$3" borderRadius="$10" borderWidth={1} borderColor={isActive ? "transparent" : "$borderColor"} backgroundColor={isActive ? "$color12" : "transparent"} onPress={() => setPeriodo(p)} hoverStyle={{ opacity: 0.8 }} paddingHorizontal="$4">
-                  <Text fontWeight={isActive ? "bold" : "500"} color={isActive ? "$background" : "$color12"} fontSize={13}>{p}</Text>
-                </Button>
-              );
-            })}
-          </XStack>
+          {/* Ações Desktop */}
+          <div className="pro-filter-desktop">
+            <XStack gap="$2" flexWrap="wrap">
+              {PERIODOS.map((p) => {
+                const isActive = periodo === p;
+                return (
+                  <Button key={p} size="$3" borderRadius="$10" borderWidth={1} animation="quick"
+                    borderColor={isActive ? "$green8" : "$borderColor"}
+                    backgroundColor={isActive ? "rgba(16,185,129,0.1)" : "transparent"}
+                    onPress={() => setPeriodo(p)}
+                    hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
+                    paddingHorizontal="$4">
+                    <Text fontWeight={isActive ? "bold" : "500"} color={isActive ? "#10b981" : "$color11"} fontSize={13}>{p}</Text>
+                  </Button>
+                );
+              })}
+            </XStack>
+          </div>
+
+          {/* Ações Mobile */}
+          <div className="pro-filter-mobile" ref={headerMenuRef} style={{ position: "relative" }}>
+            <button className="pro-filter-dropdown-btn" onClick={() => setHeaderMenuOpen(v => !v)}>
+              Período: {periodo}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ transform: headerMenuOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {headerMenuOpen && (
+              <div className="pro-filter-dropdown-menu" style={{ right: 0, left: "auto", minWidth: 160 }}>
+                 {PERIODOS.map((p) => (
+                   <div key={p} className={`pro-filter-dropdown-item${periodo === p ? " active" : ""}`}
+                     onClick={() => { setPeriodo(p); setHeaderMenuOpen(false); }}>
+                     {periodo === p && <span style={{ marginRight: 6 }}>✓</span>}{p}
+                   </div>
+                 ))}
+              </div>
+            )}
+          </div>
         </XStack>
 
         {/* Corpo */}
@@ -231,7 +275,7 @@ export default function HistoricoPage() {
                     );
                   })}
                 </YStack>
-                <Button size="$3" borderRadius="$4" borderWidth={1} borderColor="$borderColor" backgroundColor="transparent" hoverStyle={{ backgroundColor: "$color3" }} gap="$1">
+                <Button size="$3" borderRadius="$10" borderWidth={1} borderColor="$borderColor" backgroundColor="transparent" hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }} gap="$1">
                   <Text color="$color11" fontSize={13}>Ver histórico completo</Text>
                   <Text color="$color11"><ChevronDownIcon /></Text>
                 </Button>

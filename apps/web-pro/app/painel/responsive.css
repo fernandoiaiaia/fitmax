@@ -1,0 +1,74 @@
+/* ═══════════════════════════════════════════════════════════════
+   Web-Pro — Global Responsive Styles
+   Breakpoints: mobile ≤ 640px | tablet 641–1024px | desktop ≥ 1025px
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Feed: masonry 3-col → 1-col no mobile ── */
+@media (max-width: 640px) {
+  .pro-masonry { flex-direction: column !important; }
+  .pro-masonry > * { min-width: unset !important; width: 100% !important; }
+}
+@media (min-width: 641px) and (max-width: 900px) {
+  .pro-masonry { flex-wrap: wrap !important; }
+  .pro-masonry > * { min-width: 45% !important; flex: 1 1 45% !important; }
+}
+
+/* ── Cabeçalhos de página: stack no mobile ── */
+@media (max-width: 640px) {
+  .pro-page-header { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
+  .pro-page-header-actions { width: 100% !important; flex-wrap: wrap !important; }
+  .pro-page-header-actions > * { flex: 1 !important; min-width: 120px !important; }
+}
+
+/* ── StatCards: 2-col em tablet, 1-col no mobile ── */
+@media (max-width: 642px) {
+  .pro-stat-grid { flex-direction: column !important; }
+  .pro-stat-grid > * { min-width: unset !important; width: 100% !important; flex: none !important; }
+}
+@media (min-width: 641px) and (max-width: 900px) {
+  .pro-stat-grid > * { min-width: 45% !important; flex: 1 1 45% !important; }
+}
+
+/* ── Tabelas: scroll horizontal no mobile ── */
+@media (max-width: 768px) {
+  .pro-table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+  .pro-table-wrap table { min-width: 600px; }
+}
+
+/* ── Cards de consulta: compactos no mobile ── */
+@media (max-width: 642px) {
+  .pro-cons-row { flex-wrap: wrap !important; gap: 12px !important; }
+  .pro-cons-row-info { min-width: 160px !important; flex: 1 1 auto !important; }
+  .pro-cons-row-actions { width: 100% !important; justify-content: flex-end !important; padding-top: 8px !important; border-top: 1px dashed rgba(255,255,255,0.1) !important; }
+  .pro-cons-row-separator { display: none !important; }
+  .pro-resumo-inner { flex-direction: column !important; flex-wrap: nowrap !important; gap: 16px !important; }
+  .pro-resumo-inner > * { flex: none !important; }
+  .pro-resumo-sep { display: none !important; }
+  .pro-cons-card-actions { min-width: unset !important; }
+  .pro-cons-btn-action { font-size: 11px !important; padding: 4px 8px !important; }
+}
+
+/* ── Filtros: pills → dropdown ── */
+@media (min-width: 641px) { .pro-filter-mobile  { display: none !important; } }
+@media (max-width: 640px)  { .pro-filter-desktop { display: none !important; } }
+
+/* ── Relatórios: gráfico bar → compacto ── */
+@media (max-width: 640px) {
+  .pro-bar-chart { overflow-x: auto !important; }
+  .pro-bar-chart > * { min-width: 400px; }
+}
+
+/* ── Layout topbar: compactar título em mobile ── */
+@media (max-width: 640px) {
+  .pro-topbar-title { display: none !important; }
+  .pro-topbar-compact { display: flex !important; }
+}
+@media (min-width: 641px) {
+  .pro-topbar-compact { display: none !important; }
+}
+
+/* ── Cards em grid 2-col em tablet, 1-col mobile ── */
+@media (max-width: 640px) {
+  .pro-cards-grid { flex-direction: column !important; }
+  .pro-cards-grid > * { min-width: unset !important; width: 100% !important; }
+}

@@ -1,7 +1,7 @@
 //@ts-nocheck
 "use client";
 
-import { useState, useMemo } from "react";
+import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import {
   Card,
   Avatar,
@@ -75,6 +75,16 @@ const UserIcon = () => (
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function useOutsideClick(ref: React.RefObject<HTMLElement>, cb: () => void) {
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) cb();
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [ref, cb]);
+}
+
 const TODAY = "2026-04-23";
 
 function formatCurrency(val: number) {
@@ -111,6 +121,10 @@ export default function RelatoriosPage() {
   const [preset, setPreset] = useState("Mês");
   const [dataInicio, setDataInicio] = useState("2026-04-01");
   const [dataFim, setDataFim] = useState(TODAY);
+
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const headerMenuRef = useRef<HTMLDivElement>(null);
+  useOutsideClick(headerMenuRef, useCallback(() => setHeaderMenuOpen(false), []));
 
   function applyPreset(p: string) {
     setPreset(p);
@@ -159,7 +173,7 @@ export default function RelatoriosPage() {
       <YStack padding="$4" $gtSm={{ padding: "$6" }} gap="$5" maxWidth={1200} marginHorizontal="auto" width="100%">
         
         {/* Cabeçalho */}
-        <XStack justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap="$3">
+        <XStack className="pro-page-header" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap="$3">
           <YStack gap="$1">
             <H2 color="$color12" size="$6" fontWeight="bold">Relatórios</H2>
             <Text color="$color11" fontSize={14}>Acompanhe o desempenho financeiro e operacional do período.</Text>
@@ -168,18 +182,48 @@ export default function RelatoriosPage() {
 
         {/* Filtro de Período */}
         <XStack flexWrap="wrap" gap="$4" alignItems="center" backgroundColor="$color2" padding="$3" borderRadius="$5" borderWidth={1} borderColor="$borderColor">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <XStack gap="$2" paddingBottom={2}>
-              {PRESETS.map((p) => {
-                const isActive = preset === p;
-                return (
-                  <Button key={p} size="$3" borderRadius="$10" borderWidth={1} borderColor={isActive ? "transparent" : "$borderColor"} backgroundColor={isActive ? "$color12" : "transparent"} onPress={() => applyPreset(p)} hoverStyle={{ opacity: 0.8 }} paddingHorizontal="$4">
-                    <Text fontWeight={isActive ? "bold" : "500"} color={isActive ? "$background" : "$color12"} fontSize={13}>{p}</Text>
-                  </Button>
-                );
-              })}
-            </XStack>
-          </ScrollView>
+          {/* Desktop Presets */}
+          <div className="pro-filter-desktop">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <XStack gap="$2" paddingBottom={2}>
+                {PRESETS.map((p) => {
+                  const isActive = preset === p;
+                  return (
+                    <Button key={p} size="$3" borderRadius="$10" borderWidth={1} animation="quick"
+                      borderColor={isActive ? "$green8" : "$borderColor"}
+                      backgroundColor={isActive ? "rgba(16,185,129,0.1)" : "transparent"}
+                      onPress={() => applyPreset(p)}
+                      hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
+                      paddingHorizontal="$4">
+                      <Text fontWeight={isActive ? "bold" : "500"} color={isActive ? "#10b981" : "$color11"} fontSize={13}>{p}</Text>
+                    </Button>
+                  );
+                })}
+              </XStack>
+            </ScrollView>
+          </div>
+
+          {/* Mobile Presets */}
+          <div className="pro-filter-mobile" ref={headerMenuRef} style={{ position: "relative" }}>
+            <button className="pro-filter-dropdown-btn" onClick={() => setHeaderMenuOpen(v => !v)}>
+              Período: {preset}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ transform: headerMenuOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {headerMenuOpen && (
+              <div className="pro-filter-dropdown-menu" style={{ left: 0, right: "auto", minWidth: 160 }}>
+                 {PRESETS.map((p) => (
+                   <div key={p} className={`pro-filter-dropdown-item${preset === p ? " active" : ""}`}
+                     onClick={() => { applyPreset(p); setHeaderMenuOpen(false); }}>
+                     {preset === p && <span style={{ marginRight: 6 }}>✓</span>}{p}
+                   </div>
+                 ))}
+              </div>
+            )}
+          </div>
 
           <Separator vertical borderColor="$borderColor" height={30} $sm={{ display: 'none' }} />
 
@@ -187,13 +231,13 @@ export default function RelatoriosPage() {
              <XStack alignItems="center" gap="$2">
                 <Text color="$color11"><CalIcon /></Text>
                 <Text color="$color11" fontSize={12}>De</Text>
-                <Input size="$3" type="date" value={dataInicio} max={dataFim} onChange={(e) => { setDataInicio(e.target.value); setPreset("Personalizado"); }} backgroundColor="$background" borderWidth={1} borderColor="$borderColor" color="$color12" />
+                <Input size="$3" type="date" value={dataInicio} max={dataFim} onChange={(e) => { setDataInicio(e.target.value); setPreset("Personalizado"); }} backgroundColor="$background" borderWidth={1} borderColor="$borderColor" color="$color12" textAlign="center" />
              </XStack>
              <Text color="$color10">—</Text>
              <XStack alignItems="center" gap="$2">
                 <Text color="$color11"><CalIcon /></Text>
                 <Text color="$color11" fontSize={12}>Até</Text>
-                <Input size="$3" type="date" value={dataFim} min={dataInicio} max={TODAY} onChange={(e) => { setDataFim(e.target.value); setPreset("Personalizado"); }} backgroundColor="$background" borderWidth={1} borderColor="$borderColor" color="$color12" />
+                <Input size="$3" type="date" value={dataFim} min={dataInicio} max={TODAY} onChange={(e) => { setDataFim(e.target.value); setPreset("Personalizado"); }} backgroundColor="$background" borderWidth={1} borderColor="$borderColor" color="$color12" textAlign="center" />
              </XStack>
           </XStack>
         </XStack>
@@ -202,14 +246,14 @@ export default function RelatoriosPage() {
         <XStack gap="$5" alignItems="flex-start" flexWrap="wrap" $gtSm={{ flexWrap: "nowrap" }}>
           
           {/* Coluna Esquerda */}
-          <YStack flex={2} gap="$6" minWidth={300}>
+          <YStack flex={2} gap="$6" minWidth={280}>
             
             {/* Resumo Financeiro */}
             <YStack gap="$3">
               <H2 color="$color12" size="$5" fontWeight="bold">Resumo Financeiro</H2>
               <Text color="$color11" fontSize={12}>{formatDateBR(dataInicio)} — {formatDateBR(dataFim)}</Text>
               
-              <XStack flexWrap="wrap" gap="$3">
+              <XStack className="pro-stat-grid" flexWrap="wrap" gap="$3">
                 <StatCard icon={<TrendUpIcon />} label="Faturamento Total" value={formatCurrency(faturamento)} sub={`${realizadas.length} consultas realizadas`} accent />
                 <StatCard icon={<MoneyIcon />} label="Lucro Líquido" value={formatCurrency(lucroLiquido)} sub="72% do faturamento bruto" accent />
                 <StatCard icon={<CheckCircleIcon />} label="Ticket Médio" value={formatCurrency(ticketMedio)} sub="por consulta realizada" />
@@ -222,7 +266,7 @@ export default function RelatoriosPage() {
               <H2 color="$color12" size="$5" fontWeight="bold">Operação do Dia</H2>
               <Text color="$color11" fontSize={12}>Hoje, {formatDateBR(TODAY)}</Text>
 
-              <XStack flexWrap="wrap" gap="$3">
+              <XStack flexWrap="wrap" gap="$3" $sm={{ flexDirection: "column" }}>
                 <Card cursor="pointer" animation="quick" flex={1} minWidth={200} borderWidth={1} backgroundColor="rgba(16,185,129,0.05)" borderColor="rgba(16,185,129,0.3)" borderRadius="$4" padding="$4" hoverStyle={{ backgroundColor: "rgba(16,185,129,0.1)", borderColor: "#10b981" }}>
                   <XStack alignItems="center" gap="$3" marginBottom="$2">
                     <Circle size="$3" backgroundColor="rgba(16,185,129,0.15)">

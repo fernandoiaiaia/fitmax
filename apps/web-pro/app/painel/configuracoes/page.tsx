@@ -10,7 +10,6 @@ import {
 type Aba = "dados" | "plano" | "notificacoes" | "senha";
 
 const PLANOS = [
-  { id: "free",    nome: "Starter", preco: "R$ 0",  periodo: "grátis", color: "#71717a", ativo: false, features: ["Até 10 consultas/mês", "Feed básico", "Suporte por e-mail"] },
   { id: "plus",    nome: "Pro",     preco: "R$ 89", periodo: "/mês",   color: "#10b981", ativo: true,  destaque: true, features: ["Consultas ilimitadas", "Agenda completa", "Feed completo", "Suporte prioritário"] },
   { id: "premium", nome: "Enterprise", preco: "R$ 199", periodo: "/mês",   color: "#a78bfa", ativo: false, features: ["Tudo do Pro", "Multi-profissional", "Gerenciamento de equipe", "Integração via API"] },
 ];
@@ -174,9 +173,11 @@ function AbaDados() {
             const isActive = obj === o;
             return (
               <Button key={o} size="$3" borderRadius="$10" borderWidth={1}
+                animation="quick"
                 borderColor={isActive ? "#10b981" : "$borderColor"}
                 backgroundColor={isActive ? "rgba(16,185,129,0.12)" : "transparent"}
                 onPress={() => setObj(o)}
+                hoverStyle={{ borderColor: "$green8", backgroundColor: "$color3" }}
                 id={`obj-${o.toLowerCase().replace(/\s/g, "-")}`}>
                 <Text color={isActive ? "#10b981" : "$color11"} fontSize={13}
                   fontWeight={isActive ? "bold" : "400"}>{o}</Text>
@@ -193,13 +194,13 @@ function AbaDados() {
           Termos de Uso e Política de Privacidade
         </Text>
         <XStack gap="$2">
-          <Button size="$3" borderRadius="$4" backgroundColor="rgba(244,63,94,0.1)"
+          <Button size="$3" borderRadius="$10" backgroundColor="rgba(244,63,94,0.1)"
             borderWidth={1} borderColor="rgba(244,63,94,0.3)"
             hoverStyle={{ backgroundColor: "rgba(244,63,94,0.2)" }}
             id="btn-excluir-conta">
             <Text color="#f43f5e" fontSize={13} fontWeight="600">Excluir conta</Text>
           </Button>
-          <Button size="$3" borderRadius="$4" backgroundColor={saved ? "#059669" : "$green9"}
+          <Button size="$3" borderRadius="$10" backgroundColor={saved ? "#059669" : "$green9"}
             hoverStyle={{ backgroundColor: "$green10" }}
             onPress={handleSave} id="btn-salvar-dados">
             <Text color="white" fontSize={13} fontWeight="bold">
@@ -213,6 +214,8 @@ function AbaDados() {
 }
 
 function AbaPlano() {
+  const [selectedPlan, setSelectedPlan] = useState("plus");
+
   return (
     <YStack gap="$4">
       {/* Plano Atual */}
@@ -242,12 +245,15 @@ function AbaPlano() {
       {/* Comparar */}
       <SectionTitle>Comparar planos</SectionTitle>
       <XStack gap="$3" flexWrap="wrap">
-        {PLANOS.map((p) => (
-          <Card cursor="pointer" animation="quick" key={p.id} flex={1} minWidth={200} borderWidth={p.destaque ? 2 : 1}
-            backgroundColor={p.destaque ? "rgba(16,185,129,0.04)" : "$color2"}
-            borderColor={p.destaque ? p.color : "$borderColor"}
+        {PLANOS.map((p) => {
+          const isSelected = selectedPlan === p.id;
+          return (
+          <Card cursor="pointer" animation="quick" key={p.id} flex={1} minWidth={200} borderWidth={isSelected ? 2 : 1}
+            backgroundColor={isSelected ? "rgba(16,185,129,0.04)" : "$color2"}
+            borderColor={isSelected ? "#10b981" : "$borderColor"}
             borderRadius="$5" padding="$4" gap="$3" overflow="hidden"
-            hoverStyle={{ backgroundColor: "$color3", borderColor: p.destaque ? p.color : "$green8" }}>
+            onPress={() => setSelectedPlan(p.id)}
+            hoverStyle={{ backgroundColor: "$color3", borderColor: isSelected ? "#10b981" : "$green8" }}>
             {p.destaque && (
               <XStack paddingHorizontal="$3" paddingVertical="$1" borderRadius="$10"
                 backgroundColor={p.color} alignSelf="flex-start">
@@ -269,20 +275,21 @@ function AbaPlano() {
                 </XStack>
               ))}
             </YStack>
-            <Button size="$3" borderRadius="$4" borderWidth={1}
-              borderColor={p.ativo ? "transparent" : p.color}
-              backgroundColor={p.ativo ? p.color : "transparent"}
-              marginTop="auto" id={`btn-plano-${p.id}`}>
-              <Text color={p.ativo ? "white" : p.color} fontSize={13} fontWeight="bold">
-                {p.ativo ? "Plano atual" : "Selecionar"}
+            <Button size="$3" borderRadius="$10" borderWidth={1}
+              borderColor={isSelected ? "transparent" : p.color}
+              backgroundColor={isSelected ? "#10b981" : "transparent"}
+              marginTop="auto" id={`btn-plano-${p.id}`}
+              onPress={() => setSelectedPlan(p.id)}>
+              <Text color={isSelected ? "white" : p.color} fontSize={13} fontWeight="bold">
+                {isSelected ? "Selecionado" : (p.ativo ? "Plano atual" : "Selecionar")}
               </Text>
             </Button>
           </Card>
-        ))}
+        )})}
       </XStack>
 
       <XStack justifyContent="flex-end">
-        <Button size="$3" borderRadius="$4" backgroundColor="rgba(244,63,94,0.1)"
+        <Button size="$3" borderRadius="$10" backgroundColor="rgba(244,63,94,0.1)"
           borderWidth={1} borderColor="rgba(244,63,94,0.3)"
           hoverStyle={{ backgroundColor: "rgba(244,63,94,0.2)" }}
           id="btn-cancelar-assinatura">
@@ -334,7 +341,7 @@ function AbaNotificacoes() {
       </Card>
 
       <XStack justifyContent="flex-end">
-        <Button size="$3" borderRadius="$4" backgroundColor={saved ? "#059669" : "$green9"}
+        <Button size="$3" borderRadius="$10" backgroundColor={saved ? "#059669" : "$green9"}
           hoverStyle={{ backgroundColor: "$green10" }}
           onPress={() => { setSaved(true); setTimeout(() => setSaved(false), 2500); }}
           id="btn-salvar-notificacoes">
@@ -440,7 +447,7 @@ function AbaSenha() {
       </Card>
 
       <XStack justifyContent="flex-end">
-        <Button size="$3" borderRadius="$4"
+        <Button size="$3" borderRadius="$10"
           backgroundColor={saved ? "#059669" : "$green9"}
           hoverStyle={{ backgroundColor: "$green10" }}
           onPress={() => { setSaved(true); setTimeout(() => setSaved(false), 2500); }}
@@ -474,10 +481,11 @@ export default function ConfigPage() {
           {ABAS.map((a) => {
             const isActive = aba === a.id;
             return (
-              <Button key={a.id} size="$3" borderRadius="$4" borderWidth={1}
+              <Button key={a.id} size="$3" borderRadius="$10" borderWidth={1}
+                animation="quick"
                 borderColor={isActive ? "$green8" : "$borderColor"}
                 backgroundColor={isActive ? "rgba(16,185,129,0.1)" : "$color2"}
-                hoverStyle={{ backgroundColor: isActive ? "rgba(16,185,129,0.15)" : "$color3" }}
+                hoverStyle={{ backgroundColor: isActive ? "rgba(16,185,129,0.15)" : "$color3", borderColor: "$green8" }}
                 onPress={() => setAba(a.id)}
                 id={`tab-${a.id}`}
                 paddingHorizontal="$4">

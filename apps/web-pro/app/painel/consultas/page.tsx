@@ -1,7 +1,7 @@
 //@ts-nocheck
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import {
   Card,
   Avatar,
@@ -80,92 +80,271 @@ const FilterIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="16" y2="12" /><line x1="12" y1="18" x2="12" y2="18" /></svg>
 );
 
-// ─── Row de consulta (Refatorado para Tamagui) ──────────────────────────────────────────────────────────
+// ─── useOutsideClick helper ───────────────────────────────────────────────────
 
-function ConsultaRow({ c }: { c: Consulta }) {
+function useOutsideClick(ref: React.RefObject<HTMLElement>, cb: () => void) {
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) cb();
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [ref, cb]);
+}
+
+// ─── CSS dos cards (idêntico ao padrão web-client) ────────────────────────────
+
+const PRO_CARD_STYLES = `
+  .pro-cons-btn-action {
+    background: var(--ca-bg);
+    border: 1px solid var(--ca-border);
+    border-radius: 20px;
+    padding: 4px 14px;
+    color: var(--ca-color);
+    font-size: 11px;
+    font-weight: 700;
+    height: 28px;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+  .pro-cons-btn-action:hover {
+    border-color: var(--ca-color) !important;
+    box-shadow: 0 0 0 1px var(--ca-shadow);
+  }
+  .pro-cons-btn-dots {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #71717a;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .pro-cons-btn-dots:hover, .pro-cons-btn-dots.open {
+    background: rgba(255,255,255,0.06) !important;
+    border-color: rgba(16,185,129,0.4) !important;
+    color: #10b981 !important;
+  }
+  .pro-cons-badge { transition: border-color 0.15s; }
+  .pro-cons-badge:hover { border-color: var(--ca-color) !important; }
+
+  /* ── Dropdown de filtro (mobile) ── */
+  .pro-filter-dropdown-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 9px 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    color: #fafafa;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    font-family: inherit;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .pro-filter-dropdown-btn:hover {
+    background: rgba(255,255,255,0.07) !important;
+    border-color: rgba(16,185,129,0.5) !important;
+  }
+  .pro-filter-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: #111;
+    border: 1px solid #262626;
+    border-radius: 12px;
+    padding: 6px;
+    z-index: 200;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .pro-filter-dropdown-item {
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    color: #a1a1aa;
+    transition: background 0.12s, color 0.12s;
+  }
+  .pro-filter-dropdown-item:hover {
+    background: rgba(255,255,255,0.05);
+    color: #fafafa;
+  }
+  .pro-filter-dropdown-item.active {
+    color: #10b981;
+    font-weight: 700;
+    background: rgba(16,185,129,0.08);
+  }
+  @media (min-width: 641px) { .pro-filter-mobile { display: none; } }
+  @media (max-width: 640px)  { .pro-filter-desktop { display: none; } }
+`;
+
+// ─── Row de consulta (padrão idêntico ao web-client) ─────────────────────────
+
+function ConsultaRow({ c, onCancel }: { c: Consulta; onCancel: (id: number) => void }) {
   const cfg = statusConfig[c.status];
   const isAndamento = c.status === "em_andamento";
 
+  const [dotsOpen, setDotsOpen] = useState(false);
+  const dotsRef = useRef<HTMLDivElement>(null);
+  useOutsideClick(dotsRef, useCallback(() => setDotsOpen(false), []));
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [actionDone, setActionDone] = useState(false);
+
+  function handleAction() {
+    setActionDone(true);
+    setTimeout(() => { setModalOpen(false); setActionDone(false); }, 1500);
+  }
+
   return (
-    <Card cursor="pointer" animation="quick" borderWidth={1}
-      backgroundColor={isAndamento ? "rgba(96,165,250,0.05)" : "$color2"}
-      borderColor={isAndamento ? "rgba(96,165,250,0.3)" : "$borderColor"}
-      borderRadius="$3"
-      padding="$3"
-      hoverStyle={{ backgroundColor: isAndamento ? "rgba(96,165,250,0.08)" : "$color3", borderColor: isAndamento ? "#60a5fa" : "$green8" }}
-    >
-      <XStack alignItems="center" gap="$3" flexWrap="wrap">
-        {/* Horário */}
-        <XStack width={60} justifyContent="center" alignItems="center" gap="$1">
-          <Text color={isAndamento ? "#60a5fa" : "$color12"} fontWeight="bold" fontSize={14}>
-            {c.horario}
-          </Text>
-          {isAndamento && (
-             <Circle size={6} backgroundColor="#60a5fa" style={{ boxShadow: "0 0 6px #60a5fa", animation: "pulse 2s infinite" }} />
-          )}
-        </XStack>
+    <>
+      {/* Modal de ação */}
+      {modalOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.6)",
+          display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setModalOpen(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#111",
+            border: "1px solid #262626", borderRadius: 16, padding: 28,
+            minWidth: 320, maxWidth: 400, boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#fafafa", marginBottom: 8 }}>
+              {cfg.actionLabel === "Reagendar" ? "Reagendar Consulta" : "Confirmar Consulta"}
+            </div>
+            <div style={{ fontSize: 13, color: "#a1a1aa", marginBottom: 20 }}>
+              {cfg.actionLabel === "Reagendar"
+                ? `Deseja reagendar a consulta com ${c.nome}?`
+                : `Confirmar consulta com ${c.nome}?`}
+            </div>
+            <div style={{ fontSize: 13, color: "#71717a", marginBottom: 24,
+              background: "#1a1a1a", borderRadius: 10, padding: "10px 14px" }}>
+              <span style={{ color: cfg.color, fontWeight: 700 }}>{c.especialidade}</span>
+              {" · "}{c.data} às {c.horario}
+            </div>
+            {actionDone ? (
+              <div style={{ textAlign: "center", color: "#10b981", fontWeight: 700, fontSize: 15, padding: "8px 0" }}>
+                ✓ {cfg.actionLabel === "Reagendar" ? "Solicitação enviada!" : "Confirmado!"}
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setModalOpen(false)} style={{ flex: 1, padding: "10px 0",
+                  borderRadius: 10, fontSize: 13, fontWeight: 600, background: "transparent",
+                  border: "1px solid #333", color: "#a1a1aa", cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
+                <button onClick={handleAction} style={{ flex: 1, padding: "10px 0", borderRadius: 10,
+                  fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer", fontFamily: "inherit",
+                  background: cfg.color === "#10b981" ? "#10b981" : "#facc15",
+                  color: cfg.color === "#facc15" ? "#111" : "#fff" }}>{cfg.actionLabel}</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
-        <Separator vertical borderColor="$borderColor" height={30} $sm={{ display: 'none' }} />
+      {/* Div nativo como wrapper para CSS vars — idêntico ao web-client */}
+      <div
+        style={{
+          "--ca-color": cfg.color,
+          "--ca-bg": cfg.bg,
+          "--ca-border": cfg.color + "55",
+          "--ca-shadow": cfg.color + "44",
+        } as React.CSSProperties}
+      >
+        <Card borderWidth={1} animation="quick"
+          backgroundColor={isAndamento ? "rgba(96,165,250,0.05)" : "$color2"}
+          borderColor={isAndamento ? "rgba(96,165,250,0.3)" : "$borderColor"}
+          borderRadius="$4" paddingHorizontal="$4" paddingVertical="$3"
+          hoverStyle={{ backgroundColor: "$color3", borderColor: isAndamento ? "#60a5fa" : "$green8" }}
+          cursor="pointer">
+          <XStack className="pro-cons-row" alignItems="center" gap="$3" flexWrap="wrap">
+            {/* Horário */}
+            <YStack alignItems="center" width={52} flexShrink={0}>
+              <Text color={isAndamento ? "#60a5fa" : "$color11"} fontSize={13} fontWeight="bold">{c.horario}</Text>
+              {isAndamento && <Circle size={6} backgroundColor="#60a5fa" marginTop={4} style={{ boxShadow: "0 0 6px #60a5fa" }} />}
+            </YStack>
+            <Separator className="pro-cons-row-separator" vertical height={36} borderColor="$borderColor" />
+            {/* Avatar */}
+            <Avatar circular size="$4" backgroundColor="$color4" flexShrink={0}>
+              <Avatar.Image src={c.avatar} />
+              <Avatar.Fallback alignItems="center" justifyContent="center">
+                <Text color="$color12" fontSize={14} fontWeight="bold">{c.nome[0]}</Text>
+              </Avatar.Fallback>
+            </Avatar>
+            {/* Info */}
+            <YStack className="pro-cons-row-info" flex={1} gap="$1" minWidth={140}>
+              <Text color="$color12" fontSize={14} fontWeight="bold" numberOfLines={1}>{c.nome}</Text>
+              <XStack alignItems="center" gap="$2">
+                <Text color="$color11" fontSize={12}>{c.especialidade}</Text>
+                <Circle size={3} backgroundColor="$color9" />
+                <Text color="$color11" fontSize={12}>{c.modalidade}</Text>
+              </XStack>
+              <XStack alignItems="center" gap="$1" marginTop={2}>
+                <span style={{ color: "#71717a" }}><ClockIcon /></span>
+                <Text color="$color10" fontSize={11}>{c.data}</Text>
+              </XStack>
+            </YStack>
 
-        {/* Avatar e Info Principal */}
-        <XStack flex={1} minWidth={200} alignItems="center" gap="$3">
-          <Avatar circular size="$4" backgroundColor="$color4" borderWidth={1} borderColor={isAndamento ? "rgba(96,165,250,0.5)" : "$borderColor"}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <Avatar.Image src={c.avatar} />
-            <Avatar.Fallback alignItems="center" justifyContent="center">
-              <Text color="$color12" fontSize={14} fontWeight="bold">{c.nome.charAt(0)}</Text>
-            </Avatar.Fallback>
-          </Avatar>
-          <YStack flex={1}>
-            <Text color="$color12" fontSize={14} fontWeight="bold" numberOfLines={1}>{c.nome}</Text>
-            <Text color="$color11" fontSize={12} numberOfLines={1}>{c.especialidade} · {c.modalidade}</Text>
-            <XStack alignItems="center" gap="$1" marginTop={2} $gtSm={{ display: 'none' }}>
-               <span style={{ color: "#a1a1aa" }}><ClockIcon /></span>
-               <Text color="$color11" fontSize={11}>{c.data}</Text>
+            {/* Botões */}
+            <XStack className="pro-cons-row-actions" alignItems="center" gap="$2" flexShrink={0}>
+              {/* Badge status */}
+              <XStack paddingHorizontal="$3" paddingVertical="$1" borderRadius="$10" borderWidth={1}
+                alignItems="center" justifyContent="center" className="pro-cons-badge"
+                style={{ background: cfg.bg, borderColor: cfg.color + "44" }}>
+                <Text fontSize={10} fontWeight="bold" style={{ color: cfg.color }}>{cfg.label}</Text>
+              </XStack>
+
+              {/* Botão de ação */}
+              {cfg.actionLabel && (
+                <button className="pro-cons-btn-action" onClick={() => setModalOpen(true)}>
+                  {cfg.actionLabel}
+                </button>
+              )}
+
+              {/* Botão dots com dropdown */}
+              <div ref={dotsRef} style={{ position: "relative" }}>
+                <button
+                  className={`pro-cons-btn-dots${dotsOpen ? " open" : ""}`}
+                  onClick={() => setDotsOpen(v => !v)}
+                >
+                  <DotsIcon />
+                </button>
+
+                {dotsOpen && (
+                  <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)",
+                    background: "#111", border: "1px solid #262626", borderRadius: 12,
+                    padding: 6, minWidth: 180, zIndex: 100, boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
+                    {[
+                      { label: "Ver detalhes",      icon: "📋", color: "#fafafa",  action: () => setDotsOpen(false) },
+                      { label: "Cancelar consulta", icon: "🗑️", color: "#f43f5e",  action: () => { onCancel(c.id); setDotsOpen(false); } },
+                    ].map(item => (
+                      <div key={item.label} onClick={item.action} style={{
+                        display: "flex", alignItems: "center", gap: 10, padding: "9px 12px",
+                        borderRadius: 8, cursor: "pointer", fontSize: 13,
+                        color: item.color, fontWeight: 500, transition: "background 0.12s",
+                      }}
+                        onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.05)"}
+                        onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = "transparent"}>
+                        <span style={{ fontSize: 15 }}>{item.icon}</span>{item.label}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </XStack>
-          </YStack>
-        </XStack>
-
-        {/* Data (Desktop apenas) */}
-        <XStack width={100} alignItems="center" gap="$2" $sm={{ display: 'none' }}>
-           <span style={{ color: "#a1a1aa" }}><ClockIcon /></span>
-           <Text color="$color11" fontSize={12}>{c.data}</Text>
-        </XStack>
-
-        {/* Ações e Status */}
-        <XStack gap="$2" alignItems="center" justifyContent="flex-end" minWidth={180}>
-          <XStack
-            alignItems="center"
-            justifyContent="center"
-            paddingHorizontal="$2"
-            paddingVertical="$1"
-            borderRadius="$10"
-            borderWidth={1}
-            backgroundColor={cfg.bg}
-            borderColor={cfg.border}
-          >
-            <Text color={cfg.color} fontSize={10} fontWeight="bold">{cfg.label}</Text>
           </XStack>
-
-          {cfg.actionLabel && (
-            <Button
-               size="$2"
-               backgroundColor={cfg.bg}
-               borderColor={cfg.border}
-               borderWidth={1}
-               color={cfg.color}
-               hoverStyle={{ opacity: 0.8 }}
-               $sm={{ display: 'none' }}
-            >
-              {cfg.actionLabel}
-            </Button>
-          )}
-
-          <Button size="$2" circular chromeless icon={<DotsIcon />} />
-        </XStack>
-
-      </XStack>
-    </Card>
+        </Card>
+      </div>
+    </>
   );
 }
 
@@ -174,8 +353,20 @@ function ConsultaRow({ c }: { c: Consulta }) {
 
 export default function ConsultasPage() {
   const [filter, setFilter] = useState("Todas");
+  const [items, setItems] = useState(consultas);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropRef = useRef<HTMLDivElement>(null);
+  useOutsideClick(dropRef, useCallback(() => setDropdownOpen(false), []));
 
-  const filtered = consultas.filter((c) => {
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const headerMenuRef = useRef<HTMLDivElement>(null);
+  useOutsideClick(headerMenuRef, useCallback(() => setHeaderMenuOpen(false), []));
+
+  function handleCancel(id: number) {
+    setItems(prev => prev.filter(c => c.id !== id));
+  }
+
+  const filtered = items.filter((c) => {
     if (filter === "Todas")        return true;
     if (filter === "Agendadas")    return c.status === "agendada";
     if (filter === "Pendentes")    return c.status === "pendente";
@@ -185,33 +376,57 @@ export default function ConsultasPage() {
   });
 
   return (
-    <ScrollView flex={1} backgroundColor="$background" showsVerticalScrollIndicator={false}>
+    <>
+      <style>{PRO_CARD_STYLES}</style>
+      <ScrollView flex={1} backgroundColor="$background" showsVerticalScrollIndicator={false}>
       <YStack padding="$4" $gtSm={{ padding: "$6" }} gap="$5" maxWidth={1200} margin="auto" width="100%">
         
         {/* ── Cabeçalho ── */}
-        <XStack flexWrap="wrap" justifyContent="space-between" alignItems="center" gap="$4">
+        <XStack className="pro-page-header" flexWrap="wrap" justifyContent="space-between" alignItems="center" gap="$4">
           <YStack>
             <H1 color="$color12" size="$7" fontWeight="bold">Consultas</H1>
             <Text color="$color11" fontSize={14}>Gerencie seus agendamentos e acompanhe o status de cada consulta.</Text>
           </YStack>
 
-          <XStack gap="$3" flexWrap="wrap">
-             <Button size="$3" backgroundColor="$color2" borderWidth={1} borderColor="$borderColor" color="$color12" icon={<CalendarIcon />} iconAfter={<FilterIcon />}>
-                23/04/2026 — 23/05/2026
-             </Button>
-             <Button size="$3" backgroundColor="$color2" borderWidth={1} borderColor="$borderColor" color="$color12" iconAfter={<FilterIcon />}>
-                Filtrar por status
-             </Button>
-             <Button size="$3" backgroundColor="$green9" color="white" hoverStyle={{ backgroundColor: "$green10" }} fontWeight="bold">
-                + Nova Consulta
-             </Button>
-          </XStack>
+          {/* Ações Desktop */}
+          <div className="pro-filter-desktop">
+            <XStack gap="$3" flexWrap="wrap">
+               <Button size="$3" backgroundColor="$color2" borderWidth={1} borderColor="$borderColor" color="$color12" animation="quick" hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }} icon={<CalendarIcon />} iconAfter={<FilterIcon />}>
+                  23/04/2026 — 23/05/2026
+               </Button>
+               <Button size="$3" backgroundColor="$color2" borderWidth={1} borderColor="$borderColor" color="$color12" animation="quick" hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }} iconAfter={<FilterIcon />}>
+                  Filtrar por status
+               </Button>
+               <Button size="$3" backgroundColor="$green9" color="white" hoverStyle={{ backgroundColor: "$green10" }} fontWeight="bold">
+                  + Nova Consulta
+               </Button>
+            </XStack>
+          </div>
+
+          {/* Ações Mobile */}
+          <div className="pro-filter-mobile" ref={headerMenuRef} style={{ position: "relative" }}>
+            <button className="pro-filter-dropdown-btn" onClick={() => setHeaderMenuOpen(v => !v)}>
+              Ações
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ transform: headerMenuOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {headerMenuOpen && (
+              <div className="pro-filter-dropdown-menu" style={{ right: 0, left: "auto", minWidth: 220 }}>
+                 <div className="pro-filter-dropdown-item" onClick={() => setHeaderMenuOpen(false)}>📅 23/04/2026 — 23/05/2026</div>
+                 <div className="pro-filter-dropdown-item" onClick={() => setHeaderMenuOpen(false)}>⚙️ Filtrar por status</div>
+                 <div className="pro-filter-dropdown-item active" onClick={() => setHeaderMenuOpen(false)}>+ Nova Consulta</div>
+              </div>
+            )}
+          </div>
         </XStack>
 
         {/* ── Cards de Resumo ── */}
-        <XStack flexWrap="wrap" gap="$4">
+        <XStack className="pro-stat-grid" flexWrap="wrap" gap="$4">
           
-          <YStack flex={1} minWidth={300} gap="$4">
+          <YStack flex={1} minWidth={280} gap="$4">
             {/* Resumo do Período */}
             <Card borderWidth={1}
               backgroundColor="$color2"
@@ -223,7 +438,7 @@ export default function ConsultasPage() {
                 Resumo do Período
               </Text>
               
-              <XStack gap="$4" flexWrap="wrap">
+              <XStack gap="$4" className="pro-resumo-inner">
                 {/* Consultas Agendadas */}
                 <YStack flex={1} gap="$2">
                   <Circle size="$3" backgroundColor="rgba(16,185,129,0.12)">
@@ -237,7 +452,7 @@ export default function ConsultasPage() {
                   </XStack>
                 </YStack>
 
-                <Separator vertical borderColor="$borderColor" />
+                <Separator vertical borderColor="$borderColor" className="pro-resumo-sep" />
 
                 {/* Valor Gerado */}
                 <YStack flex={1} gap="$2">
@@ -307,7 +522,7 @@ export default function ConsultasPage() {
 
           {/* Visão Geral do Dia */}
           <Card cursor="pointer" animation="quick" flex={1}
-            minWidth={220}
+            minWidth={280}
             borderWidth={1}
             backgroundColor="$color2"
             borderColor="$borderColor"
@@ -360,32 +575,69 @@ export default function ConsultasPage() {
             </YStack>
           </XStack>
 
-          {/* Filtros */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <XStack gap="$2" paddingBottom="$1">
-              {STATUS_FILTERS.map((f) => {
-                const isActive = filter === f;
-                return (
-                  <Button
+          {/* Filtros — pills no desktop, dropdown no mobile */}
+
+          {/* Desktop: pills — oculto em mobile via CSS media query */}
+          <div className="pro-filter-desktop">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <XStack gap="$2" paddingBottom="$1">
+                {STATUS_FILTERS.map((f) => {
+                  const isActive = filter === f;
+                  return (
+                    <Button
+                      key={f}
+                      size="$3"
+                      borderRadius="$10"
+                      borderWidth={1}
+                      animation="quick"
+                      borderColor={isActive ? "$green8" : "$borderColor"}
+                      backgroundColor={isActive ? "rgba(16,185,129,0.1)" : "transparent"}
+                      onPress={() => setFilter(f)}
+                      hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
+                      paddingHorizontal="$4"
+                      id={`filter-${f.toLowerCase().replace(/\s/g, "-")}`}
+                    >
+                      <Text fontWeight={isActive ? "bold" : "500"} color={isActive ? "#10b981" : "$color11"} fontSize={13}>
+                        {f}
+                      </Text>
+                    </Button>
+                  );
+                })}
+              </XStack>
+            </ScrollView>
+          </div>
+
+          {/* Mobile: dropdown */}
+          <div className="pro-filter-mobile" ref={dropRef} style={{ position: "relative" }}>
+            <button
+              className="pro-filter-dropdown-btn"
+              onClick={() => setDropdownOpen(v => !v)}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, color: "#10b981" }}>●</span>
+                {filter}
+              </span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ transform: dropdownOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            {dropdownOpen && (
+              <div className="pro-filter-dropdown-menu">
+                {STATUS_FILTERS.map((f) => (
+                  <div
                     key={f}
-                    size="$3"
-                    borderRadius="$10"
-                    borderWidth={1}
-                    borderColor={isActive ? "transparent" : "$borderColor"}
-                    backgroundColor={isActive ? "$color12" : "transparent"}
-                    onPress={() => setFilter(f)}
-                    hoverStyle={{ opacity: 0.8 }}
-                    paddingHorizontal="$4"
-                    id={`filter-${f.toLowerCase().replace(/\s/g, "-")}`}
+                    className={`pro-filter-dropdown-item${filter === f ? " active" : ""}`}
+                    onClick={() => { setFilter(f); setDropdownOpen(false); }}
                   >
-                    <Text fontWeight={isActive ? "bold" : "500"} color={isActive ? "$background" : "$color12"} fontSize={13}>
-                      {f}
-                    </Text>
-                  </Button>
-                );
-              })}
-            </XStack>
-          </ScrollView>
+                    {filter === f && <span style={{ marginRight: 6 }}>✓</span>}{f}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Rows */}
           <YStack gap="$2">
@@ -401,12 +653,13 @@ export default function ConsultasPage() {
                 <Text color="$color11" fontSize={14}>Nenhuma consulta encontrada para este filtro.</Text>
               </Card>
             ) : (
-              filtered.map((c) => <ConsultaRow key={c.id} c={c} />)
+              filtered.map((c) => <ConsultaRow key={c.id} c={c} onCancel={handleCancel} />)
             )}
           </YStack>
         </YStack>
 
       </YStack>
     </ScrollView>
+    </>
   );
 }

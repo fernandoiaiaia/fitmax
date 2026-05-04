@@ -116,6 +116,14 @@ export default function RelatoriosPage() {
   const [periodo, setPeriodo] = useState("Janeiro – Dezembro 2025");
   const [dropOpen, setDropOpen] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
+  const [isSmall, setIsSmall] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsSmall(window.innerWidth <= 660);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   const periodos = [
     "Janeiro – Dezembro 2025", "Janeiro 2025", "Fevereiro 2025", "Março 2025", "Abril 2025", "Maio 2025", "Junho 2025",
@@ -168,7 +176,7 @@ export default function RelatoriosPage() {
         <Separator borderColor="$borderColor" />
 
         {/* Financial cards */}
-        <XStack gap="$4" flexWrap="wrap">
+        <XStack gap="$4" flexWrap="wrap" style={{ flexDirection: isSmall ? 'column' : 'row' }}>
           <FinCard color="#10b981" icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>} label="Faturamento Bruto" value="R$ 12.530,00" delta="↑ 18% vs. mês anterior" />
           <FinCard color="#60a5fa" icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>} label="Total Repassado" value="R$ 8.200,00" delta="65% do faturamento" />
           <FinCard color="#facc15" icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>} label="Total Pendente" value="R$ 3.800,00" delta="30% do faturamento" />
@@ -177,7 +185,7 @@ export default function RelatoriosPage() {
         </XStack>
 
         {/* Main grid */}
-        <XStack gap="$4" flexWrap="wrap" alignItems="stretch">
+        <XStack gap="$4" flexWrap="wrap" alignItems="stretch" style={{ flexDirection: isSmall ? 'column' : 'row' }}>
           {/* Chart */}
           <Card cursor="pointer" animation="quick" flex={2} minWidth={400} backgroundColor="$color2" borderWidth={1} borderColor="$borderColor" padding="$4" borderRadius="$4" hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}>
             <XStack justifyContent="space-between" alignItems="center" marginBottom="$4">

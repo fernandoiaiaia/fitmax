@@ -12,6 +12,8 @@ import {
   ScrollView,
   Image,
   Button,
+  Input,
+  TextArea,
 } from "tamagui";
 
 // Mock Data for the Feed
@@ -162,10 +164,11 @@ const feedMock = [
   },
 ];
 
-const filters = ["Todos", "Profissionais", "Serviços", "Próximos a mim"];
+const filters = ["Todos", "Serviços", "Próximos a mim"];
 
 export default function FeedPage() {
   const [activeFilter, setActiveFilter] = useState("Todos");
+  const [isCreatingPost, setIsCreatingPost] = useState(false);
   
   // Split feed into 3 columns for Masonry layout
   const col0 = feedMock.filter(f => f.col === 0);
@@ -179,24 +182,82 @@ export default function FeedPage() {
         
         <H2 color="$color12" size="$6" fontWeight="bold">Explorar</H2>
         
+        {/* Search and New Post */}
+        <XStack gap="$3" alignItems="center" marginBottom="$2" flexWrap="wrap" $gtSm={{ flexWrap: "nowrap" }}>
+          <XStack flex={1} minWidth={250} backgroundColor="$color2" borderRadius="$10" borderWidth={1} borderColor="$borderColor" alignItems="center" paddingHorizontal="$3" height={44}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a0a0a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <Input 
+              flex={1} 
+              borderWidth={0} 
+              backgroundColor="transparent" 
+              placeholder="Buscar serviço, descrição, proximidade..." 
+              color="$color12"
+              focusStyle={{ outlineWidth: 0, outlineColor: "transparent" }}
+              height="100%"
+            />
+          </XStack>
+          <Button backgroundColor="$green8" hoverStyle={{ backgroundColor: "$green9" }} color="white" borderRadius="$10" height={44} onPress={() => setIsCreatingPost(!isCreatingPost)} icon={
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          }>
+            Novo Post
+          </Button>
+        </XStack>
+
+        {/* Create Post Card */}
+        {isCreatingPost && (
+          <Card backgroundColor="$color2" borderColor="$borderColor" borderWidth={1} borderRadius="$6" padding="$4" marginBottom="$2" animation="quick" enterStyle={{ opacity: 0, scale: 0.95 }}>
+            <YStack gap="$3">
+              <H2 size="$5" color="$color12" fontWeight="bold">Criar Nova Publicação</H2>
+              <TextArea 
+                placeholder="No que você está pensando?" 
+                backgroundColor="$color3" 
+                borderWidth={1} 
+                borderColor="$borderColor" 
+                borderRadius="$4" 
+                color="$color12"
+                minHeight={80}
+                padding="$3"
+              />
+              <XStack justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="$3">
+                <XStack gap="$3">
+                  <Button size="$3" backgroundColor="$color3" hoverStyle={{ backgroundColor: "$color4" }} icon={
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a0a0a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                  }>
+                    <Text color="$color11" fontSize={14}>Foto/Vídeo</Text>
+                  </Button>
+                </XStack>
+                <XStack gap="$2">
+                  <Button size="$3" variant="outlined" borderColor="$borderColor" backgroundColor="transparent" hoverStyle={{ backgroundColor: "$color3" }} onPress={() => setIsCreatingPost(false)}>
+                    Cancelar
+                  </Button>
+                  <Button size="$3" backgroundColor="$green8" hoverStyle={{ backgroundColor: "$green9" }} color="white" onPress={() => setIsCreatingPost(false)}>
+                    Publicar
+                  </Button>
+                </XStack>
+              </XStack>
+            </YStack>
+          </Card>
+        )}
+
         {/* Filters */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
            <XStack gap="$3" paddingBottom="$2">
              {filters.map((filter) => {
                const isActive = activeFilter === filter;
                return (
-                 <Button 
-                   key={filter} 
-                   size="$3" 
-                   borderRadius="$10" 
+                 <Button
+                   key={filter}
+                   size="$3"
+                   borderRadius="$10"
                    borderWidth={1}
-                   borderColor={isActive ? "transparent" : "$borderColor"}
-                   backgroundColor={isActive ? "$color12" : "transparent"}
+                   animation="quick"
+                   borderColor={isActive ? "$green8" : "$borderColor"}
+                   backgroundColor={isActive ? "rgba(16,185,129,0.1)" : "transparent"}
                    onPress={() => setActiveFilter(filter)}
-                   hoverStyle={{ opacity: 0.8 }}
+                   hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
                    paddingHorizontal="$4"
                  >
-                   <Text fontWeight={isActive ? "bold" : "normal"} color={isActive ? "$background" : "$color12"}>
+                   <Text fontWeight={isActive ? "bold" : "normal"} color={isActive ? "#10b981" : "$color11"}>
                      {filter}
                    </Text>
                  </Button>
@@ -208,7 +269,7 @@ export default function FeedPage() {
         <H2 color="$color12" size="$6" fontWeight="bold" marginTop="$2">Tendências</H2>
 
         {/* Masonry Feed Container */}
-        <XStack gap="$4" alignItems="flex-start" flexWrap="wrap" $gtSm={{ flexWrap: "nowrap" }}>
+        <XStack className="pro-masonry" gap="$4" alignItems="flex-start" flexWrap="wrap" $gtSm={{ flexWrap: "nowrap" }}>
           
           {columns.map((col, colIndex) => (
             <YStack key={colIndex} gap="$4" flex={1} minWidth={280}>

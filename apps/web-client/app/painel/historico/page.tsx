@@ -43,7 +43,7 @@ const avaliacaoConfig: Record<StatusAvaliacao, { label: string; bg: string; colo
   nao_avaliavel: { label: "N/A",      bg: "rgba(161,161,170,0.1)",  color: "#71717a" },
 };
 
-const PERIODOS = ["Semana", "Mês", "Ano", "Tudo"];
+const PERIODOS = ["Tudo", "Semana", "Mês", "Ano"];
 
 const CalendarIcon = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -144,7 +144,7 @@ function ConsultaCard({ c }: { c: ConsultaHistorico }) {
 }
 
 export default function HistoricoPage() {
-  const [periodo, setPeriodo] = useState("Mês");
+  const [periodo, setPeriodo] = useState("Tudo");
   const grupos = agruparPorMes(historico);
   const meses = Object.keys(grupos).sort((a, b) => b.localeCompare(a));
   const totalGasto = historico.reduce((acc, c) => acc + parseInt(c.valor.replace(/\D/g, "")), 0);
@@ -163,21 +163,68 @@ export default function HistoricoPage() {
             <H2 color="$color12" size="$6" fontWeight="bold">Histórico</H2>
             <Text color="$color11" fontSize={14}>Consultas realizadas, avaliações e linha do tempo.</Text>
           </YStack>
-          <XStack gap="$2" flexWrap="wrap">
-            {PERIODOS.map((p) => {
-              const isActive = periodo === p;
-              return (
-                <Button key={p} size="$3" borderRadius="$10" borderWidth={1}
-                  borderColor={isActive ? "transparent" : "$borderColor"}
-                  backgroundColor={isActive ? "$color12" : "transparent"}
-                  onPress={() => setPeriodo(p)} hoverStyle={{ opacity: 0.8 }}
-                  paddingHorizontal="$4" id={`filter-periodo-${p.toLowerCase()}`}>
-                  <Text fontWeight={isActive ? "bold" : "500"}
-                    color={isActive ? "$background" : "$color12"} fontSize={13}>{p}</Text>
-                </Button>
-              );
-            })}
-          </XStack>
+          {/* Filtros de Período (Responsivo) */}
+
+          {/* Mobile: Dropdown */}
+          <div style={{ display: "none" }} className="hist-filter-mobile">
+            <select
+              value={periodo}
+              onChange={e => setPeriodo(e.target.value)}
+              style={{
+                width: "100%",
+                background: "var(--color2, #1a1a1a)",
+                border: "1px solid rgba(16,185,129,0.4)",
+                borderRadius: 12,
+                padding: "12px 16px",
+                color: "#10b981",
+                fontSize: 14,
+                fontWeight: "bold",
+                fontFamily: "inherit",
+                outline: "none",
+                cursor: "pointer",
+                appearance: "none",
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "right 14px center",
+                paddingRight: 40,
+              }}
+            >
+              {PERIODOS.map(p => (
+                <option key={p} value={p} style={{ background: "#111", color: "#fff" }}>{p}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Desktop: Pills */}
+          <div className="hist-filter-desktop">
+            <XStack gap="$2" flexWrap="wrap">
+              {PERIODOS.map((p) => {
+                const isActive = periodo === p;
+                return (
+                  <Button key={p} size="$3" borderRadius="$10" borderWidth={1}
+                    animation="quick"
+                    borderColor={isActive ? "$green8" : "$borderColor"}
+                    backgroundColor={isActive ? "rgba(16,185,129,0.1)" : "transparent"}
+                    onPress={() => setPeriodo(p)}
+                    hoverStyle={{ backgroundColor: isActive ? "rgba(16,185,129,0.15)" : "$color3", borderColor: "$green8" }}
+                    pressStyle={{ scale: 0.97 }}
+                    paddingHorizontal="$4"
+                    id={`filter-periodo-${p.toLowerCase()}`}
+                  >
+                    <Text fontWeight={isActive ? "bold" : "400"}
+                      color={isActive ? "#10b981" : "$color11"} fontSize={13}>{p}</Text>
+                  </Button>
+                );
+              })}
+            </XStack>
+          </div>
+
+          <style>{`
+            @media (max-width: 640px) {
+              .hist-filter-mobile { display: block !important; }
+              .hist-filter-desktop { display: none !important; }
+            }
+          `}</style>
         </XStack>
 
         {/* Corpo */}

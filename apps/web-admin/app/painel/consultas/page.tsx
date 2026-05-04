@@ -1,7 +1,7 @@
 //@ts-nocheck
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ScrollView, YStack, XStack, H2, Text, Card, Button, Separator, Circle, Input } from "tamagui";
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -20,6 +20,14 @@ const statusConfig: Record<string, { label: string; bg: string; color: string }>
 
 export default function ConsultasAdminPage() {
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
+  const [isSmall, setIsSmall] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsSmall(window.innerWidth <= 660);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   // Mock data for table
   const consultas = [
@@ -59,7 +67,7 @@ export default function ConsultasAdminPage() {
         <Separator borderColor="$borderColor" />
 
         {/* Financial Cards */}
-        <XStack gap="$4" flexWrap="wrap">
+        <XStack gap="$4" flexWrap="wrap" style={{ flexDirection: isSmall ? 'column' : 'row' }}>
           <Card cursor="pointer" animation="quick" flex={1} minWidth={200} backgroundColor="$color2" borderWidth={1} borderColor="$borderColor" borderTopWidth={3} borderTopColor="$green9" padding="$4" borderRadius="$4" hoverStyle={{ backgroundColor: "$color3", borderColor: "$green9" }}>
             <Text color="$color12" fontSize={14} fontWeight="bold" marginBottom="$2">Total já repassado</Text>
             <Text color="$green10" fontSize={24} fontWeight="bold">R$ 27.700,00</Text>

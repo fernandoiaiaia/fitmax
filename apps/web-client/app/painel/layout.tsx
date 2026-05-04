@@ -16,7 +16,6 @@ import {
   YStack,
   ZStack,
   Circle,
-  Input,
   Image,
   ScrollView,
 } from "tamagui";
@@ -254,18 +253,7 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
             $gtSm={{ display: "none" }}
           />
           
-          <XStack flex={1} alignItems="center" gap="$4">
-             <Input 
-                placeholder="Pesquisar..."
-                width={240}
-                backgroundColor="$color3"
-                borderWidth={0}
-                borderRadius="$10"
-                paddingHorizontal="$4"
-                color="$color12"
-                $sm={{ display: "none" }}
-             />
-          </XStack>
+          <XStack flex={1} />
         </XStack>
 
         {/* Page Children */}

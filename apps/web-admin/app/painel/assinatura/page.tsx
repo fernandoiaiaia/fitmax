@@ -1,8 +1,8 @@
 //@ts-nocheck
 "use client";
 
-import React, { useState } from "react";
-import { ScrollView, YStack, XStack, H2, Text, Card, Button, Separator, Circle } from "tamagui";
+import React, { useState, useEffect } from "react";
+import { ScrollView, YStack, XStack, H2, Text, Card, Button, Separator, Circle, Input } from "tamagui";
 
 type PeriodoPlano = "Mensal" | "Trimestral" | "Semestral" | "Anual";
 
@@ -78,15 +78,67 @@ const IconX = () => (
 // ── Modals ────────────────────────────────────────────────────────────────────
 
 function ModalCadastro({ onClose, onSave }: any) {
+  const [nome, setNome] = useState("");
+  const [tipo, setTipo] = useState<PeriodoPlano>("Mensal");
+  const [valor, setValor] = useState("");
+  const [consultas, setConsultas] = useState("");
+  const [taxa, setTaxa] = useState("6");
+
+  const handleSave = () => {
+    if (!nome || !valor || !consultas) return;
+    onSave({
+      nome,
+      tipo,
+      valor: Number(valor),
+      consultas: Number(consultas),
+      taxa: Number(taxa),
+      ativo: true
+    });
+    onClose();
+  };
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
-      <Card cursor="pointer" animation="quick" backgroundColor="$color2" borderWidth={1} borderColor="$borderColor" padding="$5" borderRadius="$4" width="100%" maxWidth={500} onClick={e => e.stopPropagation()}>
+      <Card cursor="default" animation="quick" backgroundColor="$color2" borderWidth={1} borderColor="$borderColor" padding="$5" borderRadius="$4" width="100%" maxWidth={500} onClick={e => e.stopPropagation()}>
         <H2 size="$5" color="$color12" marginBottom="$2">Cadastrar Plano</H2>
         <Text color="$color11" marginBottom="$4">Novo plano será ativado imediatamente.</Text>
         <YStack gap="$4">
-           {/* Form simplificado mock */}
-           <Button backgroundColor="$green9" color="white" hoverStyle={{ backgroundColor: "$green10" }} onPress={() => { onSave({ nome: "Novo Plano", tipo: "Mensal", valor: 199, consultas: 40, taxa: 6, ativo: true }); onClose(); }}>Confirmar</Button>
-           <Button chromeless color="$color11" onPress={onClose}>Cancelar</Button>
+           
+           <YStack gap="$2">
+             <Text color="$color11" fontSize={12} fontWeight="bold">NOME DO PLANO</Text>
+             <Input value={nome} onChangeText={setNome} placeholder="Ex: Plano Ouro" backgroundColor="$color1" borderColor="$borderColor" focusStyle={{ borderColor: "$green8", outlineWidth: 0 }} />
+           </YStack>
+
+           <YStack gap="$2">
+             <Text color="$color11" fontSize={12} fontWeight="bold">PERÍODO</Text>
+             <XStack gap="$2" flexWrap="wrap">
+               {(["Mensal", "Trimestral", "Semestral", "Anual"] as PeriodoPlano[]).map(t => (
+                 <Button key={t} size="$3" flex={1} minWidth={100} borderWidth={1} borderColor={tipo === t ? "$green9" : "$borderColor"} backgroundColor={tipo === t ? "rgba(16,185,129,0.1)" : "$color1"} hoverStyle={{ backgroundColor: tipo === t ? "rgba(16,185,129,0.2)" : "$color3" }} onPress={() => setTipo(t)}>
+                   <Text color={tipo === t ? "$green10" : "$color11"} fontWeight={tipo === t ? "bold" : "normal"}>{t}</Text>
+                 </Button>
+               ))}
+             </XStack>
+           </YStack>
+
+           <XStack gap="$3" flexWrap="wrap">
+             <YStack gap="$2" flex={1} minWidth={120}>
+               <Text color="$color11" fontSize={12} fontWeight="bold">VALOR (R$)</Text>
+               <Input value={valor} onChangeText={setValor} keyboardType="numeric" placeholder="0.00" backgroundColor="$color1" borderColor="$borderColor" focusStyle={{ borderColor: "$green8", outlineWidth: 0 }} />
+             </YStack>
+             <YStack gap="$2" flex={1} minWidth={120}>
+               <Text color="$color11" fontSize={12} fontWeight="bold">QTD. CONSULTAS</Text>
+               <Input value={consultas} onChangeText={setConsultas} keyboardType="numeric" placeholder="Ex: 10" backgroundColor="$color1" borderColor="$borderColor" focusStyle={{ borderColor: "$green8", outlineWidth: 0 }} />
+             </YStack>
+             <YStack gap="$2" flex={1} minWidth={120}>
+               <Text color="$color11" fontSize={12} fontWeight="bold">TAXA (%)</Text>
+               <Input value={taxa} onChangeText={setTaxa} keyboardType="numeric" placeholder="6" backgroundColor="$color1" borderColor="$borderColor" focusStyle={{ borderColor: "$green8", outlineWidth: 0 }} />
+             </YStack>
+           </XStack>
+
+           <XStack gap="$3" marginTop="$2" justifyContent="flex-end">
+             <Button chromeless color="$color11" onPress={onClose}>Cancelar</Button>
+             <Button backgroundColor="$green9" color="white" hoverStyle={{ backgroundColor: "$green10" }} onPress={handleSave}>Confirmar</Button>
+           </XStack>
         </YStack>
       </Card>
     </div>
@@ -114,6 +166,14 @@ export default function AssinaturaPage() {
   const [planos, setPlanos] = useState<Plano[]>(planosIniciais);
   const [showModal, setShowModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Plano | null>(null);
+  const [isSmall, setIsSmall] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsSmall(window.innerWidth <= 660);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   const toggleAtivo = (id: number) => {
     setPlanos(prev => prev.map(p => p.id === id ? { ...p, ativo: !p.ativo } : p));
@@ -142,7 +202,7 @@ export default function AssinaturaPage() {
         <Separator borderColor="$borderColor" />
 
         {/* Stats */}
-        <XStack gap="$4" flexWrap="wrap">
+        <XStack gap="$4" flexWrap="wrap" style={{ flexDirection: isSmall ? 'column' : 'row' }}>
           {[
             { v: planos.length, l: "Total", c: "$color12" },
             { v: planos.filter(p => p.ativo).length, l: "Ativos", c: "$green9" },

@@ -10,7 +10,6 @@ import {
 type Aba = "dados" | "plano" | "notificacoes" | "senha";
 
 const PLANOS = [
-  { id: "free",    nome: "Free",    preco: "R$ 0",  periodo: "grátis", color: "#71717a", ativo: false, features: ["Até 5 consultas/mês", "Busca de profissionais", "Suporte por e-mail"] },
   { id: "plus",    nome: "Plus",    preco: "R$ 29", periodo: "/mês",   color: "#10b981", ativo: true,  destaque: true, features: ["Consultas ilimitadas", "Histórico completo", "Avaliações e favoritos", "Suporte prioritário"] },
   { id: "premium", nome: "Premium", preco: "R$ 59", periodo: "/mês",   color: "#a78bfa", ativo: false, features: ["Tudo do Plus", "Consulta de emergência", "Acesso antecipado", "Gerenciador familiar"] },
 ];
@@ -161,6 +160,11 @@ function AbaDados() {
                 borderColor={isActive ? "#10b981" : "$borderColor"}
                 backgroundColor={isActive ? "rgba(16,185,129,0.12)" : "transparent"}
                 onPress={() => setObj(o)}
+                animation="quick"
+                hoverStyle={isActive
+                  ? { backgroundColor: "rgba(16,185,129,0.2)", borderColor: "$green8" }
+                  : { backgroundColor: "$color3", borderColor: "$green8" }
+                }
                 id={`obj-${o.toLowerCase().replace(/\s/g, "-")}`}>
                 <Text color={isActive ? "#10b981" : "$color11"} fontSize={13}
                   fontWeight={isActive ? "bold" : "400"}>{o}</Text>
@@ -441,29 +445,73 @@ export default function ConfigPage() {
           <Text color="$color11" fontSize={14}>Gerencie suas preferências e dados da conta.</Text>
         </YStack>
 
-        {/* Tabs */}
-        <XStack gap="$2" flexWrap="wrap">
-          {ABAS.map((a) => {
-            const isActive = aba === a.id;
-            return (
-              <Button key={a.id} size="$3" borderRadius="$4" borderWidth={1}
-                borderColor={isActive ? "$green8" : "$borderColor"}
-                backgroundColor={isActive ? "rgba(16,185,129,0.1)" : "$color2"}
-                hoverStyle={{ backgroundColor: isActive ? "rgba(16,185,129,0.15)" : "$color3" }}
-                onPress={() => setAba(a.id)}
-                id={`tab-${a.id}`}
-                paddingHorizontal="$4">
-                <XStack gap="$2" alignItems="center">
-                  <Text fontSize={14}>{a.icon}</Text>
-                  <Text color={isActive ? "#10b981" : "$color11"}
-                    fontWeight={isActive ? "bold" : "400"} fontSize={14}>
-                    {a.label}
-                  </Text>
-                </XStack>
-              </Button>
-            );
-          })}
-        </XStack>
+        {/* Tabs (Responsivo) */}
+
+        {/* Mobile: Dropdown */}
+        <div style={{ display: "none" }} className="cfg-tabs-mobile">
+          <select
+            value={aba}
+            onChange={e => setAba(e.target.value as Aba)}
+            style={{
+              width: "100%",
+              background: "var(--color2, #1a1a1a)",
+              border: "1px solid rgba(16,185,129,0.4)",
+              borderRadius: 12,
+              padding: "12px 16px",
+              color: "#10b981",
+              fontSize: 14,
+              fontWeight: "bold",
+              fontFamily: "inherit",
+              outline: "none",
+              cursor: "pointer",
+              appearance: "none",
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "right 14px center",
+              paddingRight: 40,
+            }}
+          >
+            {ABAS.map(a => (
+              <option key={a.id} value={a.id} style={{ background: "#111", color: "#fff" }}>
+                {a.icon} {a.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Desktop: Pills */}
+        <div className="cfg-tabs-desktop">
+          <XStack gap="$2" flexWrap="wrap">
+            {ABAS.map((a) => {
+              const isActive = aba === a.id;
+              return (
+                <Button key={a.id} size="$3" borderRadius="$4" borderWidth={1}
+                  animation="quick"
+                  borderColor={isActive ? "$green8" : "$borderColor"}
+                  backgroundColor={isActive ? "rgba(16,185,129,0.1)" : "$color2"}
+                  hoverStyle={{ backgroundColor: isActive ? "rgba(16,185,129,0.15)" : "$color3", borderColor: "$green8" }}
+                  onPress={() => setAba(a.id)}
+                  id={`tab-${a.id}`}
+                  paddingHorizontal="$4">
+                  <XStack gap="$2" alignItems="center">
+                    <Text fontSize={14}>{a.icon}</Text>
+                    <Text color={isActive ? "#10b981" : "$color11"}
+                      fontWeight={isActive ? "bold" : "400"} fontSize={14}>
+                      {a.label}
+                    </Text>
+                  </XStack>
+                </Button>
+              );
+            })}
+          </XStack>
+        </div>
+
+        <style>{`
+          @media (max-width: 640px) {
+            .cfg-tabs-mobile { display: block !important; }
+            .cfg-tabs-desktop { display: none !important; }
+          }
+        `}</style>
 
         <Separator borderColor="$borderColor" />
 

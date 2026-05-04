@@ -225,7 +225,6 @@ function AbaSeguranca() {
   const [confirmar,  setConfirmar]  = useState("");
   const [show, setShow] = useState({ atual: false, nova: false, confirmar: false });
   const [saved, setSaved] = useState(false);
-  const [twofa, setTwofa] = useState(true);
 
   let strength = 0;
   if (novaSenha.length >= 8)  strength++;
@@ -286,15 +285,6 @@ function AbaSeguranca() {
 
   return (
     <YStack gap="$4" maxWidth={480}>
-      {/* 2FA */}
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" paddingHorizontal="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}>
-        <SectionTitle>Autenticação</SectionTitle>
-        <Toggle id="toggle-2fa" label="Autenticação de dois fatores (2FA)"
-          desc="Exige confirmação extra ao fazer login"
-          value={twofa} onChange={() => setTwofa(!twofa)} />
-      </Card>
 
       {/* Alterar Senha */}
       <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"

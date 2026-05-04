@@ -82,9 +82,6 @@ export default function UsuariosPage() {
             <H2 color="$color12" size="$6" fontWeight="bold">Gestão de Usuários</H2>
             <Text color="$color11" fontSize={14}>Gerencie contas, status e documentos dos usuários da plataforma</Text>
           </YStack>
-          <Button size="$3" backgroundColor="$green9" color="white" hoverStyle={{ backgroundColor: "$green10" }} fontWeight="bold" icon={<IconPlus />}>
-            Novo Usuário
-          </Button>
         </XStack>
 
         <Separator borderColor="$borderColor" />
@@ -153,10 +150,10 @@ export default function UsuariosPage() {
                        </XStack>
 
                        <XStack gap="$1">
-                         <Button size="$3" circular chromeless color={ativos[u.id] ? "$green9" : "$color11"} icon={ativos[u.id] ? <IconToggleOn /> : <IconToggleOff />} onPress={() => toggleAtivo(u.id)} />
-                         <Button size="$3" circular chromeless color="$color11" hoverStyle={{ color: "$blue10", backgroundColor: "rgba(96,165,250,0.1)" }} icon={<IconDocs />} />
-                         <Button size="$3" circular chromeless color="$color11" hoverStyle={{ color: "#f59e0b", backgroundColor: "rgba(245,158,11,0.1)" }} icon={<IconAlert />} />
-                         <Button size="$3" circular chromeless color="$color11" hoverStyle={{ color: "#f43f5e", backgroundColor: "rgba(244,63,94,0.1)" }} icon={<IconTrash />} />
+                         <Button title={ativos[u.id] ? "Desativar usuário" : "Ativar usuário"} size="$3" circular chromeless color={ativos[u.id] ? "$green9" : "$color11"} icon={ativos[u.id] ? <IconToggleOn /> : <IconToggleOff />} onPress={() => toggleAtivo(u.id)} />
+                         <Button title="Ver documentos" size="$3" circular chromeless color="$color11" hoverStyle={{ color: "$blue10", backgroundColor: "rgba(96,165,250,0.1)" }} icon={<IconDocs />} />
+                         <Button title="Alertas e avisos" size="$3" circular chromeless color="$color11" hoverStyle={{ color: "#f59e0b", backgroundColor: "rgba(245,158,11,0.1)" }} icon={<IconAlert />} />
+                         <Button title="Excluir usuário" size="$3" circular chromeless color="$color11" hoverStyle={{ color: "#f43f5e", backgroundColor: "rgba(244,63,94,0.1)" }} icon={<IconTrash />} />
                        </XStack>
                     </XStack>
                  </XStack>

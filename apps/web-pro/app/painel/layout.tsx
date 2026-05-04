@@ -4,6 +4,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import "./responsive.css";
 import {
   Avatar,
   Button,
@@ -98,7 +99,28 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
 
   return (
-    <XStack height="100vh" overflow="hidden" backgroundColor="$background">
+    <>
+      <style>{`
+        /* ── Web-Pro Global: Borda verde em hover em TODOS os botões ── */
+
+        button,
+        [role="button"] {
+          transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+        }
+
+        button:hover,
+        [role="button"]:hover {
+          border-color: rgba(16, 185, 129, 0.65) !important;
+          box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.3) !important;
+          outline: none !important;
+        }
+
+        /* Exceção: botões com fundo verde sólido (ex: + Nova Consulta) */
+        button[data-bg-green]:hover {
+          box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.5) !important;
+        }
+      `}</style>
+      <XStack height="100vh" overflow="hidden" backgroundColor="$background">
       
       {/* Mobile Overlay */}
       {sidebarOpen && (
@@ -197,8 +219,11 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
                       paddingVertical="$3"
                       paddingHorizontal={desktopCollapsed ? 0 : "$3"}
                       borderRadius="$4"
-                      backgroundColor={isActive ? "$color4" : "transparent"}
-                      hoverStyle={!isActive ? { backgroundColor: "$color3" } : {}}
+                      borderWidth={1}
+                      animation="quick"
+                      borderColor={isActive ? "$green8" : "transparent"}
+                      backgroundColor={isActive ? "rgba(16,185,129,0.12)" : "transparent"}
+                      hoverStyle={{ backgroundColor: isActive ? "rgba(16,185,129,0.18)" : "$color3", borderColor: "$green8" }}
                       cursor="pointer"
                     >
                       <SidebarIcon name={item.icon} color="white" />
@@ -222,7 +247,10 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
                   paddingVertical="$3"
                   paddingHorizontal={desktopCollapsed ? 0 : "$3"}
                   borderRadius="$4"
-                  hoverStyle={{ backgroundColor: "$red4" }}
+                  borderWidth={1}
+                  animation="quick"
+                  borderColor="transparent"
+                  hoverStyle={{ backgroundColor: "$red4", borderColor: "$red8" }}
                   cursor="pointer"
                   marginTop="$4"
                 >
@@ -261,18 +289,7 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
             $gtSm={{ display: "none" }}
           />
           
-          <XStack flex={1} alignItems="center" gap="$4">
-             <Input 
-                placeholder="Pesquisar pacientes, consultas..."
-                width={280}
-                backgroundColor="$color3"
-                borderWidth={0}
-                borderRadius="$10"
-                paddingHorizontal="$4"
-                color="$color12"
-                $sm={{ display: "none" }}
-             />
-          </XStack>
+          <XStack flex={1} />
 
           {/* Right actions */}
           <XStack alignItems="center" gap="$3">
@@ -289,5 +306,6 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
 
       </YStack>
     </XStack>
+    </>
   );
 }
