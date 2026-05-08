@@ -32,6 +32,7 @@ const menuItems = [
   { label: "Configurações", href: "/painel/configuracoes", icon: "settings" },
 ];
 
+
 function SidebarIcon({ name, color = "$color11" }: { name: string; color?: string }) {
   const icons: Record<string, React.ReactNode> = {
     home: (
@@ -97,6 +98,8 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
   const [sidebarOpen, setSidebarOpen] = useState(false); // Modal Drawer state
   const [desktopCollapsed, setDesktopCollapsed] = useState(false); // Desktop Rail state
   const pathname = usePathname();
+  
+
 
   return (
     <>
@@ -306,6 +309,8 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
 
       </YStack>
     </XStack>
+
+
     </>
   );
 }

@@ -21,6 +21,19 @@ const ABAS: { id: Aba; label: string; icon: string }[] = [
   { id: "senha",        label: "Senha",          icon: "🔒" },
 ];
 
+const PROFISSOES = [
+  { id: "medico", label: "Médico", conselho: "CRM" },
+  { id: "psicologo", label: "Psicólogo", conselho: "CRP" },
+  { id: "nutricionista", label: "Nutricionista", conselho: "CRN" },
+  { id: "educador", label: "Educador Físico / Personal Trainer", conselho: "CREF" },
+  { id: "fisioterapeuta", label: "Fisioterapeuta / Terapeuta Ocupacional", conselho: "CREFITO" }
+];
+
+const ESTADOS_BR = [
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", 
+  "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
+];
+
 /* ── helpers ── */
 function SectionTitle({ children }: { children: string }) {
   return (
@@ -100,9 +113,23 @@ function AbaDados() {
   const [email, setEmail] = useState("rafael@fitmax.com");
   const [user,  setUser]  = useState("@rafaelcosta");
   const [obj,   setObj]   = useState("Cardiologia");
+  const [profissao, setProfissao] = useState("medico");
+  const [registro, setRegistro] = useState("54321");
+  const [uf, setUf] = useState("SP");
   const [saved, setSaved] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  function handleSave() { setSaved(true); setTimeout(() => setSaved(false), 2500); }
+  const selectedProf = PROFISSOES.find(p => p.id === profissao);
+
+  function handleSave() {
+    if (!profissao || !registro || !uf) {
+      setErrorMsg("Preencha sua profissão e o registro do conselho profissional (Conselho, Número e UF) antes de salvar.");
+      return;
+    }
+    setErrorMsg("");
+    setSaved(true); 
+    setTimeout(() => setSaved(false), 2500); 
+  }
 
   return (
     <YStack gap="$4">
@@ -162,7 +189,96 @@ function AbaDados() {
         </XStack>
       </Card>
 
-      {/* Objetivo */}
+      {/* Profissão e Conselho */}
+      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor={errorMsg && (!profissao || !registro || !uf) ? "$red8" : "$borderColor"}
+        borderRadius="$5" padding="$4" gap="$4"
+        hoverStyle={{ backgroundColor: "$color3", borderColor: errorMsg && (!profissao || !registro || !uf) ? "$red9" : "$green8" }}
+       >
+        <SectionTitle>Profissão e Conselho (Obrigatório)</SectionTitle>
+        <XStack flexWrap="wrap" gap="$2">
+          {PROFISSOES.map((p) => {
+            const isActive = profissao === p.id;
+            return (
+              <Button key={p.id} size="$3" borderRadius="$10" borderWidth={1}
+                animation="quick"
+                borderColor={isActive ? "#10b981" : "$borderColor"}
+                backgroundColor={isActive ? "rgba(16,185,129,0.12)" : "transparent"}
+                onPress={() => setProfissao(p.id)}
+                hoverStyle={{ borderColor: "$green8", backgroundColor: "$color3" }}
+                id={`prof-${p.id}`}>
+                <Text color={isActive ? "#10b981" : "$color11"} fontSize={13}
+                  fontWeight={isActive ? "bold" : "400"}>{p.label}</Text>
+              </Button>
+            );
+          })}
+        </XStack>
+        
+        {selectedProf && (
+          <XStack gap="$3" flexWrap="wrap" marginTop="$2">
+            <YStack gap="$1" flex={1} minWidth={100}>
+              <Text color="$color10" fontSize={12}>Conselho</Text>
+              <Input
+                value={selectedProf.conselho}
+                disabled
+                backgroundColor="rgba(255,255,255,0.03)"
+                borderColor="$borderColor"
+                borderRadius="$3"
+                height={42}
+                paddingHorizontal="$3"
+                color="$color10"
+                fontSize={14}
+              />
+            </YStack>
+            <YStack gap="$1" flex={2} minWidth={150}>
+              <Text color="$color10" fontSize={12}>Número de Registro</Text>
+              <Input
+                value={registro}
+                onChangeText={setRegistro}
+                placeholder="Ex: 123456"
+                backgroundColor="$color2"
+                borderColor={!registro && errorMsg ? "$red8" : "$borderColor"}
+                borderRadius="$3"
+                height={42}
+                paddingHorizontal="$3"
+                color="$color12"
+                fontSize={14}
+                hoverStyle={{ borderColor: "$green8" }}
+                focusStyle={{ borderColor: "$green10", outlineWidth: 0 }}
+              />
+            </YStack>
+            <YStack gap="$1" flex={1} minWidth={100}>
+              <Text color="$color10" fontSize={12}>UF</Text>
+              <div style={{ position: "relative", width: "100%", height: "42px" }}>
+                <select
+                  value={uf}
+                  onChange={(e) => setUf(e.target.value)}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    backgroundColor: "transparent",
+                    color: "white",
+                    border: `1px solid ${!uf && errorMsg ? "#ef4444" : "rgba(255,255,255,0.1)"}`,
+                    borderRadius: "8px",
+                    padding: "0 12px",
+                    fontSize: "14px",
+                    outline: "none",
+                    appearance: "none",
+                    cursor: "pointer"
+                  }}
+                >
+                  <option value="" style={{ color: "black" }}>Selecione</option>
+                  {ESTADOS_BR.map(e => <option key={e} value={e} style={{ color: "black" }}>{e}</option>)}
+                </select>
+                <div style={{ position: "absolute", right: "12px", top: "14px", pointerEvents: "none" }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                </div>
+              </div>
+            </YStack>
+          </XStack>
+        )}
+      </Card>
+
+      {/* Área de Atuação */}
       <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
         borderRadius="$5" padding="$4" gap="$3"
         hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
@@ -188,27 +304,30 @@ function AbaDados() {
       </Card>
 
       {/* Ações */}
-      <XStack justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="$3">
-        <Text color="$color10" fontSize={12} textDecorationLine="underline"
-          cursor="pointer" id="link-termos">
-          Termos de Uso e Política de Privacidade
-        </Text>
-        <XStack gap="$2">
-          <Button size="$3" borderRadius="$10" backgroundColor="rgba(244,63,94,0.1)"
-            borderWidth={1} borderColor="rgba(244,63,94,0.3)"
-            hoverStyle={{ backgroundColor: "rgba(244,63,94,0.2)" }}
-            id="btn-excluir-conta">
-            <Text color="#f43f5e" fontSize={13} fontWeight="600">Excluir conta</Text>
-          </Button>
-          <Button size="$3" borderRadius="$10" backgroundColor={saved ? "#059669" : "$green9"}
-            hoverStyle={{ backgroundColor: "$green10" }}
-            onPress={handleSave} id="btn-salvar-dados">
-            <Text color="white" fontSize={13} fontWeight="bold">
-              {saved ? "✓ Salvo!" : "Salvar alterações"}
-            </Text>
-          </Button>
+      <YStack gap="$3">
+        {errorMsg ? <Text color="$red9" fontSize={13} fontWeight="bold" textAlign="right">{errorMsg}</Text> : null}
+        <XStack justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="$3">
+          <Text color="$color10" fontSize={12} textDecorationLine="underline"
+            cursor="pointer" id="link-termos">
+            Termos de Uso e Política de Privacidade
+          </Text>
+          <XStack gap="$2">
+            <Button size="$3" borderRadius="$10" backgroundColor="rgba(244,63,94,0.1)"
+              borderWidth={1} borderColor="rgba(244,63,94,0.3)"
+              hoverStyle={{ backgroundColor: "rgba(244,63,94,0.2)" }}
+              id="btn-excluir-conta">
+              <Text color="#f43f5e" fontSize={13} fontWeight="600">Excluir conta</Text>
+            </Button>
+            <Button size="$3" borderRadius="$10" backgroundColor={saved ? "#059669" : "$green9"}
+              hoverStyle={{ backgroundColor: "$green10" }}
+              onPress={handleSave} id="btn-salvar-dados">
+              <Text color="white" fontSize={13} fontWeight="bold">
+                {saved ? "✓ Salvo!" : "Salvar alterações"}
+              </Text>
+            </Button>
+          </XStack>
         </XStack>
-      </XStack>
+      </YStack>
     </YStack>
   );
 }

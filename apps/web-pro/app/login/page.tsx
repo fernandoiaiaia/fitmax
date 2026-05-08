@@ -39,6 +39,14 @@ export default function LoginProPage() {
           <p className="login-hero__subtitle">
             Gerencie agenda, consultas, pacientes e relatórios de performance. Foco total no que importa: seus resultados.
           </p>
+          
+          <div style={{ marginTop: 24, padding: "12px 16px", backgroundColor: "rgba(16,185,129,0.1)", borderRadius: 8, borderLeft: "4px solid #10b981" }}>
+            <p style={{ color: "#e4e4e7", fontSize: 13, margin: 0, fontWeight: 500, lineHeight: 1.5 }}>
+              Acesso exclusivo para profissionais de saúde com registro ativo:
+              <br/>
+              <span style={{ color: "#10b981", fontWeight: "bold" }}>CRM, CRP, CRN, CREF e CREFITO.</span>
+            </p>
+          </div>
         </div>
       </div>
 
@@ -62,7 +70,7 @@ export default function LoginProPage() {
 
           <form onSubmit={handleSubmit} className="login-form">
             <div className="form-group">
-              <label htmlFor="email">E-mail profissional</label>
+              <label htmlFor="email">E-mail</label>
               <input
                 id="email"
                 type="email"
