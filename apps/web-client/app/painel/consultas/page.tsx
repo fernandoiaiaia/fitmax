@@ -2,6 +2,7 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Card,
   Avatar,
@@ -124,6 +125,98 @@ function useOutsideClick(ref: React.RefObject<HTMLElement>, cb: () => void) {
 }
 
 // ─── Consulta Row Card ────────────────────────────────────────────────────────
+
+// ─── Banner Hero CTA Styles ──────────────────────────────────────────────────
+
+const BANNER_CTA_STYLES = `
+  @keyframes calPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.5); }
+    50%       { box-shadow: 0 0 0 10px rgba(16,185,129,0); }
+  }
+  .agendar-banner {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    border: 1px solid rgba(16,185,129,0.35);
+    background: linear-gradient(135deg, rgba(16,185,129,0.13) 0%, rgba(96,165,250,0.07) 100%);
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s, transform 0.15s;
+    text-decoration: none;
+  }
+  .agendar-banner::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(16,185,129,0.06) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .agendar-banner:hover {
+    border-color: rgba(16,185,129,0.65);
+    background: linear-gradient(135deg, rgba(16,185,129,0.18) 0%, rgba(96,165,250,0.10) 100%);
+    transform: translateY(-1px);
+  }
+  .agendar-banner-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: rgba(16,185,129,0.15);
+    border: 1px solid rgba(16,185,129,0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    animation: calPulse 2.4s ease-in-out infinite;
+  }
+  .agendar-banner-text { flex: 1; min-width: 0; }
+  .agendar-banner-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #f4f4f5;
+    margin: 0 0 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .agendar-banner-sub {
+    font-size: 13px;
+    color: #71717a;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .agendar-banner-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #10b981;
+    border: none;
+    border-radius: 40px;
+    padding: 10px 20px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+    white-space: nowrap;
+  }
+  .agendar-banner-btn:hover {
+    background: #0ea370;
+    box-shadow: 0 0 18px rgba(16,185,129,0.45);
+    transform: scale(1.03);
+  }
+  @media (max-width: 600px) {
+    .agendar-banner { flex-wrap: wrap; gap: 14px; }
+    .agendar-banner-btn { width: 100%; justify-content: center; }
+    .agendar-banner-title, .agendar-banner-sub { white-space: normal; }
+  }
+`;
 
 const CONS_CARD_STYLES = `
   .cons-btn-action {
@@ -336,6 +429,7 @@ function ConsultaRow({ c, onCancel }: { c: Consulta; onCancel: (id: number) => v
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ConsultasPage() {
+  const router = useRouter();
   const [filter, setFilter] = useState("Todas");
   const [cancelados, setCancelados] = useState<number[]>([]);
   const handleCancel = useCallback((id: number) => setCancelados(prev => [...prev, id]), []);
@@ -408,6 +502,7 @@ export default function ConsultasPage() {
 
   return (
     <>
+      <style>{BANNER_CTA_STYLES}</style>
       <style>{CONS_CARD_STYLES}</style>
       <ScrollView flex={1} backgroundColor="$background" showsVerticalScrollIndicator={false}>
       <YStack
@@ -418,6 +513,37 @@ export default function ConsultasPage() {
         marginHorizontal="auto"
         width="100%"
       >
+
+        {/* ── Banner Hero CTA ── */}
+        <div
+          id="banner-agendar-consulta"
+          className="agendar-banner"
+          onClick={() => router.push("/painel/consultas/agendar")}
+        >
+          <div className="agendar-banner-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+              <path d="m9 16 2 2 4-4" />
+            </svg>
+          </div>
+          <div className="agendar-banner-text">
+            <p className="agendar-banner-title">Agendar Nova Consulta</p>
+            <p className="agendar-banner-sub">Encontre o profissional ideal e escolha o horário que preferir</p>
+          </div>
+          <button
+            className="agendar-banner-btn"
+            onClick={e => { e.stopPropagation(); router.push("/painel/consultas/agendar"); }}
+          >
+            Agendar Agora
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12" />
+              <polyline points="12 5 19 12 12 19" />
+            </svg>
+          </button>
+        </div>
 
         {/* ── Cabeçalho ── */}
         <XStack justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap="$3">
