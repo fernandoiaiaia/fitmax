@@ -1,0 +1,207 @@
+//@ts-nocheck
+"use client";
+
+import { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ScrollView, YStack, XStack, Text, H2 } from "tamagui";
+import TimelineStatus from "../TimelineStatus";
+import { useStatusMap } from "../consultasStore";
+
+// ─── Mock (espelho do pendentes) ──────────────────────────────────────────────
+
+const consultasMock = [
+  { id: "c001", paciente: { nome: "Carlos Mendes", avatar: "https://picsum.photos/200/200?random=10" }, tipo: "Presencial", especialidade: { nome: "Nutrição", icon: "🥗" }, data: "2026-05-20", horario: "10:00", clinica: { nome: "SportMed Clínica", cidade: "São Paulo", uf: "SP" }, convenio: { nome: "Unimed" }, justificativa: "" },
+  { id: "c002", paciente: { nome: "Fernanda Lima",  avatar: "https://picsum.photos/200/200?random=11" }, tipo: "Online",     especialidade: { nome: "Nutrologia",  icon: "💊" }, data: "2026-05-21", horario: "14:00", clinica: null, convenio: null, justificativa: "" },
+  { id: "c003", paciente: { nome: "Rafael Oliveira",avatar: "https://picsum.photos/200/200?random=12" }, tipo: "Presencial", especialidade: { nome: "Fisioterapia",icon: "💪" }, data: "2026-05-22", horario: "09:00", clinica: { nome: "SportMed Clínica", cidade: "São Paulo", uf: "SP" }, convenio: { nome: "Bradesco Saúde" }, justificativa: "" },
+];
+
+function formatDate(iso: string) {
+  const [y,m,d] = iso.split("-"); return `${d}/${m}/${y}`;
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const STYLES = `
+  @keyframes st-fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  .st-page  { animation: st-fadeUp 0.3s ease; }
+  .st-card  { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:18px; padding:22px; }
+  .st-row   { display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#a1a1aa; margin-bottom:7px; }
+  .st-row:last-child { margin-bottom:0; }
+  .st-txt   { color:#d4d4d8; line-height:1.5; }
+  .st-txt strong { color:#f4f4f5; }
+  .st-badge {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:4px 14px; border-radius:99px; font-size:11px; font-weight:700;
+    letter-spacing:0.06em; text-transform:uppercase;
+  }
+  .st-badge.solicitada  { background:rgba(251,191,36,0.12); border:1px solid rgba(251,191,36,0.35); color:#fbbf24; }
+  .st-badge.pendente    { background:rgba(96,165,250,0.12);  border:1px solid rgba(96,165,250,0.35); color:#60a5fa; }
+  .st-badge.confirmada  { background:rgba(16,185,129,0.12);  border:1px solid rgba(16,185,129,0.35); color:#10b981; }
+  .st-badge.recusada    { background:rgba(244,63,94,0.12);   border:1px solid rgba(244,63,94,0.3);   color:#f43f5e; }
+  .st-action-bar {
+    background:rgba(251,191,36,0.06); border:1px solid rgba(251,191,36,0.25);
+    border-radius:14px; padding:16px 20px;
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+  }
+  .st-pay-btn {
+    background:#fbbf24; border:none; border-radius:10px;
+    padding:10px 22px; color:#000; font-size:13px; font-weight:800;
+    cursor:pointer; font-family:inherit; transition:all 0.15s; white-space:nowrap;
+    display:flex; align-items:center; gap:7px;
+  }
+  .st-pay-btn:hover { background:#f59e0b; box-shadow:0 0 16px rgba(251,191,36,0.4); }
+  .st-confirm-banner {
+    background:rgba(16,185,129,0.07); border:1px solid rgba(16,185,129,0.25);
+    border-radius:14px; padding:16px 20px; text-align:center;
+  }
+  @media (max-width:480px) { .st-action-bar { flex-direction:column; } .st-pay-btn { width:100%; justify-content:center; } }
+`;
+
+function BadgeStatus({ status }: { status: string }) {
+  const m: Record<string,{cls:string;dot:string;label:string}> = {
+    consulta_solicitada: { cls:"solicitada", dot:"🟡", label:"Solicitada"     },
+    pagamento_pendente:  { cls:"pendente",   dot:"🔵", label:"Aguard. Pgto"  },
+    consulta_confirmada: { cls:"confirmada", dot:"🟢", label:"Confirmada"     },
+    consulta_recusada:   { cls:"recusada",   dot:"🔴", label:"Recusada"       },
+  };
+  const v = m[status] ?? m["consulta_solicitada"];
+  return <span className={`st-badge ${v.cls}`}>{v.dot} {v.label}</span>;
+}
+
+// ─── Inner (needs searchParams) ───────────────────────────────────────────────
+
+function StatusInner() {
+  const router = useRouter();
+  const params  = useSearchParams();
+  const id      = params.get("id") ?? "c001";
+  const consulta = consultasMock.find(c => c.id === id) ?? consultasMock[0];
+
+  const statusMap = useStatusMap();
+  const status = statusMap[id] ?? "consulta_solicitada";
+
+  function irPagar() { router.push(`/painel/consultas/pagamento?id=${id}`); }
+
+  return (
+    <YStack gap="$4">
+
+      {/* Resumo */}
+      <div className="st-card">
+        <XStack alignItems="center" justifyContent="space-between" marginBottom="$3" flexWrap="wrap" gap="$2">
+          <Text color="$color11" fontSize={11} fontWeight="700"
+            style={{ textTransform:"uppercase", letterSpacing:"0.06em" }}>
+            Detalhes da Consulta
+          </Text>
+          <BadgeStatus status={status} />
+        </XStack>
+
+        <div className="st-row">
+          <span>👨‍⚕️</span>
+          <span className="st-txt"><strong>{consulta.paciente.nome}</strong></span>
+        </div>
+        <div className="st-row">
+          <span>{consulta.especialidade.icon}</span>
+          <span className="st-txt">{consulta.especialidade.nome}</span>
+        </div>
+        <div className="st-row">
+          <span>📅</span>
+          <span className="st-txt"><strong>{formatDate(consulta.data)}</strong> às {consulta.horario} · {consulta.tipo}</span>
+        </div>
+        {consulta.tipo === "Presencial" && consulta.clinica && (
+          <div className="st-row">
+            <span>📍</span>
+            <span className="st-txt">{consulta.clinica.nome} · {consulta.clinica.cidade}/{consulta.clinica.uf}</span>
+          </div>
+        )}
+        <div className="st-row">
+          <span>💳</span>
+          <span className="st-txt">{consulta.convenio?.nome ?? <span style={{color:"#52525b"}}>Particular</span>}</span>
+        </div>
+      </div>
+
+      {/* Ação de pagamento */}
+      {status === "pagamento_pendente" && (
+        <div className="st-action-bar">
+          <div>
+            <Text color="#fbbf24" fontSize={13} fontWeight="700" display="block" marginBottom="$1">
+              💳 Pagamento Pendente
+            </Text>
+            <Text color="$color11" fontSize={12}>
+              Realize o pagamento para confirmar sua consulta.
+            </Text>
+          </div>
+          <button className="st-pay-btn" id="st-btn-pagar" onClick={irPagar}>
+            Pagar Agora →
+          </button>
+        </div>
+      )}
+
+      {/* Banner confirmada */}
+      {status === "consulta_confirmada" && (
+        <div className="st-confirm-banner">
+          <Text fontSize={28} display="block" marginBottom="$2">🎉</Text>
+          <Text color="#10b981" fontSize={15} fontWeight="700" display="block" marginBottom="$1">
+            Consulta Confirmada!
+          </Text>
+          <Text color="$color11" fontSize={13}>
+            Seu pagamento foi recebido. Até {formatDate(consulta.data)} às {consulta.horario}!
+          </Text>
+        </div>
+      )}
+
+      {/* Timeline */}
+      <div className="st-card">
+        <Text color="$color11" fontSize={11} fontWeight="700" display="block" marginBottom="$4"
+          style={{ textTransform:"uppercase", letterSpacing:"0.06em" }}>
+          Histórico do Agendamento
+        </Text>
+        <TimelineStatus
+          consultaId={id}
+          defaultStatus="consulta_solicitada"
+          justificativa={consulta.justificativa || undefined}
+          role="paciente"
+          onPagar={status === "pagamento_pendente" ? irPagar : undefined}
+        />
+      </div>
+
+    </YStack>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function ConsultaStatusPage() {
+  const router = useRouter();
+  return (
+    <>
+      <style>{STYLES}</style>
+      <ScrollView flex={1} backgroundColor="$background" showsVerticalScrollIndicator={false}>
+        <YStack
+          padding="$4" $gtSm={{ padding:"$6" }}
+          maxWidth={640} marginHorizontal="auto" width="100%"
+          gap="$5" className="st-page"
+        >
+          <XStack alignItems="center" gap="$3">
+            <button
+              onClick={() => router.push("/painel/consultas")}
+              style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, width:38, height:38, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#a1a1aa", flexShrink:0, transition:"all 0.15s" }}
+              onMouseEnter={e=>{ e.currentTarget.style.borderColor="#10b981"; e.currentTarget.style.color="#10b981"; }}
+              onMouseLeave={e=>{ e.currentTarget.style.borderColor="rgba(255,255,255,0.1)"; e.currentTarget.style.color="#a1a1aa"; }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+              </svg>
+            </button>
+            <YStack flex={1}>
+              <H2 color="$color12" size="$6" fontWeight="bold">Status da Consulta</H2>
+              <Text color="$color11" fontSize={13}>Acompanhe o progresso do seu agendamento</Text>
+            </YStack>
+          </XStack>
+
+          <Suspense fallback={<Text color="$color11">Carregando...</Text>}>
+            <StatusInner />
+          </Suspense>
+        </YStack>
+      </ScrollView>
+    </>
+  );
+}
