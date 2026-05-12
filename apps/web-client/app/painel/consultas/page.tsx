@@ -50,22 +50,15 @@ const consultas: Consulta[] = [
 
 const statusConfig: Record<
   ConsultaStatus,
-  { label: string; bg: string; color: string; dotColor: string; actionLabel?: string; actionColor?: string; actionBg?: string }
+  { label: string; bg: string; color: string; dotColor: string }
 > = {
-  agendada:     { label: "AGENDADA",     bg: "rgba(16,185,129,0.12)",  color: "#10b981", dotColor: "#10b981",  actionLabel: "Reagendar",  actionColor: "#60a5fa", actionBg: "rgba(96,165,250,0.12)" },
-  pendente:     { label: "PENDENTE",     bg: "rgba(234,179,8,0.12)",   color: "#facc15", dotColor: "#facc15",  actionLabel: "Pagar",      actionColor: "#a78bfa", actionBg: "rgba(167,139,250,0.12)" },
+  agendada:     { label: "AGENDADA",     bg: "rgba(16,185,129,0.12)",  color: "#10b981", dotColor: "#10b981" },
+  pendente:     { label: "PENDENTE",     bg: "rgba(234,179,8,0.12)",   color: "#facc15", dotColor: "#facc15" },
   a_confirmar:  { label: "A CONFIRMAR",  bg: "rgba(161,161,170,0.1)",  color: "#a1a1aa", dotColor: "#a1a1aa" },
   em_andamento: { label: "EM ANDAMENTO", bg: "rgba(96,165,250,0.12)",  color: "#60a5fa", dotColor: "#60a5fa" },
 };
 
-const STATUS_FILTERS = ["Todas", "Agendadas", "Pendentes", "A Confirmar"];
 
-const STATUS_MAP: Record<string, ConsultaStatus | null> = {
-  Todas: null,
-  Agendadas: "agendada",
-  Pendentes: "pendente",
-  "A Confirmar": "a_confirmar",
-};
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -82,12 +75,6 @@ const ClockIcon = () => (
   </svg>
 );
 
-const DotsIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="5" r="1" fill="currentColor" /><circle cx="12" cy="12" r="1" fill="currentColor" /><circle cx="12" cy="19" r="1" fill="currentColor" />
-  </svg>
-);
-
 const TrendingIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" />
@@ -100,11 +87,7 @@ const MoneyIcon = () => (
   </svg>
 );
 
-const FilterIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="4" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="16" y2="12" /><line x1="12" y1="18" x2="12" y2="18" />
-  </svg>
-);
+
 
 const ChevronDown = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -219,45 +202,24 @@ const BANNER_CTA_STYLES = `
 `;
 
 const CONS_CARD_STYLES = `
-  .cons-btn-action {
-    background: var(--ca-bg);
-    border: 1px solid var(--ca-border);
-    border-radius: 20px;
-    padding: 4px 14px;
-    color: var(--ca-color);
-    font-size: 11px;
-    font-weight: 700;
-    height: 28px;
-    cursor: pointer;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    white-space: nowrap;
-    font-family: inherit;
-  }
-  .cons-btn-action:hover {
-    border-color: var(--ca-color) !important;
-    box-shadow: 0 0 0 1px var(--ca-shadow);
-  }
-  .cons-btn-dots {
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 50%;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: #71717a;
-    transition: all 0.15s;
-    font-family: inherit;
-  }
-  .cons-btn-dots:hover, .cons-btn-dots.open {
-    background: rgba(255,255,255,0.06) !important;
-    border-color: rgba(16,185,129,0.4) !important;
-    color: #10b981 !important;
-  }
   .cons-badge { transition: border-color 0.15s; }
-  .cons-badge:hover { border-color: var(--ca-color) !important; }
+  .cons-card-clickable {
+    cursor: pointer;
+    transition: box-shadow 0.18s, transform 0.15s;
+  }
+  .cons-card-clickable:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 24px rgba(16,185,129,0.1);
+  }
+  .cons-arrow-icon {
+    color: #52525b;
+    transition: color 0.15s, transform 0.15s;
+    flex-shrink: 0;
+  }
+  .cons-card-clickable:hover .cons-arrow-icon {
+    color: #10b981;
+    transform: translateX(3px);
+  }
 
   @media (max-width: 642px) {
     .cons-row { flex-wrap: wrap !important; gap: 12px !important; }
@@ -274,154 +236,73 @@ const CONS_CARD_STYLES = `
   }
 `;
 
-function ConsultaRow({ c, onCancel }: { c: Consulta; onCancel: (id: number) => void }) {
+function ConsultaRow({ c }: { c: Consulta }) {
   const cfg = statusConfig[c.status];
   const isAndamento = c.status === "em_andamento";
-
-  const [dotsOpen, setDotsOpen] = useState(false);
-  const dotsRef = useRef<HTMLDivElement>(null);
-  useOutsideClick(dotsRef, useCallback(() => setDotsOpen(false), []));
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [actionDone, setActionDone] = useState(false);
-
-  const actionColor = cfg.actionColor ?? cfg.color;
-  const actionBg    = cfg.actionBg    ?? cfg.bg;
+  const router = useRouter();
   const rowId = `row-${c.id}`;
 
-  function handleAction() {
-    setActionDone(true);
-    setTimeout(() => { setModalOpen(false); setActionDone(false); }, 1500);
+  function handleCardClick() {
+    const params = new URLSearchParams({
+      id: String(c.id),
+      nome: c.nome,
+      especialidade: c.especialidade,
+      data: c.data,
+      horario: c.horario,
+      modalidade: c.modalidade,
+      status: c.status,
+      avatar: c.avatar,
+    });
+    router.push(`/painel/consultas/agendar?${params.toString()}`);
   }
 
   return (
-    <>
-      {modalOpen && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.6)",
-          display: "flex", alignItems: "center", justifyContent: "center" }}
-          onClick={() => setModalOpen(false)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: "#111",
-            border: "1px solid #262626", borderRadius: 16, padding: 28,
-            minWidth: 320, maxWidth: 400, boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#fafafa", marginBottom: 8 }}>
-              {cfg.actionLabel === "Reagendar" ? "Reagendar Consulta" : "Confirmar Pagamento"}
-            </div>
-            <div style={{ fontSize: 13, color: "#a1a1aa", marginBottom: 20 }}>
-              {cfg.actionLabel === "Reagendar"
-                ? `Deseja reagendar a consulta com ${c.nome}?`
-                : `Confirmar pagamento da consulta com ${c.nome}?`}
-            </div>
-            <div style={{ fontSize: 13, color: "#71717a", marginBottom: 24,
-              background: "#1a1a1a", borderRadius: 10, padding: "10px 14px" }}>
-              <span style={{ color: cfg.color, fontWeight: 700 }}>{c.especialidade}</span>
-              {" · "}{c.data} às {c.horario}
-            </div>
-            {actionDone ? (
-              <div style={{ textAlign: "center", color: "#10b981", fontWeight: 700, fontSize: 15, padding: "8px 0" }}>
-                ✓ {cfg.actionLabel === "Reagendar" ? "Solicitação enviada!" : "Pagamento confirmado!"}
-              </div>
-            ) : (
-              <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => setModalOpen(false)} style={{ flex: 1, padding: "10px 0",
-                  borderRadius: 10, fontSize: 13, fontWeight: 600, background: "transparent",
-                  border: "1px solid #333", color: "#a1a1aa", cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
-                <button onClick={handleAction} style={{ flex: 1, padding: "10px 0", borderRadius: 10,
-                  fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer", fontFamily: "inherit",
-                  background: cfg.actionLabel === "Reagendar" ? "#10b981" : "#a78bfa",
-                  color: "#fff" }}>{cfg.actionLabel}</button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div
-        id={rowId}
-        style={{
-          "--ca-color": actionColor,
-          "--ca-bg": actionBg,
-          "--ca-border": actionColor + "55",
-          "--ca-shadow": actionColor + "44",
-        } as React.CSSProperties}
-      >
-        <Card borderWidth={1} animation="quick"
-          backgroundColor={isAndamento ? "rgba(96,165,250,0.05)" : "$color2"}
-          borderColor={isAndamento ? "rgba(96,165,250,0.25)" : "$borderColor"}
-          borderRadius="$4" paddingHorizontal="$4" paddingVertical="$3"
-          hoverStyle={{ backgroundColor: "$color3", borderColor: isAndamento ? "#60a5fa" : "$green8" }}
-          cursor="pointer">
-          <XStack className="cons-row" alignItems="center" gap="$3" flexWrap="wrap">
-            <YStack alignItems="center" width={52} flexShrink={0}>
-              <Text color={isAndamento ? "#60a5fa" : "$color11"} fontSize={13} fontWeight="bold">{c.horario}</Text>
-              {isAndamento && <Circle size={6} backgroundColor="#60a5fa" marginTop={4} style={{ boxShadow: "0 0 6px #60a5fa" }} />}
-            </YStack>
-            <Separator className="cons-row-separator" vertical height={36} borderColor="$borderColor" />
-            <Avatar circular size="$4" backgroundColor="$color4" flexShrink={0}>
-              <Avatar.Image src={c.avatar} />
-              <Avatar.Fallback alignItems="center" justifyContent="center">
-                <Text color="$color12" fontSize={14} fontWeight="bold">{c.nome[0]}</Text>
-              </Avatar.Fallback>
-            </Avatar>
-            <YStack className="cons-row-info" flex={1} gap="$1" minWidth={140}>
-              <Text color="$color12" fontSize={14} fontWeight="bold" numberOfLines={1}>{c.nome}</Text>
-              <XStack alignItems="center" gap="$2">
-                <Text color="$color11" fontSize={12}>{c.especialidade}</Text>
-                <Circle size={3} backgroundColor="$color9" />
-                <Text color="$color11" fontSize={12}>{c.modalidade}</Text>
-              </XStack>
-              <XStack alignItems="center" gap="$1" marginTop={2}>
-                <span style={{ color: "#71717a" }}><ClockIcon /></span>
-                <Text color="$color10" fontSize={11}>{c.data}</Text>
-              </XStack>
-            </YStack>
-
-            <XStack className="cons-row-actions" alignItems="center" gap="$2" flexShrink={0}>
-              <XStack paddingHorizontal="$3" paddingVertical="$1" borderRadius="$10" borderWidth={1}
-                alignItems="center" justifyContent="center" className="cons-badge"
-                style={{ background: cfg.bg, borderColor: cfg.color + "44" }}>
-                <Text fontSize={10} fontWeight="bold" style={{ color: cfg.color }}>{cfg.label}</Text>
-              </XStack>
-
-              {cfg.actionLabel && (
-                <button className="cons-btn-action" onClick={() => setModalOpen(true)}>
-                  {cfg.actionLabel}
-                </button>
-              )}
-
-              <div ref={dotsRef} style={{ position: "relative" }}>
-                <button
-                  className={`cons-btn-dots${dotsOpen ? " open" : ""}`}
-                  onClick={() => setDotsOpen(v => !v)}
-                >
-                  <DotsIcon />
-                </button>
-
-                {dotsOpen && (
-                  <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)",
-                    background: "#111", border: "1px solid #262626", borderRadius: 12,
-                    padding: 6, minWidth: 180, zIndex: 100, boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
-                    {[
-                      { label: "Ver detalhes", icon: "📋", color: "#fafafa", action: () => setDotsOpen(false) },
-                      { label: "Cancelar consulta", icon: "🗑️", color: "#f43f5e", action: () => { onCancel(c.id); setDotsOpen(false); } },
-                    ].map(item => (
-                      <div key={item.label} onClick={item.action} style={{
-                        display: "flex", alignItems: "center", gap: 10, padding: "9px 12px",
-                        borderRadius: 8, cursor: "pointer", fontSize: 13,
-                        color: item.color, fontWeight: 500, transition: "background 0.12s",
-                      }}
-                        onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.05)"}
-                        onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = "transparent"}>
-                        <span style={{ fontSize: 15 }}>{item.icon}</span>{item.label}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+    <div id={rowId} className="cons-card-clickable" onClick={handleCardClick}>
+      <Card borderWidth={1} animation="quick"
+        backgroundColor={isAndamento ? "rgba(96,165,250,0.05)" : "$color2"}
+        borderColor={isAndamento ? "rgba(96,165,250,0.25)" : "$borderColor"}
+        borderRadius="$4" paddingHorizontal="$4" paddingVertical="$3"
+        hoverStyle={{ backgroundColor: "$color3", borderColor: isAndamento ? "#60a5fa" : "$green8" }}>
+        <XStack className="cons-row" alignItems="center" gap="$3" flexWrap="wrap">
+          <YStack alignItems="center" width={52} flexShrink={0}>
+            <Text color={isAndamento ? "#60a5fa" : "$color11"} fontSize={13} fontWeight="bold">{c.horario}</Text>
+            {isAndamento && <Circle size={6} backgroundColor="#60a5fa" marginTop={4} style={{ boxShadow: "0 0 6px #60a5fa" }} />}
+          </YStack>
+          <Separator className="cons-row-separator" vertical height={36} borderColor="$borderColor" />
+          <Avatar circular size="$4" backgroundColor="$color4" flexShrink={0}>
+            <Avatar.Image src={c.avatar} />
+            <Avatar.Fallback alignItems="center" justifyContent="center">
+              <Text color="$color12" fontSize={14} fontWeight="bold">{c.nome[0]}</Text>
+            </Avatar.Fallback>
+          </Avatar>
+          <YStack className="cons-row-info" flex={1} gap="$1" minWidth={140}>
+            <Text color="$color12" fontSize={14} fontWeight="bold" numberOfLines={1}>{c.nome}</Text>
+            <XStack alignItems="center" gap="$2">
+              <Text color="$color11" fontSize={12}>{c.especialidade}</Text>
+              <Circle size={3} backgroundColor="$color9" />
+              <Text color="$color11" fontSize={12}>{c.modalidade}</Text>
             </XStack>
+            <XStack alignItems="center" gap="$1" marginTop={2}>
+              <span style={{ color: "#71717a" }}><ClockIcon /></span>
+              <Text color="$color10" fontSize={11}>{c.data}</Text>
+            </XStack>
+          </YStack>
+
+          <XStack className="cons-row-actions" alignItems="center" gap="$2" flexShrink={0}>
+            <XStack paddingHorizontal="$3" paddingVertical="$1" borderRadius="$10" borderWidth={1}
+              alignItems="center" justifyContent="center" className="cons-badge"
+              style={{ background: cfg.bg, borderColor: cfg.color + "44" }}>
+              <Text fontSize={10} fontWeight="bold" style={{ color: cfg.color }}>{cfg.label}</Text>
+            </XStack>
+            <span className="cons-arrow-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
+              </svg>
+            </span>
           </XStack>
-        </Card>
-      </div>
-    </>
+        </XStack>
+      </Card>
+    </div>
   );
 }
 
@@ -430,9 +311,7 @@ function ConsultaRow({ c, onCancel }: { c: Consulta; onCancel: (id: number) => v
 
 export default function ConsultasPage() {
   const router = useRouter();
-  const [filter, setFilter] = useState("Todas");
   const [cancelados, setCancelados] = useState<number[]>([]);
-  const handleCancel = useCallback((id: number) => setCancelados(prev => [...prev, id]), []);
 
   // ── Date range filter
   const [dateFrom, setDateFrom] = useState("2026-04-22");
@@ -441,21 +320,12 @@ export default function ConsultasPage() {
   const dateRef = useRef<HTMLDivElement>(null);
   useOutsideClick(dateRef, () => setShowDatePicker(false));
 
-  // ── Status dropdown filter
-  const [showStatusDrop, setShowStatusDrop] = useState(false);
-  const statusRef = useRef<HTMLDivElement>(null);
-  useOutsideClick(statusRef, () => setShowStatusDrop(false));
-
-  // ── Apply filters
+  // ── Apply filters (sem filtro de status)
   const filtered = consultas.filter((c) => {
     if (cancelados.includes(c.id)) return false;
     if (c.status === "em_andamento") return false;
-    // date range
     if (dateFrom && c.dataISO < dateFrom) return false;
     if (dateTo   && c.dataISO > dateTo)   return false;
-    // status
-    const mapped = STATUS_MAP[filter];
-    if (mapped && c.status !== mapped) return false;
     return true;
   });
 
@@ -568,7 +438,7 @@ export default function ConsultasPage() {
                 paddingHorizontal="$3"
                 gap="$2"
                 id="btn-filtro-periodo"
-                onPress={() => { setShowDatePicker(v => !v); setShowStatusDrop(false); }}
+                onPress={() => setShowDatePicker(v => !v)}
               >
                 <span style={{ color: "#a1a1aa" }}><CalendarIcon /></span>
                 <Text color="$color11" fontSize={12}>
@@ -619,77 +489,6 @@ export default function ConsultasPage() {
                       Aplicar
                     </button>
                   </div>
-                </div>
-              )}
-            </div>
-
-            {/* ── Filtrar por status (dropdown) ── */}
-            <div ref={statusRef} style={{ position: "relative" }}>
-              <Button
-                size="$3"
-                borderRadius="$4"
-                borderWidth={1}
-                borderColor={showStatusDrop ? "$green8" : "$borderColor"}
-                backgroundColor="$color2"
-                hoverStyle={{ backgroundColor: "$color3" }}
-                paddingHorizontal="$3"
-                gap="$2"
-                id="btn-filtro-status"
-                onPress={() => { setShowStatusDrop(v => !v); setShowDatePicker(false); }}
-              >
-                <Text color="$color11" fontSize={12}>
-                  {filter === "Todas" ? "Filtrar por status" : filter}
-                </Text>
-                <span style={{ color: "#a1a1aa" }}><ChevronDown /></span>
-              </Button>
-
-              {showStatusDrop && (
-                <div style={dropdownStyle}>
-                  <span style={{ ...labelStyle, display: "block", marginBottom: 8 }}>Status</span>
-                  {STATUS_FILTERS.map((f) => {
-                    const isActive = filter === f;
-                    const mapped = STATUS_MAP[f];
-                    const cfg = mapped ? statusConfig[mapped] : null;
-                    return (
-                      <div
-                        key={f}
-                        onClick={() => { setFilter(f); setShowStatusDrop(false); }}
-                        style={{
-                          display: "flex", alignItems: "center", gap: 10,
-                          padding: "8px 10px", borderRadius: 8, cursor: "pointer",
-                          marginBottom: 2,
-                          background: isActive ? "rgba(16,185,129,0.1)" : "transparent",
-                          border: isActive ? "1px solid rgba(16,185,129,0.3)" : "1px solid transparent",
-                          transition: "background 0.15s",
-                        }}
-                        onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
-                        onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
-                      >
-                        {cfg ? (
-                          <span style={{
-                            width: 10, height: 10, borderRadius: "50%",
-                            background: cfg.color, flexShrink: 0,
-                            boxShadow: `0 0 6px ${cfg.color}`,
-                          }} />
-                        ) : (
-                          <span style={{
-                            width: 10, height: 10, borderRadius: "50%",
-                            background: "#a1a1aa", flexShrink: 0,
-                          }} />
-                        )}
-                        <span style={{
-                          fontSize: 13, fontWeight: isActive ? 700 : 500,
-                          color: isActive ? "#10b981" : "var(--color12, #fff)",
-                          flex: 1,
-                        }}>
-                          {f}
-                        </span>
-                        {isActive && (
-                          <span style={{ color: "#10b981", fontSize: 16 }}>✓</span>
-                        )}
-                      </div>
-                    );
-                  })}
                 </div>
               )}
             </div>
@@ -798,75 +597,7 @@ export default function ConsultasPage() {
             </YStack>
           </XStack>
 
-          {/* Pills de status (Responsivo) */}
 
-          {/* Mobile: Dropdown */}
-          <div style={{ display: "none" }} className="cons-filter-mobile">
-            <select
-              value={filter}
-              onChange={e => setFilter(e.target.value)}
-              style={{
-                width: "100%",
-                background: "var(--color2, #1a1a1a)",
-                border: "1px solid rgba(16,185,129,0.4)",
-                borderRadius: 12,
-                padding: "12px 16px",
-                color: "#10b981",
-                fontSize: 14,
-                fontWeight: "bold",
-                fontFamily: "inherit",
-                outline: "none",
-                cursor: "pointer",
-                appearance: "none",
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "right 14px center",
-                paddingRight: 40,
-              }}
-            >
-              {STATUS_FILTERS.map(f => (
-                <option key={f} value={f} style={{ background: "#111", color: "#fff" }}>{f}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Desktop: Pills */}
-          <div className="cons-filter-desktop">
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <XStack gap="$2" paddingBottom="$1">
-                {STATUS_FILTERS.map((f) => {
-                  const isActive = filter === f;
-                  return (
-                    <Button
-                      key={f}
-                      size="$3"
-                      borderRadius="$10"
-                      borderWidth={1}
-                      animation="quick"
-                      borderColor={isActive ? "$green8" : "$borderColor"}
-                      backgroundColor={isActive ? "rgba(16,185,129,0.1)" : "transparent"}
-                      onPress={() => setFilter(f)}
-                      hoverStyle={{ backgroundColor: isActive ? "rgba(16,185,129,0.15)" : "$color3", borderColor: "$green8" }}
-                      pressStyle={{ scale: 0.97 }}
-                      paddingHorizontal="$4"
-                      id={`filter-${f.toLowerCase().replace(/\s/g, "-")}`}
-                    >
-                      <Text fontWeight={isActive ? "bold" : "400"} color={isActive ? "#10b981" : "$color11"} fontSize={13}>
-                        {f}
-                      </Text>
-                    </Button>
-                  );
-                })}
-              </XStack>
-            </ScrollView>
-          </div>
-
-          <style>{`
-            @media (max-width: 640px) {
-              .cons-filter-mobile { display: block !important; }
-              .cons-filter-desktop { display: none !important; }
-            }
-          `}</style>
 
           {/* Rows */}
           <YStack gap="$2">
@@ -882,7 +613,7 @@ export default function ConsultasPage() {
                 <Text color="$color11" fontSize={14}>Nenhuma consulta encontrada para este filtro.</Text>
               </Card>
             ) : (
-              filtered.map((c) => <ConsultaRow key={c.id} c={c} onCancel={handleCancel} />)
+              filtered.map((c) => <ConsultaRow key={c.id} c={c} />)
             )}
           </YStack>
         </YStack>

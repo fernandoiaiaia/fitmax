@@ -1,8 +1,8 @@
 //@ts-nocheck
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ScrollView, YStack, XStack, Text, H2, Card } from "tamagui";
 
 // ─── Types & Mock Data ────────────────────────────────────────────────────────
@@ -448,6 +448,137 @@ const STYLES = `
   }
 `;
 
+// ─── Manage Mode Styles ───────────────────────────────────────────────────────
+
+const MANAGE_STYLES = `
+  @keyframes fadeUpManage {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .mg-page { animation: fadeUpManage 0.32s ease; }
+  .mg-hero {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 28px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .mg-avatar {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255,255,255,0.12);
+    flex-shrink: 0;
+  }
+  .mg-avatar-fallback {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: rgba(16,185,129,0.12);
+    border: 2px solid rgba(16,185,129,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 800; color: #10b981;
+    flex-shrink: 0;
+  }
+  .mg-info { flex: 1; min-width: 0; }
+  .mg-nome { font-size: 18px; font-weight: 800; color: #f4f4f5; margin: 0 0 4px; }
+  .mg-esp  { font-size: 13px; color: #71717a; margin: 0 0 10px; }
+  .mg-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+  .mg-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+    padding: 4px 10px; border-radius: 99px;
+    border: 1px solid; white-space: nowrap;
+  }
+  .mg-actions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-top: 0;
+  }
+  @media (max-width: 520px) { .mg-actions-grid { grid-template-columns: 1fr; } }
+  .mg-action-card {
+    background: rgba(255,255,255,0.03);
+    border: 1.5px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 24px 20px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+    position: relative;
+    overflow: hidden;
+  }
+  .mg-action-card::before {
+    content: '';
+    position: absolute; inset: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+    border-radius: inherit;
+  }
+  .mg-action-card:hover { transform: translateY(-2px); }
+  .mg-action-card:hover::before { opacity: 1; }
+  .mg-action-card.reagendar { }
+  .mg-action-card.reagendar::before { background: linear-gradient(135deg, rgba(96,165,250,0.07) 0%, rgba(16,185,129,0.04) 100%); }
+  .mg-action-card.reagendar:hover { border-color: rgba(96,165,250,0.4); box-shadow: 0 6px 28px rgba(96,165,250,0.12); }
+  .mg-action-card.pagar { }
+  .mg-action-card.pagar::before { background: linear-gradient(135deg, rgba(167,139,250,0.08) 0%, rgba(96,165,250,0.04) 100%); }
+  .mg-action-card.pagar:hover { border-color: rgba(167,139,250,0.4); box-shadow: 0 6px 28px rgba(167,139,250,0.12); }
+  .mg-action-card.cancelar::before { background: linear-gradient(135deg, rgba(244,63,94,0.07) 0%, transparent 100%); }
+  .mg-action-card.cancelar:hover { border-color: rgba(244,63,94,0.35); box-shadow: 0 6px 28px rgba(244,63,94,0.1); }
+  .mg-action-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .mg-action-title { font-size: 15px; font-weight: 700; color: #f4f4f5; margin: 0; }
+  .mg-action-sub   { font-size: 12px; color: #71717a; margin: 0; line-height: 1.5; }
+  .mg-cancel-confirm {
+    animation: fadeUpManage 0.25s ease;
+    background: rgba(244,63,94,0.06);
+    border: 1px solid rgba(244,63,94,0.2);
+    border-radius: 16px;
+    padding: 24px;
+  }
+  .mg-pay-confirm {
+    animation: fadeUpManage 0.25s ease;
+    background: rgba(167,139,250,0.06);
+    border: 1px solid rgba(167,139,250,0.2);
+    border-radius: 16px;
+    padding: 24px;
+  }
+  .mg-pay-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
+  @media (max-width: 480px) { .mg-pay-methods { grid-template-columns: 1fr; } }
+  .mg-pay-method {
+    background: rgba(255,255,255,0.03);
+    border: 1.5px solid rgba(255,255,255,0.08);
+    border-radius: 12px; padding: 14px 12px;
+    cursor: pointer; display: flex; flex-direction: column;
+    align-items: center; gap: 6px; text-align: center;
+    transition: all 0.15s;
+  }
+  .mg-pay-method:hover { background: rgba(167,139,250,0.07); transform: translateY(-1px); }
+  .mg-pay-method.active { border-color: #a78bfa; background: rgba(167,139,250,0.12); }
+  .mg-pay-label { font-size: 12px; font-weight: 600; color: #e4e4e7; }
+  .mg-success {
+    animation: scaleIn 0.35s ease;
+    text-align: center;
+    padding: 40px 24px;
+  }
+  .mg-success-icon {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+    font-size: 32px;
+  }
+`;
+
 // ─── Calendar Helper ──────────────────────────────────────────────────────────
 
 function buildCalendar(year: number, month: number) {
@@ -464,14 +595,55 @@ const WEEK_DAYS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function AgendarConsultaPage() {
+function AgendarConsultaInner() {
   const router = useRouter();
-  const [step, setStep] = useState(0); // 0(tipo)|1(end+conv)|2(esp)|3(pro)|4(data)|5(obs+solicitar)|6(sucesso)
+  const searchParams = useSearchParams();
+
+  // ── Detectar modo de gestão ──────────────────────────────────────────────────
+  const consultaId    = searchParams.get("id");
+  const consultaNome  = searchParams.get("nome") ?? "";
+  const consultaEsp   = searchParams.get("especialidade") ?? "";
+  const consultaData  = searchParams.get("data") ?? "";
+  const consultaHor   = searchParams.get("horario") ?? "";
+  const consultaMod   = searchParams.get("modalidade") ?? "";
+  const consultaStatus = searchParams.get("status") ?? "";
+  const consultaAvatar = searchParams.get("avatar") ?? "";
+
+  const isManageMode = !!consultaId;
+
+  // ── Manage mode state ────────────────────────────────────────────────────────
+  // manageView: "menu" | "pagar" | "cancelar" | "cancelado" | "pago" | "reagendando"
+  const [manageView, setManageView] = useState<string>("menu");
+  const [payMethod,  setPayMethod]  = useState<string | null>(null);
+  const [payDone,    setPayDone]    = useState(false);
+  const [payLoading, setPayLoading] = useState(false);
+  const [cancelDone, setCancelDone] = useState(false);
+
+  const statusLabels: Record<string, { label: string; bg: string; color: string }> = {
+    agendada:     { label: "AGENDADA",     bg: "rgba(16,185,129,0.12)",  color: "#10b981" },
+    pendente:     { label: "PENDENTE",     bg: "rgba(234,179,8,0.12)",   color: "#facc15" },
+    a_confirmar:  { label: "A CONFIRMAR",  bg: "rgba(161,161,170,0.1)",  color: "#a1a1aa" },
+    em_andamento: { label: "EM ANDAMENTO", bg: "rgba(96,165,250,0.12)",  color: "#60a5fa" },
+  };
+  const statusCfg = statusLabels[consultaStatus] ?? { label: consultaStatus.toUpperCase(), bg: "rgba(255,255,255,0.08)", color: "#a1a1aa" };
+
+  async function handlePagar() {
+    if (!payMethod || payLoading) return;
+    setPayLoading(true);
+    await new Promise(r => setTimeout(r, 900));
+    setPayLoading(false);
+    setPayDone(true);
+  }
+
+  function handleCancelar() {
+    setCancelDone(true);
+  }
+
+  // ── Agendamento flow states (must be before any conditional return for Rules of Hooks) ──
+  const [step, setStep] = useState(0); // 0(tipo)|1(conv)|2(esp)|3(pro)|4(data)|5(obs)|6(sucesso)
 
   // Step 0 — Tipo de consulta
   const [tipoConsulta, setTipoConsulta] = useState<"Online" | "Presencial" | null>(null);
-
-  // Step 1 — (endereço vem do profissional selecionado, sem input do paciente)
 
   // Step 1 — Convênio
   const [usaConvenio,    setUsaConvenio]    = useState<boolean | null>(null);
@@ -493,10 +665,244 @@ export default function AgendarConsultaPage() {
   const [horSel, setHorSel]    = useState<string | null>(null);
 
   // Step 5 — Observação + Submissão
-  const [observacao,    setObservacao]    = useState("");
-  const [isSubmitting,  setIsSubmitting]  = useState(false);
-  const [submitError,   setSubmitError]   = useState("");
-  const [consultaStatus, setConsultaStatus] = useState<string | null>(null);
+  const [observacao,        setObservacao]        = useState("");
+  const [isSubmitting,      setIsSubmitting]      = useState(false);
+  const [submitError,       setSubmitError]       = useState("");
+  const [agendamentoStatus, setAgendamentoStatus] = useState<string | null>(null);
+
+  // Se for modo gestão e não for "reagendando", renderiza a tela de gestão
+  if (isManageMode && manageView !== "reagendando") {
+    return (
+      <>
+        <style>{STYLES}</style>
+        <style>{MANAGE_STYLES}</style>
+        <ScrollView flex={1} backgroundColor="$background" showsVerticalScrollIndicator={false}>
+          <YStack
+            padding="$4"
+            $gtSm={{ padding: "$6" }}
+            maxWidth={680}
+            marginHorizontal="auto"
+            width="100%"
+            gap="$5"
+            className="mg-page"
+          >
+            {/* Voltar */}
+            <XStack alignItems="center" gap="$3">
+              <button
+                onClick={() => router.push("/painel/consultas")}
+                style={{
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 10,
+                  width: 38, height: 38,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer", color: "#a1a1aa", flexShrink: 0,
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#10b981"; (e.currentTarget as HTMLButtonElement).style.color = "#10b981"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLButtonElement).style.color = "#a1a1aa"; }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
+                </svg>
+              </button>
+              <YStack flex={1}>
+                <H2 color="$color12" size="$6" fontWeight="bold">Gerenciar Consulta</H2>
+                <Text color="$color11" fontSize={13}>Consulta #{consultaId}</Text>
+              </YStack>
+            </XStack>
+
+            {/* Hero card da consulta */}
+            <div className="mg-hero">
+              {consultaAvatar ? (
+                <img src={consultaAvatar} alt={consultaNome} className="mg-avatar" />
+              ) : (
+                <div className="mg-avatar-fallback">{consultaNome[0] ?? "?"}</div>
+              )}
+              <div className="mg-info">
+                <p className="mg-nome">{consultaNome}</p>
+                <p className="mg-esp">{consultaEsp}</p>
+                <div className="mg-meta">
+                  <span className="mg-pill" style={{ background: statusCfg.bg, borderColor: statusCfg.color + "55", color: statusCfg.color }}>
+                    {statusCfg.label}
+                  </span>
+                  <span className="mg-pill" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.1)", color: "#a1a1aa" }}>
+                    📅 {consultaData}
+                  </span>
+                  <span className="mg-pill" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.1)", color: "#a1a1aa" }}>
+                    🕐 {consultaHor}
+                  </span>
+                  <span className="mg-pill" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.1)", color: "#a1a1aa" }}>
+                    {consultaMod === "Online" ? "🌐" : "📍"} {consultaMod}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* ── MENU PRINCIPAL ── */}
+            {manageView === "menu" && !cancelDone && !payDone && (
+              <YStack gap="$4">
+                <Text color="$color11" fontSize={13} fontWeight="600">O que você deseja fazer?</Text>
+                <div className="mg-actions-grid">
+                  {/* Reagendar */}
+                  <div
+                    id="btn-manage-reagendar"
+                    className="mg-action-card reagendar"
+                    onClick={() => setManageView("reagendando")}
+                  >
+                    <div className="mg-action-icon" style={{ background: "rgba(96,165,250,0.12)" }}>📅</div>
+                    <p className="mg-action-title" style={{ color: "#60a5fa" }}>Reagendar</p>
+                    <p className="mg-action-sub">Escolha uma nova data e horário para sua consulta</p>
+                  </div>
+
+                  {/* Pagar */}
+                  {consultaStatus === "pendente" && (
+                    <div
+                      id="btn-manage-pagar"
+                      className="mg-action-card pagar"
+                      onClick={() => setManageView("pagar")}
+                    >
+                      <div className="mg-action-icon" style={{ background: "rgba(167,139,250,0.12)" }}>💳</div>
+                      <p className="mg-action-title" style={{ color: "#a78bfa" }}>Pagar</p>
+                      <p className="mg-action-sub">Realize o pagamento pendente desta consulta</p>
+                    </div>
+                  )}
+
+                  {/* Cancelar */}
+                  <div
+                    id="btn-manage-cancelar"
+                    className="mg-action-card cancelar"
+                    onClick={() => setManageView("cancelar")}
+                    style={{ gridColumn: consultaStatus !== "pendente" ? "span 2" : "auto" }}
+                  >
+                    <div className="mg-action-icon" style={{ background: "rgba(244,63,94,0.1)" }}>🗑️</div>
+                    <p className="mg-action-title" style={{ color: "#f43f5e" }}>Cancelar Consulta</p>
+                    <p className="mg-action-sub">Solicite o cancelamento desta consulta agendada</p>
+                  </div>
+                </div>
+              </YStack>
+            )}
+
+            {/* ── PAGAMENTO ── */}
+            {manageView === "pagar" && !payDone && (
+              <div className="mg-pay-confirm">
+                <Text color="#a78bfa" fontSize={12} fontWeight="800" display="block"
+                  style={{ letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}
+                >💳 Pagamento da Consulta</Text>
+
+                <Text color="$color11" fontSize={13} display="block" marginBottom="$4">
+                  Selecione a forma de pagamento para a consulta com <strong style={{ color: "#f4f4f5" }}>{consultaNome}</strong>.
+                </Text>
+
+                <div className="mg-pay-methods">
+                  {[
+                    { id: "pix",      icon: "⚡", label: "PIX" },
+                    { id: "cartao",   icon: "💳", label: "Cartão de Crédito" },
+                    { id: "boleto",   icon: "📄", label: "Boleto" },
+                    { id: "convenio", icon: "🏥", label: "Convênio" },
+                  ].map(m => (
+                    <div
+                      key={m.id}
+                      className={`mg-pay-method${payMethod === m.id ? " active" : ""}`}
+                      onClick={() => setPayMethod(m.id)}
+                    >
+                      <span style={{ fontSize: 22 }}>{m.icon}</span>
+                      <span className="mg-pay-label">{m.label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <XStack gap="$3" marginTop="$4">
+                  <button
+                    className="ag-btn-ghost"
+                    onClick={() => { setManageView("menu"); setPayMethod(null); }}
+                    style={{ flex: 1 }}
+                  >← Voltar</button>
+                  <button
+                    className="ag-btn-primary"
+                    disabled={!payMethod || payLoading}
+                    onClick={handlePagar}
+                    style={{ flex: 2 }}
+                  >
+                    {payLoading ? (
+                      <><svg className="ag-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2a10 10 0 0 1 10 10" /></svg> Processando…</>
+                    ) : (
+                      <>Confirmar Pagamento 💳</>
+                    )}
+                  </button>
+                </XStack>
+              </div>
+            )}
+
+            {/* ── PAGAMENTO CONFIRMADO ── */}
+            {payDone && (
+              <div className="mg-success">
+                <div className="mg-success-icon" style={{ background: "rgba(167,139,250,0.15)", border: "2px solid #a78bfa" }}>✅</div>
+                <Text color="$color12" fontSize={20} fontWeight="bold" display="block" marginBottom="$2">Pagamento Confirmado!</Text>
+                <Text color="$color11" fontSize={13} display="block" marginBottom="$5">
+                  O pagamento da consulta com <strong style={{ color: "#f4f4f5" }}>{consultaNome}</strong> foi processado com sucesso.
+                </Text>
+                <button className="ag-btn-primary" style={{ margin: "0 auto" }} onClick={() => router.push("/painel/consultas")}>
+                  Ver Minhas Consultas →
+                </button>
+              </div>
+            )}
+
+            {/* ── CONFIRMAR CANCELAMENTO ── */}
+            {manageView === "cancelar" && !cancelDone && (
+              <div className="mg-cancel-confirm">
+                <Text color="#f43f5e" fontSize={12} fontWeight="800" display="block"
+                  style={{ letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}
+                >⚠️ Confirmar Cancelamento</Text>
+
+                <Text color="$color11" fontSize={14} display="block" marginBottom="$2">
+                  Tem certeza que deseja cancelar a consulta com <strong style={{ color: "#f4f4f5" }}>{consultaNome}</strong>?
+                </Text>
+                <Text color="#71717a" fontSize={13} display="block" marginBottom="$5">
+                  📅 {consultaData} às {consultaHor} · {consultaMod}
+                </Text>
+                <Text color="#71717a" fontSize={12} display="block" marginBottom="$5"
+                  style={{ background: "rgba(244,63,94,0.06)", borderRadius: 8, padding: "10px 12px", border: "1px solid rgba(244,63,94,0.15)" }}
+                >
+                  Esta ação não pode ser desfeita. Verifique a política de cancelamento do profissional.
+                </Text>
+
+                <XStack gap="$3">
+                  <button className="ag-btn-ghost" onClick={() => setManageView("menu")} style={{ flex: 1 }}>← Voltar</button>
+                  <button
+                    id="btn-confirmar-cancelamento"
+                    onClick={handleCancelar}
+                    style={{
+                      flex: 2, padding: "14px 0", borderRadius: 12, fontSize: 14, fontWeight: 700,
+                      background: "#f43f5e", border: "none", color: "#fff", cursor: "pointer",
+                      fontFamily: "inherit", transition: "all 0.15s",
+                    }}
+                  >Cancelar Consulta</button>
+                </XStack>
+              </div>
+            )}
+
+            {/* ── CANCELAMENTO CONFIRMADO ── */}
+            {cancelDone && (
+              <div className="mg-success">
+                <div className="mg-success-icon" style={{ background: "rgba(244,63,94,0.1)", border: "2px solid #f43f5e" }}>🗑️</div>
+                <Text color="$color12" fontSize={20} fontWeight="bold" display="block" marginBottom="$2">Consulta Cancelada</Text>
+                <Text color="$color11" fontSize={13} display="block" marginBottom="$5">
+                  Sua solicitação de cancelamento da consulta com <strong style={{ color: "#f4f4f5" }}>{consultaNome}</strong> foi enviada.
+                </Text>
+                <button className="ag-btn-primary" style={{ margin: "0 auto" }} onClick={() => router.push("/painel/consultas")}>
+                  Voltar às Consultas →
+                </button>
+              </div>
+            )}
+
+          </YStack>
+        </ScrollView>
+      </>
+    );
+  }
+
+  // ── Modo Agendar Normal (também ativado quando manageView === "reagendando") ──
 
   const profFiltrados = profissionais.filter(p => {
     const matchEsp  = espSel ? p.especialidade.includes(espSel) : true;
@@ -555,7 +961,7 @@ export default function AgendarConsultaPage() {
         status: "consulta_solicitada",
       };
       console.log("[FitMax] Agendamento solicitado:", payload);
-      setConsultaStatus("consulta_solicitada");
+      setAgendamentoStatus("consulta_solicitada");
       setStep(6);
     } catch {
       setSubmitError("Erro ao solicitar agendamento. Tente novamente.");
@@ -1120,5 +1526,15 @@ export default function AgendarConsultaPage() {
         </YStack>
       </ScrollView>
     </>
+  );
+}
+
+// ─── Página exportada com Suspense ───────────────────────────────────────────
+
+export default function AgendarConsultaPage() {
+  return (
+    <Suspense fallback={null}>
+      <AgendarConsultaInner />
+    </Suspense>
   );
 }
