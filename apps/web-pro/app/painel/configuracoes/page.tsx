@@ -34,6 +34,12 @@ const ESTADOS_BR = [
   "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
 
+const CONVENIOS = [
+  "Unimed", "Bradesco Saúde", "SulAmérica", "Amil", "Notre Dame Intermédica",
+  "Porto Seguro Saúde", "Hapvida", "Prevent Senior", "Golden Cross", "Cassi",
+  "Mediservice", "Fusex", "Geap", "Petrobras Saúde", "Particular (Sem convênio)",
+];
+
 /* ── helpers ── */
 function SectionTitle({ children }: { children: string }) {
   return (
@@ -116,8 +122,24 @@ function AbaDados() {
   const [profissao, setProfissao] = useState("medico");
   const [registro, setRegistro] = useState("54321");
   const [uf, setUf] = useState("SP");
+  const [convenios, setConvenios] = useState<string[]>(["Unimed", "Particular (Sem convênio)"]);
+  const [convenioCustom, setConvenioCustom] = useState("");
   const [saved, setSaved] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+
+  function toggleConvenio(nome: string) {
+    setConvenios((prev) =>
+      prev.includes(nome) ? prev.filter((c) => c !== nome) : [...prev, nome]
+    );
+  }
+
+  function addConvenioCustom() {
+    const trimmed = convenioCustom.trim();
+    if (trimmed && !convenios.includes(trimmed)) {
+      setConvenios((prev) => [...prev, trimmed]);
+    }
+    setConvenioCustom("");
+  }
 
   const selectedProf = PROFISSOES.find(p => p.id === profissao);
 
@@ -301,6 +323,117 @@ function AbaDados() {
             );
           })}
         </XStack>
+      </Card>
+
+      {/* Convênios */}
+      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
+        borderRadius="$5" padding="$4" gap="$3"
+        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
+       >
+        <YStack gap="$1">
+          <SectionTitle>Convênios Aceitos</SectionTitle>
+          <Text color="$color10" fontSize={12}>
+            Selecione os planos de saúde que você aceita. Aparecerá no seu perfil para os pacientes.
+          </Text>
+        </YStack>
+
+        {/* chips dos convênios */}
+        <XStack flexWrap="wrap" gap="$2">
+          {CONVENIOS.map((c) => {
+            const isActive = convenios.includes(c);
+            return (
+              <Button key={c} size="$3" borderRadius="$10" borderWidth={1}
+                animation="quick"
+                borderColor={isActive ? "#10b981" : "$borderColor"}
+                backgroundColor={isActive ? "rgba(16,185,129,0.12)" : "transparent"}
+                onPress={() => toggleConvenio(c)}
+                hoverStyle={{ borderColor: "$green8", backgroundColor: "$color3" }}
+                id={`conv-${c.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
+                <XStack gap="$1" alignItems="center">
+                  {isActive && (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                      stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                  <Text color={isActive ? "#10b981" : "$color11"} fontSize={13}
+                    fontWeight={isActive ? "bold" : "400"}>{c}</Text>
+                </XStack>
+              </Button>
+            );
+          })}
+        </XStack>
+
+        {/* convênios customizados selecionados */}
+        {convenios.filter((c) => !CONVENIOS.includes(c)).length > 0 && (
+          <XStack flexWrap="wrap" gap="$2">
+            {convenios.filter((c) => !CONVENIOS.includes(c)).map((c) => (
+              <XStack key={c} alignItems="center" gap="$1"
+                paddingHorizontal="$3" paddingVertical="$1.5"
+                borderRadius="$10" borderWidth={1}
+                borderColor="#10b981"
+                backgroundColor="rgba(16,185,129,0.12)">
+                <Text color="#10b981" fontSize={13} fontWeight="bold">{c}</Text>
+                <Button size="$1" circular backgroundColor="transparent"
+                  hoverStyle={{ backgroundColor: "transparent", opacity: 0.7 }}
+                  onPress={() => toggleConvenio(c)}
+                  id={`remove-conv-${c.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                    stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </Button>
+              </XStack>
+            ))}
+          </XStack>
+        )}
+
+        {/* adicionar convênio customizado */}
+        <XStack gap="$2" alignItems="center" marginTop="$1">
+          <Input
+            id="input-convenio-custom"
+            value={convenioCustom}
+            onChangeText={setConvenioCustom}
+            placeholder="Adicionar outro convênio..."
+            backgroundColor="$color2"
+            borderColor="$borderColor"
+            borderRadius="$3"
+            height={38}
+            paddingHorizontal="$3"
+            color="$color12"
+            fontSize={13}
+            flex={1}
+            hoverStyle={{ borderColor: "$green8" }}
+            focusStyle={{ borderColor: "$green10", outlineWidth: 0 }}
+            onSubmitEditing={addConvenioCustom}
+          />
+          <Button size="$3" borderRadius="$3"
+            backgroundColor="rgba(16,185,129,0.12)"
+            borderWidth={1} borderColor="#10b981"
+            hoverStyle={{ backgroundColor: "rgba(16,185,129,0.22)" }}
+            onPress={addConvenioCustom}
+            id="btn-add-convenio">
+            <Text color="#10b981" fontSize={13} fontWeight="bold">+ Adicionar</Text>
+          </Button>
+        </XStack>
+
+        {/* resumo selecionados */}
+        {convenios.length > 0 && (
+          <XStack alignItems="center" gap="$2" marginTop="$1"
+            paddingHorizontal="$3" paddingVertical="$2"
+            borderRadius="$3" backgroundColor="rgba(16,185,129,0.06)"
+            borderWidth={1} borderColor="rgba(16,185,129,0.15)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 11l3 3L22 4" />
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+            </svg>
+            <Text color="#10b981" fontSize={12} fontWeight="500">
+              {convenios.length} convênio{convenios.length !== 1 ? "s" : ""} selecionado{convenios.length !== 1 ? "s" : ""}
+            </Text>
+          </XStack>
+        )}
       </Card>
 
       {/* Ações */}

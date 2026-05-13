@@ -7,12 +7,35 @@ import {
   ScrollView, Button, Avatar, Separator, Input, ZStack, Circle,
 } from "tamagui";
 
-type Aba = "dados" | "notificacoes" | "seguranca";
+type Aba = "dados" | "notificacoes" | "seguranca" | "convenios";
 
 const ABAS: { id: Aba; label: string; icon: string }[] = [
   { id: "dados",        label: "Dados do Admin", icon: "👤" },
   { id: "notificacoes", label: "Notificações",   icon: "🔔" },
   { id: "seguranca",    label: "Segurança",      icon: "🔒" },
+  { id: "convenios",    label: "Convênios",      icon: "🏥" },
+];
+
+const CATEGORIAS_CONVENIO = ["Nacional", "Regional", "Empresarial", "Odontológico", "Outro"];
+
+type Convenio = { id: number; nome: string; categoria: string; ativo: boolean };
+
+const CONVENIOS_INICIAIS: Convenio[] = [
+  { id: 1,  nome: "Unimed",                    categoria: "Nacional",     ativo: true  },
+  { id: 2,  nome: "Bradesco Saúde",            categoria: "Nacional",     ativo: true  },
+  { id: 3,  nome: "SulAmérica",                categoria: "Nacional",     ativo: true  },
+  { id: 4,  nome: "Amil",                      categoria: "Nacional",     ativo: true  },
+  { id: 5,  nome: "Notre Dame Intermédica",     categoria: "Nacional",     ativo: true  },
+  { id: 6,  nome: "Porto Seguro Saúde",        categoria: "Nacional",     ativo: true  },
+  { id: 7,  nome: "Hapvida",                   categoria: "Regional",     ativo: true  },
+  { id: 8,  nome: "Prevent Senior",            categoria: "Regional",     ativo: true  },
+  { id: 9,  nome: "Golden Cross",              categoria: "Regional",     ativo: false },
+  { id: 10, nome: "Cassi",                     categoria: "Empresarial",  ativo: true  },
+  { id: 11, nome: "Mediservice",               categoria: "Empresarial",  ativo: true  },
+  { id: 12, nome: "Fusex",                     categoria: "Empresarial",  ativo: true  },
+  { id: 13, nome: "Geap",                      categoria: "Empresarial",  ativo: false },
+  { id: 14, nome: "Petrobras Saúde",           categoria: "Empresarial",  ativo: true  },
+  { id: 15, nome: "Particular (Sem convênio)", categoria: "Outro",        ativo: true  },
 ];
 
 /* ── helpers ── */
@@ -326,6 +349,303 @@ function AbaSeguranca() {
   );
 }
 
+/* ── Aba: Convênios ── */
+function AbaConvenios() {
+  const [lista, setLista] = useState<Convenio[]>(CONVENIOS_INICIAIS);
+  const [novoNome, setNovoNome] = useState("");
+  const [novaCategoria, setNovaCategoria] = useState(CATEGORIAS_CONVENIO[0]);
+  const [busca, setBusca] = useState("");
+  const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [editNome, setEditNome] = useState("");
+  const [editCategoria, setEditCategoria] = useState("");
+  const [filtroCategoria, setFiltroCategoria] = useState("Todos");
+  const [saved, setSaved] = useState(false);
+  let nextId = lista.length ? Math.max(...lista.map((c) => c.id)) + 1 : 1;
+
+  function adicionar() {
+    const trimmed = novoNome.trim();
+    if (!trimmed) return;
+    if (lista.some((c) => c.nome.toLowerCase() === trimmed.toLowerCase())) return;
+    setLista((prev) => [...prev, { id: nextId++, nome: trimmed, categoria: novaCategoria, ativo: true }]);
+    setNovoNome("");
+    flash();
+  }
+
+  function remover(id: number) { setLista((prev) => prev.filter((c) => c.id !== id)); }
+
+  function toggleAtivo(id: number) {
+    setLista((prev) => prev.map((c) => c.id === id ? { ...c, ativo: !c.ativo } : c));
+  }
+
+  function iniciarEdicao(c: Convenio) {
+    setEditandoId(c.id);
+    setEditNome(c.nome);
+    setEditCategoria(c.categoria);
+  }
+
+  function salvarEdicao(id: number) {
+    const trimmed = editNome.trim();
+    if (!trimmed) return;
+    setLista((prev) => prev.map((c) => c.id === id ? { ...c, nome: trimmed, categoria: editCategoria } : c));
+    setEditandoId(null);
+    flash();
+  }
+
+  function flash() { setSaved(true); setTimeout(() => setSaved(false), 2500); }
+
+  const categorias = ["Todos", ...CATEGORIAS_CONVENIO];
+
+  const listaFiltrada = lista.filter((c) => {
+    const matchBusca = c.nome.toLowerCase().includes(busca.toLowerCase());
+    const matchCat = filtroCategoria === "Todos" || c.categoria === filtroCategoria;
+    return matchBusca && matchCat;
+  });
+
+  const ativos   = lista.filter((c) => c.ativo).length;
+  const inativos = lista.filter((c) => !c.ativo).length;
+
+  const selectStyle = {
+    width: "100%", height: "42px", backgroundColor: "transparent",
+    color: "white", border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: "8px", padding: "0 12px", fontSize: "14px",
+    outline: "none", appearance: "none" as const, cursor: "pointer",
+  };
+
+  const selectSmStyle = { ...selectStyle, height: "38px", fontSize: "13px" };
+
+  return (
+    <YStack gap="$4">
+
+      {/* Estatísticas */}
+      <XStack gap="$3" flexWrap="wrap">
+        {[
+          { label: "Total",    value: lista.length, color: "#a1a1aa",  bg: "rgba(255,255,255,0.04)" },
+          { label: "Ativos",   value: ativos,       color: "#10b981",  bg: "rgba(16,185,129,0.08)"  },
+          { label: "Inativos", value: inativos,     color: "#f97316",  bg: "rgba(249,115,22,0.08)"  },
+        ].map((s) => (
+          <Card key={s.label} flex={1} minWidth={100} borderWidth={1} borderRadius="$4"
+            padding="$3" gap="$1" backgroundColor={s.bg}
+            borderColor={`${s.color}30`}>
+            <Text style={{ color: s.color }} fontSize={26} fontWeight="bold">{s.value}</Text>
+            <Text color="$color11" fontSize={12}>{s.label}</Text>
+          </Card>
+        ))}
+      </XStack>
+
+      {/* Adicionar novo */}
+      <Card borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
+        borderRadius="$5" padding="$4" gap="$3">
+        <SectionTitle>Adicionar Convênio</SectionTitle>
+        <XStack gap="$2" flexWrap="wrap" alignItems="flex-end">
+          <YStack flex={2} minWidth={180} gap="$1">
+            <Text color="$color10" fontSize={12}>Nome do convênio</Text>
+            <Input
+              id="input-novo-convenio"
+              value={novoNome}
+              onChangeText={setNovoNome}
+              placeholder="Ex: Unimed Nacional"
+              backgroundColor="$color2" borderColor="$borderColor"
+              borderRadius="$3" height={42} paddingHorizontal="$3"
+              color="$color12" fontSize={14}
+              hoverStyle={{ borderColor: "$green8" }}
+              focusStyle={{ borderColor: "$green10", outlineWidth: 0 }}
+              onSubmitEditing={adicionar}
+            />
+          </YStack>
+          <YStack flex={1} minWidth={140} gap="$1">
+            <Text color="$color10" fontSize={12}>Categoria</Text>
+            <div style={{ position: "relative", width: "100%", height: "42px" }}>
+              <select value={novaCategoria} onChange={(e) => setNovaCategoria(e.target.value)} style={selectStyle}>
+                {CATEGORIAS_CONVENIO.map((cat) => (
+                  <option key={cat} value={cat} style={{ color: "black" }}>{cat}</option>
+                ))}
+              </select>
+              <div style={{ position: "absolute", right: "12px", top: "14px", pointerEvents: "none" }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+              </div>
+            </div>
+          </YStack>
+          <Button size="$3" borderRadius="$3" height={42}
+            backgroundColor="$green9" hoverStyle={{ backgroundColor: "$green10" }}
+            onPress={adicionar} id="btn-add-convenio">
+            <XStack gap="$1" alignItems="center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+              <Text color="white" fontSize={13} fontWeight="bold">Adicionar</Text>
+            </XStack>
+          </Button>
+        </XStack>
+      </Card>
+
+      {/* Busca + Filtro */}
+      <XStack gap="$2" flexWrap="wrap" alignItems="center">
+        <YStack flex={2} minWidth={180} gap="$1">
+          <Input
+            id="input-busca-convenio"
+            value={busca}
+            onChangeText={setBusca}
+            placeholder="🔍  Buscar convênio..."
+            backgroundColor="$color2" borderColor="$borderColor"
+            borderRadius="$3" height={38} paddingHorizontal="$3"
+            color="$color12" fontSize={13}
+            hoverStyle={{ borderColor: "$green8" }}
+            focusStyle={{ borderColor: "$green10", outlineWidth: 0 }}
+          />
+        </YStack>
+        <YStack flex={1} minWidth={130}>
+          <div style={{ position: "relative", width: "100%", height: "38px" }}>
+            <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} style={selectSmStyle}>
+              {categorias.map((cat) => (
+                <option key={cat} value={cat} style={{ color: "black" }}>{cat}</option>
+              ))}
+            </select>
+            <div style={{ position: "absolute", right: "12px", top: "12px", pointerEvents: "none" }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+            </div>
+          </div>
+        </YStack>
+      </XStack>
+
+      {/* Lista */}
+      <Card borderWidth={1} backgroundColor="$color2" borderColor="$borderColor" borderRadius="$5" overflow="hidden">
+        {listaFiltrada.length === 0 ? (
+          <YStack padding="$6" alignItems="center" gap="$2">
+            <Text fontSize={32}>🏥</Text>
+            <Text color="$color11" fontSize={14}>Nenhum convênio encontrado.</Text>
+          </YStack>
+        ) : (
+          listaFiltrada.map((c, idx) => {
+            const isEditing = editandoId === c.id;
+            const isLast = idx === listaFiltrada.length - 1;
+            return (
+              <XStack key={c.id} alignItems="center" gap="$3" paddingHorizontal="$4" paddingVertical="$3"
+                borderBottomWidth={isLast ? 0 : 1} borderColor="$borderColor"
+                backgroundColor={isEditing ? "rgba(16,185,129,0.04)" : "transparent"}
+                hoverStyle={{ backgroundColor: "$color3" }}
+                animation="quick">
+
+                {/* Toggle ativo */}
+                <XStack
+                  id={`toggle-conv-${c.id}`}
+                  role="switch" aria-checked={c.ativo}
+                  onPress={() => toggleAtivo(c.id)}
+                  width={36} height={20} borderRadius="$10"
+                  cursor="pointer" position="relative"
+                  backgroundColor={c.ativo ? "$green9" : "$color5"}
+                  flexShrink={0}>
+                  <Circle size={16} backgroundColor="white"
+                    position="absolute" top={2} left={c.ativo ? 18 : 2} />
+                </XStack>
+
+                {/* Nome / edição */}
+                {isEditing ? (
+                  <XStack flex={1} gap="$2" alignItems="center" flexWrap="wrap">
+                    <Input
+                      id={`edit-nome-${c.id}`}
+                      value={editNome} onChangeText={setEditNome}
+                      backgroundColor="$color1" borderColor="$green8"
+                      borderRadius="$3" height={36} paddingHorizontal="$3"
+                      color="$color12" fontSize={14} flex={2} minWidth={140}
+                      focusStyle={{ borderColor: "$green10", outlineWidth: 0 }}
+                      onSubmitEditing={() => salvarEdicao(c.id)}
+                    />
+                    <div style={{ position: "relative", minWidth: "130px", height: "36px", flex: 1 }}>
+                      <select value={editCategoria} onChange={(e) => setEditCategoria(e.target.value)}
+                        style={{ ...selectSmStyle, height: "36px" }}>
+                        {CATEGORIAS_CONVENIO.map((cat) => (
+                          <option key={cat} value={cat} style={{ color: "black" }}>{cat}</option>
+                        ))}
+                      </select>
+                      <div style={{ position: "absolute", right: "10px", top: "11px", pointerEvents: "none" }}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                      </div>
+                    </div>
+                  </XStack>
+                ) : (
+                  <XStack flex={1} alignItems="center" gap="$2" flexWrap="wrap">
+                    <Text color={c.ativo ? "$color12" : "$color9"} fontSize={14}
+                      fontWeight="500" flex={1}>{c.nome}</Text>
+                    <XStack paddingHorizontal="$2" paddingVertical={3} borderRadius="$10"
+                      backgroundColor="rgba(255,255,255,0.06)">
+                      <Text color="$color10" fontSize={11}>{c.categoria}</Text>
+                    </XStack>
+                    {!c.ativo && (
+                      <XStack paddingHorizontal="$2" paddingVertical={3} borderRadius="$10"
+                        backgroundColor="rgba(249,115,22,0.1)">
+                        <Text color="#f97316" fontSize={11} fontWeight="bold">Inativo</Text>
+                      </XStack>
+                    )}
+                  </XStack>
+                )}
+
+                {/* Ações */}
+                <XStack gap="$1" flexShrink={0}>
+                  {isEditing ? (
+                    <>
+                      <Button size="$2" borderRadius="$3"
+                        backgroundColor="$green9" hoverStyle={{ backgroundColor: "$green10" }}
+                        onPress={() => salvarEdicao(c.id)}
+                        id={`btn-salvar-${c.id}`}>
+                        <Text color="white" fontSize={12} fontWeight="bold">✓ Salvar</Text>
+                      </Button>
+                      <Button size="$2" borderRadius="$3"
+                        backgroundColor="$color3" hoverStyle={{ backgroundColor: "$color4" }}
+                        onPress={() => setEditandoId(null)}
+                        id={`btn-cancelar-${c.id}`}>
+                        <Text color="$color11" fontSize={12}>Cancelar</Text>
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button size="$2" borderRadius="$3" borderWidth={1}
+                        borderColor="$borderColor" backgroundColor="transparent"
+                        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
+                        onPress={() => iniciarEdicao(c)}
+                        id={`btn-editar-${c.id}`}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg>
+                      </Button>
+                      <Button size="$2" borderRadius="$3" borderWidth={1}
+                        borderColor="rgba(244,63,94,0.3)" backgroundColor="rgba(244,63,94,0.06)"
+                        hoverStyle={{ backgroundColor: "rgba(244,63,94,0.15)" }}
+                        onPress={() => remover(c.id)}
+                        id={`btn-remover-${c.id}`}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                          stroke="#f43f5e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6l-1 14H6L5 6" />
+                          <path d="M10 11v6M14 11v6" />
+                          <path d="M9 6V4h6v2" />
+                        </svg>
+                      </Button>
+                    </>
+                  )}
+                </XStack>
+              </XStack>
+            );
+          })
+        )}
+      </Card>
+
+      {/* Rodapé */}
+      <XStack justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="$2">
+        <Text color="$color10" fontSize={12}>
+          {listaFiltrada.length} de {lista.length} convênio{lista.length !== 1 ? "s" : ""}
+        </Text>
+        <Button size="$3" borderRadius="$4" backgroundColor={saved ? "#059669" : "$green9"}
+          hoverStyle={{ backgroundColor: "$green10" }}
+          onPress={flash} id="btn-salvar-convenios">
+          <Text color="white" fontSize={13} fontWeight="bold">
+            {saved ? "✓ Salvo!" : "Publicar alterações"}
+          </Text>
+        </Button>
+      </XStack>
+    </YStack>
+  );
+}
+
 /* ── Page ── */
 export default function ConfigPage() {
   const [aba, setAba] = useState<Aba>("dados");
@@ -371,6 +691,7 @@ export default function ConfigPage() {
         {aba === "dados"        && <AbaDados />}
         {aba === "notificacoes" && <AbaNotificacoes />}
         {aba === "seguranca"    && <AbaSeguranca />}
+        {aba === "convenios"    && <AbaConvenios />}
 
       </YStack>
     </ScrollView>

@@ -221,18 +221,14 @@ const CONS_CARD_STYLES = `
     transform: translateX(3px);
   }
 
-  @media (max-width: 642px) {
-    .cons-row { flex-wrap: wrap !important; gap: 12px !important; }
-    .cons-row-info { min-width: 160px !important; flex: 1 1 auto !important; }
-    .cons-row-actions { width: 100% !important; justify-content: flex-end !important; padding-top: 8px !important; border-top: 1px dashed rgba(255,255,255,0.1) !important; }
+  @media (max-width: 600px) {
+    .cons-row { flex-wrap: wrap !important; gap: 10px !important; }
+    .cons-row-info { min-width: 0 !important; flex: 1 1 auto !important; }
+    .cons-row-actions { width: 100% !important; justify-content: flex-end !important; padding-top: 8px !important; border-top: 1px dashed rgba(255,255,255,0.08) !important; }
     .cons-row-separator { display: none !important; }
-    .cons-filter-mobile { display: block !important; }
-    .cons-filter-desktop { display: none !important; }
-    .cons-resumo-inner { flex-direction: column !important; flex-wrap: nowrap !important; gap: 16px !important; }
-    .cons-resumo-inner > * { flex: none !important; }
+    .cons-resumo-inner { flex-direction: row !important; gap: 12px !important; }
+    .cons-resumo-inner > * { flex: 1 1 0 !important; min-width: 0 !important; }
     .cons-resumo-sep { display: none !important; }
-    .cons-stat-grid { flex-direction: column !important; }
-    .cons-stat-grid > * { min-width: unset !important; width: 100% !important; flex: none !important; }
   }
 `;
 
@@ -261,38 +257,39 @@ function ConsultaRow({ c }: { c: Consulta }) {
       <Card borderWidth={1} animation="quick"
         backgroundColor={isAndamento ? "rgba(96,165,250,0.05)" : "$color2"}
         borderColor={isAndamento ? "rgba(96,165,250,0.25)" : "$borderColor"}
-        borderRadius="$4" paddingHorizontal="$4" paddingVertical="$3"
+        borderRadius="$4"
+        paddingHorizontal="$3" $gtSm={{ paddingHorizontal: "$4" }}
+        paddingVertical="$3"
         hoverStyle={{ backgroundColor: "$color3", borderColor: isAndamento ? "#60a5fa" : "$green8" }}>
-        <XStack className="cons-row" alignItems="center" gap="$3" flexWrap="wrap">
-          <YStack alignItems="center" width={52} flexShrink={0}>
-            <Text color={isAndamento ? "#60a5fa" : "$color11"} fontSize={13} fontWeight="bold">{c.horario}</Text>
+        <XStack className="cons-row" alignItems="center" gap="$2" $gtSm={{ gap: "$3" }} flexWrap="nowrap">
+          <YStack alignItems="center" width={44} $gtSm={{ width: 52 }} flexShrink={0}>
+            <Text color={isAndamento ? "#60a5fa" : "$color11"} fontSize={12} $gtSm={{ fontSize: 13 }} fontWeight="bold">{c.horario}</Text>
             {isAndamento && <Circle size={6} backgroundColor="#60a5fa" marginTop={4} style={{ boxShadow: "0 0 6px #60a5fa" }} />}
           </YStack>
           <Separator className="cons-row-separator" vertical height={36} borderColor="$borderColor" />
-          <Avatar circular size="$4" backgroundColor="$color4" flexShrink={0}>
+          <Avatar circular size="$3" $gtSm={{ size: "$4" }} backgroundColor="$color4" flexShrink={0}>
             <Avatar.Image src={c.avatar} />
             <Avatar.Fallback alignItems="center" justifyContent="center">
-              <Text color="$color12" fontSize={14} fontWeight="bold">{c.nome[0]}</Text>
+              <Text color="$color12" fontSize={13} fontWeight="bold">{c.nome[0]}</Text>
             </Avatar.Fallback>
           </Avatar>
-          <YStack className="cons-row-info" flex={1} gap="$1" minWidth={140}>
-            <Text color="$color12" fontSize={14} fontWeight="bold" numberOfLines={1}>{c.nome}</Text>
-            <XStack alignItems="center" gap="$2">
-              <Text color="$color11" fontSize={12}>{c.especialidade}</Text>
+          <YStack className="cons-row-info" flex={1} gap="$1" minWidth={0}>
+            <Text color="$color12" fontSize={13} $gtSm={{ fontSize: 14 }} fontWeight="bold" numberOfLines={1}>{c.nome}</Text>
+            <XStack alignItems="center" gap="$1" $gtSm={{ gap: "$2" }} flexWrap="wrap">
+              <Text color="$color11" fontSize={11} $gtSm={{ fontSize: 12 }} numberOfLines={1}>{c.especialidade}</Text>
               <Circle size={3} backgroundColor="$color9" />
-              <Text color="$color11" fontSize={12}>{c.modalidade}</Text>
+              <Text color="$color11" fontSize={11} $gtSm={{ fontSize: 12 }}>{c.modalidade}</Text>
             </XStack>
             <XStack alignItems="center" gap="$1" marginTop={2}>
               <span style={{ color: "#71717a" }}><ClockIcon /></span>
-              <Text color="$color10" fontSize={11}>{c.data}</Text>
+              <Text color="$color10" fontSize={10} $gtSm={{ fontSize: 11 }}>{c.data}</Text>
             </XStack>
           </YStack>
-
           <XStack className="cons-row-actions" alignItems="center" gap="$2" flexShrink={0}>
-            <XStack paddingHorizontal="$3" paddingVertical="$1" borderRadius="$10" borderWidth={1}
+            <XStack paddingHorizontal="$2" $gtSm={{ paddingHorizontal: "$3" }} paddingVertical="$1" borderRadius="$10" borderWidth={1}
               alignItems="center" justifyContent="center" className="cons-badge"
               style={{ background: cfg.bg, borderColor: cfg.color + "44" }}>
-              <Text fontSize={10} fontWeight="bold" style={{ color: cfg.color }}>{cfg.label}</Text>
+              <Text fontSize={9} $gtSm={{ fontSize: 10 }} fontWeight="bold" style={{ color: cfg.color }}>{cfg.label}</Text>
             </XStack>
             <span className="cons-arrow-icon">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -376,9 +373,11 @@ export default function ConsultasPage() {
       <style>{CONS_CARD_STYLES}</style>
       <ScrollView flex={1} backgroundColor="$background" showsVerticalScrollIndicator={false}>
       <YStack
-        padding="$4"
-        $gtSm={{ padding: "$6" }}
-        gap="$5"
+        padding="$3"
+        $gtSm={{ padding: "$5" }}
+        $gtMd={{ padding: "$6" }}
+        gap="$4"
+        $gtSm={{ gap: "$5" }}
         maxWidth={1100}
         marginHorizontal="auto"
         width="100%"
@@ -417,169 +416,122 @@ export default function ConsultasPage() {
 
         {/* ── Cabeçalho ── */}
         <XStack justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap="$3">
-          <YStack gap="$1">
-            <H2 color="$color12" size="$6" fontWeight="bold">Consultas</H2>
-            <Text color="$color11" fontSize={14}>
+          <YStack gap="$1" flex={1} minWidth={0}>
+            <H2 color="$color12" size="$5" $gtSm={{ size: "$6" }} fontWeight="bold">Consultas</H2>
+            <Text color="$color11" fontSize={12} $gtSm={{ fontSize: 14 }}>
               Gerencie seus agendamentos e acompanhe o status de cada consulta
             </Text>
           </YStack>
 
-          <XStack gap="$2" flexWrap="wrap" alignItems="center">
-
-            {/* ── Filtro período ── */}
-            <div ref={dateRef} style={{ position: "relative" }}>
-              <Button
-                size="$3"
-                borderRadius="$4"
-                borderWidth={1}
-                borderColor={showDatePicker ? "$green8" : "$borderColor"}
-                backgroundColor="$color2"
-                hoverStyle={{ backgroundColor: "$color3" }}
-                paddingHorizontal="$3"
-                gap="$2"
-                id="btn-filtro-periodo"
-                onPress={() => setShowDatePicker(v => !v)}
-              >
-                <span style={{ color: "#a1a1aa" }}><CalendarIcon /></span>
-                <Text color="$color11" fontSize={12}>
-                  {fmtDate(dateFrom)} — {fmtDate(dateTo)}
-                </Text>
-                <span style={{ color: "#a1a1aa" }}><ChevronDown /></span>
-              </Button>
-
-              {showDatePicker && (
-                <div style={dropdownStyle}>
-                  <div style={{ marginBottom: 12 }}>
-                    <label style={labelStyle}>Data inicial</label>
-                    <input
-                      type="date"
-                      value={dateFrom}
-                      onChange={e => setDateFrom(e.target.value)}
-                      style={inputStyle}
-                    />
-                  </div>
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={labelStyle}>Data final</label>
-                    <input
-                      type="date"
-                      value={dateTo}
-                      onChange={e => setDateTo(e.target.value)}
-                      style={inputStyle}
-                    />
-                  </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      onClick={() => { setDateFrom("2026-04-22"); setDateTo("2026-05-22"); }}
-                      style={{
-                        flex: 1, padding: "6px 0", borderRadius: 8, fontSize: 12, fontWeight: 600,
-                        background: "transparent", border: "1px solid var(--borderColor, #333)",
-                        color: "var(--color11, #a1a1aa)", cursor: "pointer",
-                      }}
-                    >
-                      Resetar
-                    </button>
-                    <button
-                      onClick={() => setShowDatePicker(false)}
-                      style={{
-                        flex: 1, padding: "6px 0", borderRadius: 8, fontSize: 12, fontWeight: 600,
-                        background: "#10b981", border: "none",
-                        color: "#fff", cursor: "pointer",
-                      }}
-                    >
-                      Aplicar
-                    </button>
-                  </div>
+          <div ref={dateRef} style={{ position: "relative" }}>
+            <Button
+              size="$3"
+              borderRadius="$4"
+              borderWidth={1}
+              borderColor={showDatePicker ? "$green8" : "$borderColor"}
+              backgroundColor="$color2"
+              hoverStyle={{ backgroundColor: "$color3" }}
+              paddingHorizontal="$3"
+              gap="$2"
+              id="btn-filtro-periodo"
+              onPress={() => setShowDatePicker(v => !v)}
+            >
+              <span style={{ color: "#a1a1aa" }}><CalendarIcon /></span>
+              <Text color="$color11" fontSize={12}>{fmtDate(dateFrom)} — {fmtDate(dateTo)}</Text>
+              <span style={{ color: "#a1a1aa" }}><ChevronDown /></span>
+            </Button>
+            {showDatePicker && (
+              <div style={dropdownStyle}>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={labelStyle}>Data inicial</label>
+                  <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={inputStyle} />
                 </div>
-              )}
-            </div>
-
-          </XStack>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={labelStyle}>Data final</label>
+                  <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={inputStyle} />
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => { setDateFrom("2026-04-22"); setDateTo("2026-05-22"); }}
+                    style={{ flex: 1, padding: "6px 0", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "transparent", border: "1px solid var(--borderColor,#333)", color: "var(--color11,#a1a1aa)", cursor: "pointer" }}>
+                    Resetar
+                  </button>
+                  <button onClick={() => setShowDatePicker(false)}
+                    style={{ flex: 1, padding: "6px 0", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "#10b981", border: "none", color: "#fff", cursor: "pointer" }}>
+                    Aplicar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </XStack>
 
         {/* ── Cards de Resumo ── */}
-        <XStack className="cons-stat-grid" gap="$4" flexWrap="wrap">
+        <XStack gap="$3" $gtSm={{ gap: "$4" }} flexWrap="wrap">
 
           {/* Resumo do Período */}
-          <Card borderWidth={1} flex={1} minWidth={240}
-            backgroundColor="$color2"
-            borderColor="$borderColor"
-            borderRadius="$5"
-            padding="$4"
+          <Card borderWidth={1} flex={1} minWidth={0}
+            $gtSm={{ minWidth: 260 }}
+            backgroundColor="$color2" borderColor="$borderColor"
+            borderRadius="$4" $gtSm={{ borderRadius: "$5" }}
+            padding="$3" $gtSm={{ padding: "$4" }}
             hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
             cursor="pointer"
           >
-            <Text color="$color11" fontSize={11} fontWeight="bold" letterSpacing={1} textTransform="uppercase" marginBottom="$3">
+            <Text color="$color11" fontSize={10} $gtSm={{ fontSize: 11 }} fontWeight="bold" letterSpacing={1} textTransform="uppercase" marginBottom="$3">
               Resumo do Período
             </Text>
-            <XStack gap="$4" className="cons-resumo-inner">
+            <XStack gap="$3" $gtSm={{ gap: "$4" }} className="cons-resumo-inner">
               <YStack flex={1} gap="$2">
-                <Circle size="$3" backgroundColor="rgba(16,185,129,0.12)">
-                  <TrendingIcon />
-                </Circle>
-                <Text color="$color11" fontSize={12}>Consultas</Text>
-                <Text color="$color12" fontSize={22} fontWeight="bold">{filtered.length}</Text>
+                <Circle size="$3" backgroundColor="rgba(16,185,129,0.12)"><TrendingIcon /></Circle>
+                <Text color="$color11" fontSize={11} $gtSm={{ fontSize: 12 }}>Consultas</Text>
+                <Text color="$color12" fontSize={20} $gtSm={{ fontSize: 22 }} fontWeight="bold">{filtered.length}</Text>
                 <XStack alignItems="center" gap="$1">
                   <Circle size={6} backgroundColor="#10b981" />
-                  <Text color="#10b981" fontSize={11}>no período selecionado</Text>
+                  <Text color="#10b981" fontSize={10} $gtSm={{ fontSize: 11 }}>no período selecionado</Text>
                 </XStack>
               </YStack>
-
               <Separator vertical borderColor="$borderColor" className="cons-resumo-sep" />
-
               <YStack flex={1} gap="$2">
-                <Circle size="$3" backgroundColor="rgba(16,185,129,0.12)">
-                  <MoneyIcon />
-                </Circle>
-                <Text color="$color11" fontSize={12}>Valor Investido</Text>
-                <Text color="$color12" fontSize={22} fontWeight="bold">R$970</Text>
+                <Circle size="$3" backgroundColor="rgba(16,185,129,0.12)"><MoneyIcon /></Circle>
+                <Text color="$color11" fontSize={11} $gtSm={{ fontSize: 12 }}>Valor Investido</Text>
+                <Text color="$color12" fontSize={20} $gtSm={{ fontSize: 22 }} fontWeight="bold">R$970</Text>
                 <XStack alignItems="center" gap="$1">
                   <Circle size={6} backgroundColor="#10b981" />
-                  <Text color="#10b981" fontSize={11}>+8% vs mês anterior</Text>
+                  <Text color="#10b981" fontSize={10} $gtSm={{ fontSize: 11 }}>+8% vs mês anterior</Text>
                 </XStack>
               </YStack>
             </XStack>
           </Card>
 
           {/* Visão Geral do Dia */}
-          <Card flex={1}
-            minWidth={240}
-            borderWidth={1}
-            backgroundColor="$color2"
-            borderColor="$borderColor"
-            borderRadius="$5"
-            padding="$4"
+          <Card flex={1} minWidth={0} $gtSm={{ minWidth: 260 }} borderWidth={1}
+            backgroundColor="$color2" borderColor="$borderColor"
+            borderRadius="$4" $gtSm={{ borderRadius: "$5" }}
+            padding="$3" $gtSm={{ padding: "$4" }}
             hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
             cursor="pointer"
           >
-            <Text color="$color11" fontSize={11} fontWeight="bold" letterSpacing={1} textTransform="uppercase" marginBottom="$3">
+            <Text color="$color11" fontSize={10} $gtSm={{ fontSize: 11 }} fontWeight="bold" letterSpacing={1} textTransform="uppercase" marginBottom="$3">
               Visão Geral do Dia
             </Text>
-            <YStack gap="$3">
+            <YStack gap="$2" $gtSm={{ gap: "$3" }}>
               {[
-                { icon: "📅", label: "Total de Consultas", value: "3",  color: "$color12" },
+                { icon: "📅", label: "Consultas",           value: "3",  color: "$color12" },
                 { icon: "✅", label: "Confirmadas",         value: "1",  color: "#10b981" },
                 { icon: "⏳", label: "Pendentes",           value: "1",  color: "#facc15" },
                 { icon: "⏱",  label: "Próxima em",          value: "2h", color: "#60a5fa" },
               ].map((item, i) => (
-                <XStack
-                  key={i}
-                  justifyContent="space-between"
-                  alignItems="center"
-                  paddingVertical="$2"
-                  paddingHorizontal="$3"
-                  borderRadius="$3"
-                  backgroundColor="$background"
-                  borderWidth={1}
-                  borderColor="$borderColor"
-                  id={`day-item-${i}`}
+                <XStack key={i} justifyContent="space-between" alignItems="center"
+                  paddingVertical="$1" $gtSm={{ paddingVertical: "$2" }}
+                  paddingHorizontal="$2" $gtSm={{ paddingHorizontal: "$3" }}
+                  borderRadius="$3" backgroundColor="$background"
+                  borderWidth={1} borderColor="$borderColor" id={`day-item-${i}`}
                 >
-                  <XStack alignItems="center" gap="$2">
-                    <Text fontSize={16}>{item.icon}</Text>
-                    <Text color="$color11" fontSize={13}>{item.label}</Text>
+                  <XStack alignItems="center" gap="$1" $gtSm={{ gap: "$2" }}>
+                    <Text fontSize={14} $gtSm={{ fontSize: 16 }}>{item.icon}</Text>
+                    <Text color="$color11" fontSize={11} $gtSm={{ fontSize: 13 }}>{item.label}</Text>
                   </XStack>
-                  <Text fontSize={16} fontWeight="bold" style={{ color: item.color as string }}>
-                    {item.value}
-                  </Text>
+                  <Text fontSize={14} $gtSm={{ fontSize: 16 }} fontWeight="bold" style={{ color: item.color as string }}>{item.value}</Text>
                 </XStack>
               ))}
             </YStack>
