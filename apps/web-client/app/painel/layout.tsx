@@ -4,21 +4,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Avatar,
-  Button,
-  Separator,
-  Text,
-  Paragraph,
-  H1,
-  H2,
-  XStack,
-  YStack,
-  ZStack,
-  Circle,
-  Image,
-  ScrollView,
-} from "tamagui";
 
 const menuItems = [
   { label: "Painel",        href: "/painel",            icon: "grid" },
@@ -28,238 +13,218 @@ const menuItems = [
   { label: "Configurações", href: "/painel/config",     icon: "settings" },
 ];
 
-function SidebarIcon({ name, color = "$color11" }: { name: string; color?: string }) {
+function SidebarIcon({ name, color = "currentColor" }: { name: string; color?: string }) {
   const icons: Record<string, React.ReactNode> = {
-    home: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" />
-      </svg>
-    ),
-    grid: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
-      </svg>
-    ),
-    "calendar-check": (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /><path d="m9 16 2 2 4-4" />
-      </svg>
-    ),
-    history: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l4 2" />
-      </svg>
-    ),
-    users: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-      </svg>
-    ),
-    "bar-chart": (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="12" y1="20" x2="12" y2="10" /><line x1="18" y1="20" x2="18" y2="4" /><line x1="6" y1="20" x2="6" y2="16" />
-      </svg>
-    ),
-    settings: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-      </svg>
-    ),
-    "arrow-left": (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
-      </svg>
-    ),
-    "arrow-right": (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
-      </svg>
-    ),
-    "log-out": (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
-      </svg>
-    ),
+    home: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>),
+    grid: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>),
+    history: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l4 2" /></svg>),
+    users: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>),
+    settings: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>),
+    "arrow-left": (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>),
+    "arrow-right": (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>),
+    "log-out": (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>),
   };
   return <div style={{ color }}>{icons[name]}</div>;
 }
 
 export default function PainelLayout({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false); // Modal Drawer state
-  const [desktopCollapsed, setDesktopCollapsed] = useState(false); // Desktop Rail state
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const pathname = usePathname();
 
   return (
-    <XStack height="100vh" overflow="hidden" backgroundColor="$background">
-      
+    <div style={{ display: "flex", height: "100vh", overflow: "hidden", backgroundColor: "#111" }}>
+
       {/* Mobile Overlay */}
       {sidebarOpen && (
-        <ZStack
-          position="absolute"
-          top={0} left={0} right={0} bottom={0}
-          backgroundColor="rgba(0,0,0,0.6)"
-          zIndex={40}
-          onPress={() => setSidebarOpen(false)}
-          $gtSm={{ display: 'none' }}
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="sm:hidden"
+          style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.6)", zIndex: 40 }}
         />
       )}
 
-      {/* Sidebar Architecture */}
-      <YStack
-        width={280}
-        $gtSm={{ width: desktopCollapsed ? 84 : 280, position: "relative", left: 0, borderRightWidth: 1 }}
-        backgroundColor="$color2"
-        borderRightWidth={1}
-        borderColor="$borderColor"
-        position="absolute"
-        top={0} bottom={0}
-        zIndex={50}
-        left={sidebarOpen ? 0 : -280}
-        style={{ transition: 'all 0.2s ease-in-out' }}
+      {/* Sidebar */}
+      <div style={{
+        width: desktopCollapsed ? 84 : 280,
+        backgroundColor: "#1a1a1a",
+        borderRight: "1px solid #27272a",
+        zIndex: 50,
+        flexShrink: 0,
+        display: "flex",
+        flexDirection: "column",
+        transition: "all 0.2s ease-in-out",
+        // Mobile: absolute positioning
+      }}
+        className={`absolute sm:relative top-0 bottom-0 ${sidebarOpen ? "left-0" : "-left-[280px]"} sm:left-0`}
       >
-        <ScrollView flex={1} width="100%" showsVerticalScrollIndicator={false}>
-          {/* Internal constraints for the rail format vs full format */}
-          <YStack paddingVertical="$4" paddingHorizontal={desktopCollapsed ? "$2" : "$4"} flex={1} alignItems={desktopCollapsed ? "center" : "stretch"}>
-            
-            {/* Topbar Actions */}
-            <XStack justifyContent={desktopCollapsed ? "center" : "flex-end"} alignItems="center" marginBottom="$4">
-               {/* Mobile Close Button (Hidden on Desktop) */}
-               <Button circular size="$3" chromeless icon={<SidebarIcon name="arrow-left" color="white" />} onPress={() => setSidebarOpen(false)} $gtSm={{ display: 'none' }} />
-               
-               {/* Desktop Collapse Toggle (Hidden on Mobile) */}
-               <Button circular size="$3" chromeless icon={<SidebarIcon name={desktopCollapsed ? "arrow-right" : "arrow-left"} color="white" />} onPress={() => setDesktopCollapsed(!desktopCollapsed)} $sm={{ display: 'none' }} />
-            </XStack>
+        <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
+          <div style={{
+            display: "flex", flexDirection: "column", flex: 1,
+            paddingTop: 16, paddingBottom: 16,
+            paddingLeft: desktopCollapsed ? 8 : 16,
+            paddingRight: desktopCollapsed ? 8 : 16,
+            alignItems: desktopCollapsed ? "center" : "stretch",
+          }}>
 
-            {/* Logo Wrapper */}
-            <YStack marginBottom="$4" alignItems="center" justifyContent="center" width="100%" overflow="hidden" height={desktopCollapsed ? 30 : 60}>
-              {!desktopCollapsed ? (
-                <Image src="/brand-logo.png" width={180} height={60} objectFit="contain" alignSelf="center" />
-              ) : (
-                <SidebarIcon name="grid" color="white" />
-              )}
-            </YStack>
+            {/* Topbar Actions */}
+            <div style={{ display: "flex", justifyContent: desktopCollapsed ? "center" : "flex-end", alignItems: "center", marginBottom: 16 }}>
+              {/* Mobile Close */}
+              <button
+                className="sm:hidden"
+                onClick={() => setSidebarOpen(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "white", padding: 6, borderRadius: "50%", display: "flex" }}
+              >
+                <SidebarIcon name="arrow-left" color="white" />
+              </button>
+              {/* Desktop Collapse */}
+              <button
+                className="hidden sm:flex"
+                onClick={() => setDesktopCollapsed(!desktopCollapsed)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "white", padding: 6, borderRadius: "50%", display: "flex" }}
+              >
+                <SidebarIcon name={desktopCollapsed ? "arrow-right" : "arrow-left"} color="white" />
+              </button>
+            </div>
+
+            {/* Logo */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: "100%", overflow: "hidden", height: desktopCollapsed ? 30 : 60, marginBottom: 16,
+            }}>
+              {!desktopCollapsed
+                ? <img src="/brand-logo.png" style={{ width: 180, height: 60, objectFit: "contain" }} alt="FitMax" />
+                : <SidebarIcon name="grid" color="white" />
+              }
+            </div>
 
             {/* Profile Block */}
-            <YStack alignItems="center" marginTop="$2" marginBottom="$5">
-              <Avatar circular size={desktopCollapsed ? "$4" : "$8"} backgroundColor="$color4" borderWidth={2} borderColor="$green8">
-                <Avatar.Image src="https://picsum.photos/200/200?random=1" />
-                <Avatar.Fallback alignItems="center" justifyContent="center">
-                  <Text color="$color12" fontSize={desktopCollapsed ? 16 : 24} fontWeight="bold">G</Text>
-                </Avatar.Fallback>
-              </Avatar>
-              
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 8, marginBottom: 20 }}>
+              <img
+                src="https://picsum.photos/200/200?random=1"
+                alt="Avatar"
+                style={{
+                  width: desktopCollapsed ? 40 : 64,
+                  height: desktopCollapsed ? 40 : 64,
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                  border: "2px solid #10b981",
+                }}
+              />
               {!desktopCollapsed && (
                 <>
-                  <Text color="$color12" fontSize={16} fontWeight="bold" marginTop="$3">Gabriel Silas</Text>
-
-                  <XStack gap="$4" marginTop="$4" alignSelf="stretch" justifyContent="center">
-                    <YStack alignItems="center">
-                        <Text color="$color12" fontSize={14} fontWeight="bold">24</Text>
-                        <Text color="$color11" fontSize={10}>Treinos</Text>
-                    </YStack>
-                    <Separator vertical borderColor="$borderColor" />
-                    <YStack alignItems="center">
-                        <Text color="$color12" fontSize={14} fontWeight="bold">3</Text>
-                        <Text color="$color11" fontSize={10}>Consultas</Text>
-                    </YStack>
-                  </XStack>
-                  
-                  <YStack marginTop="$4" alignSelf="flex-start" paddingHorizontal="$2">
-                      <Paragraph color="$color11" fontSize={12} marginTop="$1">
-                        Atleta amador | Foco em Hipertrofia 🏋️
-                      </Paragraph>
-                  </YStack>
+                  <p style={{ color: "#fafafa", fontSize: 16, fontWeight: "bold", marginTop: 12, marginBottom: 0 }}>Gabriel Silas</p>
+                  <div style={{ display: "flex", gap: 16, marginTop: 16, alignSelf: "stretch", justifyContent: "center" }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                      <span style={{ color: "#fafafa", fontSize: 14, fontWeight: "bold" }}>24</span>
+                      <span style={{ color: "#a1a1aa", fontSize: 10 }}>Treinos</span>
+                    </div>
+                    <div style={{ width: 1, background: "#27272a" }} />
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                      <span style={{ color: "#fafafa", fontSize: 14, fontWeight: "bold" }}>3</span>
+                      <span style={{ color: "#a1a1aa", fontSize: 10 }}>Consultas</span>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 16, alignSelf: "flex-start", paddingLeft: 8, paddingRight: 8 }}>
+                    <p style={{ color: "#a1a1aa", fontSize: 12, marginTop: 4, marginBottom: 0 }}>
+                      Atleta amador | Foco em Hipertrofia 🏋️
+                    </p>
+                  </div>
                 </>
               )}
-            </YStack>
+            </div>
 
-            <Separator marginVertical="$2" borderColor="$borderColor" />
+            <div style={{ height: 1, background: "#27272a", marginTop: 8, marginBottom: 8 }} />
 
-            {/* Navigation Menu */}
-            <YStack gap="$1" flex={1} marginTop="$4" paddingBottom="$4" width="100%">
+            {/* Navigation */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, marginTop: 16, paddingBottom: 16, width: "100%" }}>
               {menuItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
-                  <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'flex' }}>
-                    <XStack
-                      width="100%"
-                      justifyContent={desktopCollapsed ? "center" : "flex-start"}
-                      alignItems="center"
-                      gap={desktopCollapsed ? 0 : "$3"}
-                      paddingVertical="$3"
-                      paddingHorizontal={desktopCollapsed ? 0 : "$3"}
-                      borderRadius="$4"
-                      backgroundColor={isActive ? "$color4" : "transparent"}
-                      hoverStyle={!isActive ? { backgroundColor: "$color3" } : {}}
-                      cursor="pointer"
+                  <Link key={item.href} href={item.href} style={{ textDecoration: "none", display: "flex" }}>
+                    <div style={{
+                      display: "flex", width: "100%",
+                      justifyContent: desktopCollapsed ? "center" : "flex-start",
+                      alignItems: "center",
+                      gap: desktopCollapsed ? 0 : 12,
+                      paddingTop: 12, paddingBottom: 12,
+                      paddingLeft: desktopCollapsed ? 0 : 12,
+                      paddingRight: desktopCollapsed ? 0 : 12,
+                      borderRadius: 10,
+                      backgroundColor: isActive ? "#2a2a2a" : "transparent",
+                      cursor: "pointer",
+                      transition: "background 0.15s",
+                    }}
+                      onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = "#222"; }}
+                      onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}
                     >
                       <SidebarIcon name={item.icon} color="white" />
                       {!desktopCollapsed && (
-                        <Text color="white" fontSize={14} fontWeight={isActive ? "bold" : "500"}>
+                        <span style={{ color: "white", fontSize: 14, fontWeight: isActive ? "bold" : "500" }}>
                           {item.label}
-                        </Text>
+                        </span>
                       )}
-                    </XStack>
+                    </div>
                   </Link>
                 );
               })}
-              
-              {/* Logout Button */}
-              <Link href="/" style={{ textDecoration: 'none', display: 'flex' }}>
-                <XStack
-                  width="100%"
-                  justifyContent={desktopCollapsed ? "center" : "flex-start"}
-                  alignItems="center"
-                  gap={desktopCollapsed ? 0 : "$3"}
-                  paddingVertical="$3"
-                  paddingHorizontal={desktopCollapsed ? 0 : "$3"}
-                  borderRadius="$4"
-                  hoverStyle={{ backgroundColor: "$red4" }}
-                  cursor="pointer"
-                  marginTop="$4"
+
+              {/* Logout */}
+              <Link href="/" style={{ textDecoration: "none", display: "flex" }}>
+                <div style={{
+                  display: "flex", width: "100%",
+                  justifyContent: desktopCollapsed ? "center" : "flex-start",
+                  alignItems: "center",
+                  gap: desktopCollapsed ? 0 : 12,
+                  paddingTop: 12, paddingBottom: 12,
+                  paddingLeft: desktopCollapsed ? 0 : 12,
+                  paddingRight: desktopCollapsed ? 0 : 12,
+                  borderRadius: 10,
+                  cursor: "pointer",
+                  marginTop: 16,
+                  transition: "background 0.15s",
+                }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(239,68,68,0.15)"}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"}
                 >
                   <SidebarIcon name="log-out" color="white" />
                   {!desktopCollapsed && (
-                    <Text color="white" fontSize={14} fontWeight="bold">Sair</Text>
+                    <span style={{ color: "white", fontSize: 14, fontWeight: "bold" }}>Sair</span>
                   )}
-                </XStack>
+                </div>
               </Link>
-            </YStack>
+            </div>
 
-          </YStack>
-        </ScrollView>
-      </YStack>
+          </div>
+        </div>
+      </div>
 
-      {/* Main Content Area */}
-      <YStack flex={1}>
-        
+      {/* Main Content */}
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
+
         {/* Global Topbar */}
-        <XStack 
-           alignItems="center" 
-           paddingHorizontal="$4" 
-           $gtSm={{ paddingHorizontal: "$6" }} 
-           paddingVertical="$4"
-           borderBottomWidth={1}
-           borderColor="$borderColor"
-           backgroundColor="$background"
-           gap="$4"
-        >
-          <Button
-            size="$3"
-            circular
-            chromeless
-            icon={<SidebarIcon name="grid" color="$color12" />}
-            onPress={() => setSidebarOpen(true)}
-            $gtSm={{ display: "none" }}
-          />
-          
-          <XStack flex={1} />
-        </XStack>
+        <div style={{
+          display: "flex", alignItems: "center",
+          paddingLeft: 16, paddingRight: 16, paddingTop: 16, paddingBottom: 16,
+          borderBottom: "1px solid #27272a",
+          backgroundColor: "#111",
+          gap: 16,
+        }}>
+          {/* Mobile menu button */}
+          <button
+            className="sm:hidden"
+            onClick={() => setSidebarOpen(true)}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "#a1a1aa", padding: 6, borderRadius: "50%", display: "flex" }}
+          >
+            <SidebarIcon name="grid" color="#a1a1aa" />
+          </button>
+          <div style={{ flex: 1 }} />
+        </div>
 
         {/* Page Children */}
         {children}
 
-      </YStack>
-    </XStack>
+      </div>
+    </div>
   );
 }

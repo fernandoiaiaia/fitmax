@@ -2,10 +2,17 @@
 "use client";
 
 import { useState, useRef } from "react";
-import {
-  Card, Text, H2, XStack, YStack,
-  ScrollView, Button, Avatar, Separator,
-} from "tamagui";
+
+const C = { bg:"#111111", color2:"#1a1a1a", color3:"#222222", color10:"#71717a", color11:"#a1a1aa", color12:"#fafafa", border:"#27272a" };
+function HCard({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <div style={{ border:`1px solid ${C.border}`, backgroundColor:C.color2, borderRadius:12, overflow:"hidden", cursor:"pointer", transition:"background .15s, border-color .15s", ...style }}
+      onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.backgroundColor=C.color3;(e.currentTarget as HTMLElement).style.borderColor="#10b981";}}
+      onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.backgroundColor=(style?.backgroundColor as string)||C.color2;(e.currentTarget as HTMLElement).style.borderColor=(style?.borderColor as string)||C.border;}}>
+      {children}
+    </div>
+  );
+}
 
 type Aba = "dados" | "plano" | "notificacoes" | "senha";
 
@@ -23,12 +30,7 @@ const ABAS: { id: Aba; label: string; icon: string }[] = [
 
 /* ── helpers ── */
 function SectionTitle({ children }: { children: string }) {
-  return (
-    <Text color="$color11" fontSize={11} fontWeight="bold"
-      letterSpacing={1} textTransform="uppercase" marginBottom="$2">
-      {children}
-    </Text>
-  );
+  return <p style={{ color:C.color11, fontSize:11, fontWeight:"bold", letterSpacing:1, textTransform:"uppercase", marginBottom:8, marginTop:0 }}>{children}</p>;
 }
 
 function InputField({ id, label, value, onChange, type = "text", disabled }: {
@@ -36,19 +38,11 @@ function InputField({ id, label, value, onChange, type = "text", disabled }: {
   onChange: (v: string) => void; type?: string; disabled?: boolean;
 }) {
   return (
-    <YStack gap="$1" flex={1}>
-      <Text color="$color10" fontSize={12}>{label}</Text>
-      <input
-        id={id} type={type} value={value} disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-        style={{
-          background: disabled ? "rgba(255,255,255,0.03)" : "#141414",
-          border: "1px solid #262626", borderRadius: 10, height: 42,
-          padding: "0 12px", color: disabled ? "#52525b" : "#fafafa",
-          fontSize: 14, fontFamily: "inherit", outline: "none", width: "100%",
-        }}
-      />
-    </YStack>
+    <div style={{ display:"flex", flexDirection:"column", gap:4, flex:1 }}>
+      <span style={{ color:C.color10, fontSize:12 }}>{label}</span>
+      <input id={id} type={type} value={value} disabled={disabled} onChange={(e)=>onChange(e.target.value)}
+        style={{ background:disabled?"rgba(255,255,255,0.03)":"#141414", border:"1px solid #262626", borderRadius:10, height:42, padding:"0 12px", color:disabled?"#52525b":"#fafafa", fontSize:14, fontFamily:"inherit", outline:"none", width:"100%" }}/>
+    </div>
   );
 }
 
@@ -56,12 +50,11 @@ function Toggle({ id, label, desc, value, onChange }: {
   id: string; label: string; desc: string; value: boolean; onChange: () => void;
 }) {
   return (
-    <XStack justifyContent="space-between" alignItems="center"
-      paddingVertical="$3" borderBottomWidth={1} borderColor="$borderColor">
-      <YStack flex={1} gap="$0.5" paddingRight="$4">
-        <Text color="$color12" fontSize={14} fontWeight="500">{label}</Text>
-        <Text color="$color11" fontSize={12}>{desc}</Text>
-      </YStack>
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingTop:12, paddingBottom:12, borderBottom:`1px solid ${C.border}` }}>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", gap:2, paddingRight:16 }}>
+        <span style={{ color:C.color12, fontSize:14, fontWeight:"500" }}>{label}</span>
+        <span style={{ color:C.color11, fontSize:12 }}>{desc}</span>
+      </div>
       <button id={id} role="switch" aria-checked={value} onClick={onChange}
         style={{
           width: 44, height: 24, borderRadius: 99, border: "none", cursor: "pointer",
@@ -74,7 +67,7 @@ function Toggle({ id, label, desc, value, onChange }: {
           transition: "left 0.2s",
         }} />
       </button>
-    </XStack>
+    </div>
   );
 }
 
@@ -91,17 +84,11 @@ function AbaDados() {
   function handleSave() { setSaved(true); setTimeout(() => setSaved(false), 2500); }
 
   return (
-    <YStack gap="$4">
-      {/* Profile Card */}
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" padding="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-       >
-        <XStack alignItems="center" gap="$4">
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      <HCard style={{ padding:16 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:16 }}>
           <div style={{ position: "relative" }}>
-            <Avatar circular size="$8" backgroundColor="$color4">
-              <Avatar.Image src="https://picsum.photos/200/200?random=1" />
-            </Avatar>
+            <img src="https://picsum.photos/200/200?random=1" style={{ width:64, height:64, borderRadius:"50%", objectFit:"cover", border:"2px solid #10b981" }} alt="" />
             <button
               id="btn-trocar-avatar"
               onClick={() => avatarRef.current?.click()}
@@ -119,165 +106,92 @@ function AbaDados() {
             </button>
             <input ref={avatarRef} type="file" accept="image/*" style={{ display: "none" }} />
           </div>
-          <YStack gap="$1">
-            <Text color="$color12" fontSize={18} fontWeight="bold">{nome}</Text>
-            <Text color="$color11" fontSize={13}>{email}</Text>
-            <XStack paddingHorizontal="$3" paddingVertical="$1" borderRadius="$10"
-              backgroundColor="rgba(16,185,129,0.12)" marginTop="$1">
-              <Text color="#10b981" fontSize={11} fontWeight="bold">Plano Plus · Ativo</Text>
-            </XStack>
-          </YStack>
-        </XStack>
-      </Card>
+          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+            <span style={{ color:C.color12, fontSize:18, fontWeight:"bold" }}>{nome}</span>
+            <span style={{ color:C.color11, fontSize:13 }}>{email}</span>
+            <span style={{ color:"#10b981", fontSize:11, fontWeight:"bold", background:"rgba(16,185,129,0.12)", padding:"2px 12px", borderRadius:999, alignSelf:"flex-start", marginTop:4, display:"block" }}>Plano Plus · Ativo</span>
+          </div>
+        </div>
+      </HCard>
 
       {/* Dados */}
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" padding="$4" gap="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-       >
+      <HCard style={{ padding:16, display:"flex", flexDirection:"column", gap:16 }}>
         <SectionTitle>Dados Pessoais</SectionTitle>
-        <XStack gap="$3" flexWrap="wrap">
+        <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
           <InputField id="input-nome"  label="Nome completo" value={nome}  onChange={setNome} />
           <InputField id="input-email" label="E-mail"        value={email} onChange={setEmail} type="email" />
-        </XStack>
-        <XStack gap="$3" flexWrap="wrap">
+        </div>
+        <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
           <InputField id="input-tel"  label="Telefone"        value={tel}  onChange={setTel}  type="tel" />
           <InputField id="input-user" label="Nome de usuário" value={user} onChange={setUser} />
-        </XStack>
-      </Card>
+        </div>
+      </HCard>
 
       {/* Objetivo */}
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" padding="$4" gap="$3"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-       >
+      <HCard style={{ padding:16, display:"flex", flexDirection:"column", gap:12 }}>
         <SectionTitle>Objetivo Fitness</SectionTitle>
-        <XStack flexWrap="wrap" gap="$2">
-          {["Hipertrofia", "Emagrecimento", "Saúde Geral", "Performance", "Reabilitação", "Flexibilidade"].map((o) => {
-            const isActive = obj === o;
-            return (
-              <Button key={o} size="$3" borderRadius="$10" borderWidth={1}
-                borderColor={isActive ? "#10b981" : "$borderColor"}
-                backgroundColor={isActive ? "rgba(16,185,129,0.12)" : "transparent"}
-                onPress={() => setObj(o)}
-                animation="quick"
-                hoverStyle={isActive
-                  ? { backgroundColor: "rgba(16,185,129,0.2)", borderColor: "$green8" }
-                  : { backgroundColor: "$color3", borderColor: "$green8" }
-                }
-                id={`obj-${o.toLowerCase().replace(/\s/g, "-")}`}>
-                <Text color={isActive ? "#10b981" : "$color11"} fontSize={13}
-                  fontWeight={isActive ? "bold" : "400"}>{o}</Text>
-              </Button>
-            );
+        <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+          {["Hipertrofia","Emagrecimento","Saúde Geral","Performance","Reabilitação","Flexibilidade"].map((o)=>{
+            const isActive=obj===o;
+            return <button key={o} onClick={()=>setObj(o)} id={`obj-${o.toLowerCase().replace(/\s/g,"-")}`} style={{ padding:"6px 16px", borderRadius:999, border:`1px solid ${isActive?"#10b981":C.border}`, backgroundColor:isActive?"rgba(16,185,129,0.12)":"transparent", color:isActive?"#10b981":C.color11, fontSize:13, fontWeight:isActive?"bold":"400", cursor:"pointer", fontFamily:"inherit", transition:"all .15s" }}>{o}</button>;
           })}
-        </XStack>
-      </Card>
+        </div>
+      </HCard>
 
-      {/* Ações */}
-      <XStack justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="$3">
-        <Text color="$color10" fontSize={12} textDecorationLine="underline"
-          cursor="pointer" id="link-termos">
-          Termos de Uso e Política de Privacidade
-        </Text>
-        <XStack gap="$2">
-          <Button size="$3" borderRadius="$4" backgroundColor="rgba(244,63,94,0.1)"
-            borderWidth={1} borderColor="rgba(244,63,94,0.3)"
-            hoverStyle={{ backgroundColor: "rgba(244,63,94,0.2)" }}
-            id="btn-excluir-conta">
-            <Text color="#f43f5e" fontSize={13} fontWeight="600">Excluir conta</Text>
-          </Button>
-          <Button size="$3" borderRadius="$4" backgroundColor={saved ? "#059669" : "$green9"}
-            hoverStyle={{ backgroundColor: "$green10" }}
-            onPress={handleSave} id="btn-salvar-dados">
-            <Text color="white" fontSize={13} fontWeight="bold">
-              {saved ? "✓ Salvo!" : "Salvar alterações"}
-            </Text>
-          </Button>
-        </XStack>
-      </XStack>
-    </YStack>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:12 }}>
+        <span id="link-termos" style={{ color:C.color10, fontSize:12, textDecoration:"underline", cursor:"pointer" }}>Termos de Uso e Política de Privacidade</span>
+        <div style={{ display:"flex", gap:8 }}>
+          <button id="btn-excluir-conta" style={{ padding:"8px 16px", borderRadius:8, backgroundColor:"rgba(244,63,94,0.1)", border:"1px solid rgba(244,63,94,0.3)", color:"#f43f5e", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>Excluir conta</button>
+          <button id="btn-salvar-dados" onClick={handleSave} style={{ padding:"8px 16px", borderRadius:8, backgroundColor:saved?"#059669":"#10b981", border:"none", color:"white", fontSize:13, fontWeight:"bold", cursor:"pointer", fontFamily:"inherit" }}>{saved?"✓ Salvo!":"Salvar alterações"}</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
 function AbaPlano() {
   return (
-    <YStack gap="$4">
-      {/* Plano Atual */}
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="rgba(16,185,129,0.05)"
-        borderColor="rgba(16,185,129,0.3)" borderRadius="$5" padding="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}>
-        <XStack justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="$3">
-          <YStack gap="$1">
-            <XStack alignItems="center" gap="$2">
-              <XStack paddingHorizontal="$2" paddingVertical="$0.5" borderRadius="$10"
-                backgroundColor="rgba(16,185,129,0.15)">
-                <Text color="#10b981" fontSize={10} fontWeight="bold">ATIVO</Text>
-              </XStack>
-              <Text color="$color12" fontSize={22} fontWeight="bold">Plus</Text>
-            </XStack>
-            <Text color="#10b981" fontSize={18} fontWeight="bold">
-              R$ 29<Text color="$color11" fontSize={13}>/mês</Text>
-            </Text>
-          </YStack>
-          <YStack gap="$1" alignItems="flex-end">
-            <Text color="$color11" fontSize={13}>Renovação em <Text color="$color12" fontWeight="bold">21 dias</Text></Text>
-            <Text color="$color11" fontSize={13}>Próxima cobrança: <Text color="$color12" fontWeight="bold">17/05/2026</Text></Text>
-          </YStack>
-        </XStack>
-      </Card>
-
-      {/* Comparar */}
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      <HCard style={{ padding:16, backgroundColor:"rgba(16,185,129,0.05)", borderColor:"rgba(16,185,129,0.3)" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:12 }}>
+          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ color:"#10b981", fontSize:10, fontWeight:"bold", background:"rgba(16,185,129,0.15)", padding:"2px 8px", borderRadius:999 }}>ATIVO</span>
+              <span style={{ color:"#fafafa", fontSize:22, fontWeight:"bold" }}>Plus</span>
+            </div>
+            <span style={{ color:"#10b981", fontSize:18, fontWeight:"bold" }}>R$ 29<span style={{ color:"#a1a1aa", fontSize:13 }}>/mês</span></span>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:4, alignItems:"flex-end" }}>
+            <span style={{ color:"#a1a1aa", fontSize:13 }}>Renovação em <strong style={{ color:"#fafafa" }}>21 dias</strong></span>
+            <span style={{ color:"#a1a1aa", fontSize:13 }}>Próxima cobrança: <strong style={{ color:"#fafafa" }}>17/05/2026</strong></span>
+          </div>
+        </div>
+      </HCard>
       <SectionTitle>Comparar planos</SectionTitle>
-      <XStack gap="$3" flexWrap="wrap">
-        {PLANOS.map((p) => (
-          <Card cursor="pointer" animation="quick" key={p.id} flex={1} minWidth={200} borderWidth={p.destaque ? 2 : 1}
-            backgroundColor={p.destaque ? "rgba(16,185,129,0.04)" : "$color2"}
-            borderColor={p.destaque ? p.color : "$borderColor"}
-            borderRadius="$5" padding="$4" gap="$3" overflow="hidden"
-            hoverStyle={{ backgroundColor: "$color3", borderColor: p.destaque ? p.color : "$green8" }}>
-            {p.destaque && (
-              <XStack paddingHorizontal="$3" paddingVertical="$1" borderRadius="$10"
-                backgroundColor={p.color} alignSelf="flex-start">
-                <Text color="white" fontSize={11} fontWeight="bold">⭐ Popular</Text>
-              </XStack>
-            )}
-            <Text style={{ color: p.color }} fontSize={18} fontWeight="bold">{p.nome}</Text>
-            <Text color="$color12" fontSize={22} fontWeight="bold">
-              {p.preco}<Text color="$color11" fontSize={13}>{p.periodo}</Text>
-            </Text>
-            <YStack gap="$2">
-              {p.features.map((f) => (
-                <XStack key={f} gap="$2" alignItems="center">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                    stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  <Text color="$color11" fontSize={13}>{f}</Text>
-                </XStack>
+      <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
+        {PLANOS.map(p=>(
+          <div key={p.id} style={{ flex:1, minWidth:200, border:`${p.destaque?2:1}px solid ${p.destaque?p.color:C.border}`, backgroundColor:p.destaque?"rgba(16,185,129,0.04)":C.color2, borderRadius:12, padding:16, display:"flex", flexDirection:"column", gap:12, overflow:"hidden", cursor:"pointer", transition:"background .15s" }}
+            onMouseEnter={e=>(e.currentTarget as HTMLElement).style.backgroundColor=C.color3}
+            onMouseLeave={e=>(e.currentTarget as HTMLElement).style.backgroundColor=p.destaque?"rgba(16,185,129,0.04)":C.color2}>
+            {p.destaque&&<span style={{ alignSelf:"flex-start", backgroundColor:p.color, color:"white", fontSize:11, fontWeight:"bold", padding:"2px 12px", borderRadius:999 }}>⭐ Popular</span>}
+            <span style={{ color:p.color, fontSize:18, fontWeight:"bold" }}>{p.nome}</span>
+            <span style={{ color:"#fafafa", fontSize:22, fontWeight:"bold" }}>{p.preco}<span style={{ color:"#a1a1aa", fontSize:13 }}>{p.periodo}</span></span>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {p.features.map(f=>(
+                <div key={f} style={{ display:"flex", gap:8, alignItems:"center" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span style={{ color:"#a1a1aa", fontSize:13 }}>{f}</span>
+                </div>
               ))}
-            </YStack>
-            <Button size="$3" borderRadius="$4" borderWidth={1}
-              borderColor={p.ativo ? "transparent" : p.color}
-              backgroundColor={p.ativo ? p.color : "transparent"}
-              marginTop="auto" id={`btn-plano-${p.id}`}>
-              <Text color={p.ativo ? "white" : p.color} fontSize={13} fontWeight="bold">
-                {p.ativo ? "Plano atual" : "Selecionar"}
-              </Text>
-            </Button>
-          </Card>
+            </div>
+            <button id={`btn-plano-${p.id}`} style={{ marginTop:"auto", padding:"8px 0", borderRadius:8, border:`1px solid ${p.ativo?"transparent":p.color}`, backgroundColor:p.ativo?p.color:"transparent", color:p.ativo?"white":p.color, fontSize:13, fontWeight:"bold", cursor:"pointer", fontFamily:"inherit" }}>{p.ativo?"Plano atual":"Selecionar"}</button>
+          </div>
         ))}
-      </XStack>
-
-      <XStack justifyContent="flex-end">
-        <Button size="$3" borderRadius="$4" backgroundColor="rgba(244,63,94,0.1)"
-          borderWidth={1} borderColor="rgba(244,63,94,0.3)"
-          hoverStyle={{ backgroundColor: "rgba(244,63,94,0.2)" }}
-          id="btn-cancelar-assinatura">
-          <Text color="#f43f5e" fontSize={13} fontWeight="600">Cancelar assinatura</Text>
-        </Button>
-      </XStack>
-    </YStack>
+      </div>
+      <div style={{ display:"flex", justifyContent:"flex-end" }}>
+        <button id="btn-cancelar-assinatura" style={{ padding:"8px 16px", borderRadius:8, backgroundColor:"rgba(244,63,94,0.1)", border:"1px solid rgba(244,63,94,0.3)", color:"#f43f5e", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>Cancelar assinatura</button>
+      </div>
+    </div>
   );
 }
 
@@ -289,49 +203,29 @@ function AbaNotificacoes() {
   });
   const toggle = (key: keyof typeof notifs) => setNotifs((p) => ({ ...p, [key]: !p[key] }));
   const [saved, setSaved] = useState(false);
-
   return (
-    <YStack gap="$4" maxWidth={640}>
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" paddingHorizontal="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-       >
+    <div style={{ display:"flex", flexDirection:"column", gap:16, maxWidth:640 }}>
+      <HCard style={{ padding:16 }}>
         <SectionTitle>Consultas</SectionTitle>
-        <Toggle id="notif-confirmacao"  label="Confirmação de agendamento" desc="Receba quando uma consulta for confirmada"      value={notifs.confirmacao}        onChange={() => toggle("confirmacao")} />
-        <Toggle id="notif-lembrete"     label="Lembrete de consulta"       desc="Notificação 1h antes da consulta"               value={notifs.lembrete}           onChange={() => toggle("lembrete")} />
-        <Toggle id="notif-cancelamento" label="Cancelamentos"              desc="Alertas de consultas canceladas ou reagendadas" value={notifs.cancelamento}       onChange={() => toggle("cancelamento")} />
-      </Card>
-
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" paddingHorizontal="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-       >
+        <Toggle id="notif-confirmacao"  label="Confirmação de agendamento" desc="Receba quando uma consulta for confirmada"      value={notifs.confirmacao}        onChange={()=>toggle("confirmacao")} />
+        <Toggle id="notif-lembrete"     label="Lembrete de consulta"       desc="Notificação 1h antes da consulta"               value={notifs.lembrete}           onChange={()=>toggle("lembrete")} />
+        <Toggle id="notif-cancelamento" label="Cancelamentos"              desc="Alertas de consultas canceladas ou reagendadas" value={notifs.cancelamento}       onChange={()=>toggle("cancelamento")} />
+      </HCard>
+      <HCard style={{ padding:16 }}>
         <SectionTitle>Descoberta</SectionTitle>
-        <Toggle id="notif-novos"  label="Novos profissionais" desc="Profissionais que combinam com seu objetivo"    value={notifs.novosProfissionais} onChange={() => toggle("novosProfissionais")} />
-        <Toggle id="notif-dicas"  label="Dicas de saúde"     desc="Conteúdo personalizado baseado no seu objetivo" value={notifs.dicas}              onChange={() => toggle("dicas")} />
-      </Card>
-
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" paddingHorizontal="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-       >
+        <Toggle id="notif-novos" label="Novos profissionais" desc="Profissionais que combinam com seu objetivo"    value={notifs.novosProfissionais} onChange={()=>toggle("novosProfissionais")} />
+        <Toggle id="notif-dicas" label="Dicas de saúde"     desc="Conteúdo personalizado baseado no seu objetivo" value={notifs.dicas}              onChange={()=>toggle("dicas")} />
+      </HCard>
+      <HCard style={{ padding:16 }}>
         <SectionTitle>Canais</SectionTitle>
-        <Toggle id="notif-email"    label="E-mail"    desc="Notificações por e-mail"       value={notifs.email}    onChange={() => toggle("email")} />
-        <Toggle id="notif-whatsapp" label="WhatsApp"  desc="Notificações via WhatsApp"     value={notifs.whatsapp} onChange={() => toggle("whatsapp")} />
-        <Toggle id="notif-push"     label="Push"      desc="Notificações no navegador"     value={notifs.push}     onChange={() => toggle("push")} />
-      </Card>
-
-      <XStack justifyContent="flex-end">
-        <Button size="$3" borderRadius="$4" backgroundColor={saved ? "#059669" : "$green9"}
-          hoverStyle={{ backgroundColor: "$green10" }}
-          onPress={() => { setSaved(true); setTimeout(() => setSaved(false), 2500); }}
-          id="btn-salvar-notificacoes">
-          <Text color="white" fontSize={13} fontWeight="bold">
-            {saved ? "✓ Salvo!" : "Salvar preferências"}
-          </Text>
-        </Button>
-      </XStack>
-    </YStack>
+        <Toggle id="notif-email"    label="E-mail"   desc="Notificações por e-mail"       value={notifs.email}    onChange={()=>toggle("email")} />
+        <Toggle id="notif-whatsapp" label="WhatsApp" desc="Notificações via WhatsApp"     value={notifs.whatsapp} onChange={()=>toggle("whatsapp")} />
+        <Toggle id="notif-push"     label="Push"     desc="Notificações no navegador"     value={notifs.push}     onChange={()=>toggle("push")} />
+      </HCard>
+      <div style={{ display:"flex", justifyContent:"flex-end" }}>
+        <button id="btn-salvar-notificacoes" onClick={()=>{setSaved(true);setTimeout(()=>setSaved(false),2500);}} style={{ padding:"8px 16px", borderRadius:8, backgroundColor:saved?"#059669":"#10b981", border:"none", color:"white", fontSize:13, fontWeight:"bold", cursor:"pointer", fontFamily:"inherit" }}>{saved?"✓ Salvo!":"Salvar preferências"}</button>
+      </div>
+    </div>
   );
 }
 
@@ -357,8 +251,8 @@ function AbaSenha() {
     value: string; onChange: (v: string) => void;
   }) {
     return (
-      <YStack gap="$1">
-        <Text color="$color10" fontSize={12}>{label}</Text>
+      <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+        <span style={{ color:C.color10, fontSize:12 }}>{label}</span>
         <div style={{ position: "relative" }}>
           <input
             id={id}
@@ -385,143 +279,64 @@ function AbaSenha() {
             }
           </button>
         </div>
-      </YStack>
+      </div>
     );
   }
 
   return (
-    <YStack gap="$4" maxWidth={480}>
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" padding="$4" gap="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-       >
+    <div style={{ display:"flex", flexDirection:"column", gap:16, maxWidth:480 }}>
+      <HCard style={{ padding:16, display:"flex", flexDirection:"column", gap:16 }}>
         <PwdInput id="input-senha-atual"    label="Senha atual"         field="atual"     value={senhaAtual} onChange={setSenhaAtual} />
         <PwdInput id="input-nova-senha"     label="Nova senha"          field="nova"      value={novaSenha}  onChange={setNovaSenha} />
-
-        {novaSenha.length > 0 && (
-          <YStack gap="$2">
-            <XStack gap="$1">
-              {[0, 1, 2, 3].map((i) => (
-                <YStack key={i} flex={1} height={4} borderRadius={4}
-                  backgroundColor={i < strength ? strengthColors[strength - 1] : "rgba(255,255,255,0.08)"} />
-              ))}
-            </XStack>
-            <Text fontSize={12} style={{ color: strength > 0 ? strengthColors[strength - 1] : "#52525b" }}>
-              {strength === 0 ? "Senha muito curta" : strengthLabel[strength - 1]}
-            </Text>
-          </YStack>
+        {novaSenha.length>0&&(
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            <div style={{ display:"flex", gap:4 }}>
+              {[0,1,2,3].map(i=>(<div key={i} style={{ flex:1, height:4, borderRadius:4, backgroundColor:i<strength?strengthColors[strength-1]:"rgba(255,255,255,0.08)" }}/>))}
+            </div>
+            <span style={{ fontSize:12, color:strength>0?strengthColors[strength-1]:"#52525b" }}>{strength===0?"Senha muito curta":strengthLabel[strength-1]}</span>
+          </div>
         )}
-
         <PwdInput id="input-confirmar-senha" label="Confirmar nova senha" field="confirmar" value={confirmar}  onChange={setConfirmar} />
-      </Card>
-
-      <XStack justifyContent="flex-end">
-        <Button size="$3" borderRadius="$4"
-          backgroundColor={saved ? "#059669" : "$green9"}
-          hoverStyle={{ backgroundColor: "$green10" }}
-          onPress={() => { setSaved(true); setTimeout(() => setSaved(false), 2500); }}
-          id="btn-salvar-senha">
-          <Text color="white" fontSize={13} fontWeight="bold">
-            {saved ? "✓ Salvo!" : "Salvar senha"}
-          </Text>
-        </Button>
-      </XStack>
-    </YStack>
+      </HCard>
+      <div style={{ display:"flex", justifyContent:"flex-end" }}>
+        <button id="btn-salvar-senha" onClick={()=>{setSaved(true);setTimeout(()=>setSaved(false),2500);}} style={{ padding:"8px 16px", borderRadius:8, backgroundColor:saved?"#059669":"#10b981", border:"none", color:"white", fontSize:13, fontWeight:"bold", cursor:"pointer", fontFamily:"inherit" }}>{saved?"✓ Salvo!":"Salvar senha"}</button>
+      </div>
+    </div>
   );
 }
 
-/* ── Page ── */
 export default function ConfigPage() {
   const [aba, setAba] = useState<Aba>("dados");
-
   return (
-    <ScrollView flex={1} backgroundColor="$background" showsVerticalScrollIndicator={false}>
-      <YStack padding="$4" $gtSm={{ padding: "$6" }} gap="$5"
-        maxWidth={1100} marginHorizontal="auto" width="100%">
-
-        {/* Cabeçalho */}
-        <YStack gap="$1">
-          <H2 color="$color12" size="$6" fontWeight="bold">Configurações</H2>
-          <Text color="$color11" fontSize={14}>Gerencie suas preferências e dados da conta.</Text>
-        </YStack>
-
-        {/* Tabs (Responsivo) */}
-
-        {/* Mobile: Dropdown */}
-        <div style={{ display: "none" }} className="cfg-tabs-mobile">
-          <select
-            value={aba}
-            onChange={e => setAba(e.target.value as Aba)}
-            style={{
-              width: "100%",
-              background: "var(--color2, #1a1a1a)",
-              border: "1px solid rgba(16,185,129,0.4)",
-              borderRadius: 12,
-              padding: "12px 16px",
-              color: "#10b981",
-              fontSize: 14,
-              fontWeight: "bold",
-              fontFamily: "inherit",
-              outline: "none",
-              cursor: "pointer",
-              appearance: "none",
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
-              backgroundRepeat: "no-repeat",
-              backgroundPosition: "right 14px center",
-              paddingRight: 40,
-            }}
-          >
-            {ABAS.map(a => (
-              <option key={a.id} value={a.id} style={{ background: "#111", color: "#fff" }}>
-                {a.icon} {a.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Desktop: Pills */}
-        <div className="cfg-tabs-desktop">
-          <XStack gap="$2" flexWrap="wrap">
-            {ABAS.map((a) => {
-              const isActive = aba === a.id;
-              return (
-                <Button key={a.id} size="$3" borderRadius="$4" borderWidth={1}
-                  animation="quick"
-                  borderColor={isActive ? "$green8" : "$borderColor"}
-                  backgroundColor={isActive ? "rgba(16,185,129,0.1)" : "$color2"}
-                  hoverStyle={{ backgroundColor: isActive ? "rgba(16,185,129,0.15)" : "$color3", borderColor: "$green8" }}
-                  onPress={() => setAba(a.id)}
-                  id={`tab-${a.id}`}
-                  paddingHorizontal="$4">
-                  <XStack gap="$2" alignItems="center">
-                    <Text fontSize={14}>{a.icon}</Text>
-                    <Text color={isActive ? "#10b981" : "$color11"}
-                      fontWeight={isActive ? "bold" : "400"} fontSize={14}>
-                      {a.label}
-                    </Text>
-                  </XStack>
-                </Button>
-              );
+    <>
+      <style>{`
+        @media(max-width:640px){.cfg-tabs-mob{display:block!important}.cfg-tabs-desk{display:none!important}}
+        @media(min-width:641px){.cfg-tabs-mob{display:none!important}.cfg-tabs-desk{display:flex!important}}
+      `}</style>
+      <div style={{ flex:1, overflowY:"auto", backgroundColor:C.bg }}>
+        <div style={{ padding:16, maxWidth:1100, margin:"0 auto", display:"flex", flexDirection:"column", gap:20, width:"100%" }} className="sm:p-6">
+          <div>
+            <h2 style={{ color:C.color12, fontSize:24, fontWeight:"bold", margin:0 }}>Configurações</h2>
+            <span style={{ color:C.color11, fontSize:14 }}>Gerencie suas preferências e dados da conta.</span>
+          </div>
+          <div className="cfg-tabs-mob" style={{ display:"none" }}>
+            <select value={aba} onChange={e=>setAba(e.target.value as Aba)} style={{ width:"100%", background:C.color2, border:"1px solid rgba(16,185,129,0.4)", borderRadius:12, padding:"12px 16px", color:"#10b981", fontSize:14, fontWeight:"bold", fontFamily:"inherit", outline:"none", cursor:"pointer" }}>
+              {ABAS.map(a=><option key={a.id} value={a.id} style={{ background:C.bg, color:"#fff" }}>{a.icon} {a.label}</option>)}
+            </select>
+          </div>
+          <div className="cfg-tabs-desk" style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+            {ABAS.map(a=>{
+              const isActive=aba===a.id;
+              return <button key={a.id} id={`tab-${a.id}`} onClick={()=>setAba(a.id)} style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 16px", borderRadius:8, border:`1px solid ${isActive?"#10b981":C.border}`, backgroundColor:isActive?"rgba(16,185,129,0.1)":C.color2, color:isActive?"#10b981":C.color11, fontSize:14, fontWeight:isActive?"bold":"400", cursor:"pointer", fontFamily:"inherit", transition:"all .15s" }}><span>{a.icon}</span>{a.label}</button>;
             })}
-          </XStack>
+          </div>
+          <div style={{ height:1, backgroundColor:C.border }} />
+          {aba==="dados"        && <AbaDados />}
+          {aba==="plano"        && <AbaPlano />}
+          {aba==="notificacoes" && <AbaNotificacoes />}
+          {aba==="senha"        && <AbaSenha />}
         </div>
-
-        <style>{`
-          @media (max-width: 640px) {
-            .cfg-tabs-mobile { display: block !important; }
-            .cfg-tabs-desktop { display: none !important; }
-          }
-        `}</style>
-
-        <Separator borderColor="$borderColor" />
-
-        {/* Conteúdo */}
-        {aba === "dados"        && <AbaDados />}
-        {aba === "plano"        && <AbaPlano />}
-        {aba === "notificacoes" && <AbaNotificacoes />}
-        {aba === "senha"        && <AbaSenha />}
-
-      </YStack>
-    </ScrollView>
+      </div>
+    </>
   );
 }

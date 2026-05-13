@@ -3,7 +3,7 @@
 
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ScrollView, YStack, XStack, Text, H2 } from "tamagui";
+
 import { updateStatus } from "../consultasStore";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -325,16 +325,9 @@ function PagamentoInner() {
     return (
       <div className="pg-card pg-success">
         <div className="pg-success-icon">✅</div>
-        <Text color="$color12" fontSize={22} fontWeight="bold" display="block" marginBottom="$2">
-          Pagamento Confirmado!
-        </Text>
-        <Text color="$color11" fontSize={14} display="block" marginBottom="$2">
-          Sua consulta com <strong style={{ color: "#f4f4f5" }}>Dr(a). {consulta.especialidade.nome}</strong> está confirmada.
-        </Text>
-        <Text color="$color11" fontSize={13} display="block" marginBottom="$6">
-          📅 {formatDate(consulta.data)} às {consulta.horario}
-          {" · "}{consulta.tipo === "Online" ? "🌐 Online" : "📍 Presencial"}
-        </Text>
+        <p style={{ color:"#fafafa", fontSize:22, fontWeight:"bold", margin:"0 0 8px" }}>Pagamento Confirmado!</p>
+        <p style={{ color:"#a1a1aa", fontSize:14, margin:"0 0 8px" }}>Sua consulta com <strong style={{ color:"#f4f4f5" }}>Dr(a). {consulta.especialidade.nome}</strong> está confirmada.</p>
+        <p style={{ color:"#a1a1aa", fontSize:13, margin:"0 0 24px" }}>📅 {formatDate(consulta.data)} às {consulta.horario}{" · "}{consulta.tipo === "Online" ? "🌐 Online" : "📍 Presencial"}</p>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.35)", borderRadius: 99, padding: "4px 14px", fontSize: 11, fontWeight: 800, color: "#10b981", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 28 }}>
           🟢 consulta_confirmada
         </div>
@@ -353,7 +346,7 @@ function PagamentoInner() {
   ];
 
   return (
-    <YStack gap="$4">
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
       {/* Resumo */}
       <div className="pg-card">
         <span className="pg-section-label">Detalhes da Consulta</span>
@@ -416,10 +409,8 @@ function PagamentoInner() {
       </div>
 
       {/* Botões */}
-      <XStack gap="$3" flexDirection="column" $gtSm={{ flexDirection: "row" }}>
-        <button className="pg-btn-ghost" onClick={() => router.back()} style={{ flex: 1 }}>
-          ← Cancelar
-        </button>
+      <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+        <button className="pg-btn-ghost" onClick={()=>router.back()} style={{ flex:1 }}>← Cancelar</button>
         <button
           id="btn-pagar-consulta"
           className="pg-btn-pay"
@@ -438,8 +429,8 @@ function PagamentoInner() {
             <>💳 Pagar R$ {valorFinal.toFixed(2).replace(".", ",")}</>
           )}
         </button>
-      </XStack>
-    </YStack>
+      </div>
+    </div>
   );
 }
 
@@ -450,35 +441,24 @@ export default function PagamentoPage() {
   return (
     <>
       <style>{STYLES}</style>
-      <ScrollView flex={1} backgroundColor="$background" showsVerticalScrollIndicator={false}>
-        <YStack
-          padding="$4" $gtSm={{ padding: "$6" }}
-          maxWidth={600} marginHorizontal="auto" width="100%"
-          gap="$5" className="pg-page"
-        >
-          {/* Header */}
-          <XStack alignItems="center" gap="$3">
-            <button
-              onClick={() => router.back()}
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#a1a1aa", flexShrink: 0, transition: "all 0.15s" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#10b981"; (e.currentTarget as HTMLButtonElement).style.color = "#10b981"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLButtonElement).style.color = "#a1a1aa"; }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
-              </svg>
+      <div style={{ flex:1, overflowY:"auto", backgroundColor:"#111" }}>
+        <div style={{ padding:16, maxWidth:600, margin:"0 auto", width:"100%", display:"flex", flexDirection:"column", gap:20 }} className="pg-page sm:p-6">
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+            <button onClick={()=>router.back()} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, width:38, height:38, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#a1a1aa", flexShrink:0, transition:"all 0.15s" }}
+              onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.borderColor="#10b981";(e.currentTarget as HTMLButtonElement).style.color="#10b981";}}
+              onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.borderColor="rgba(255,255,255,0.1)";(e.currentTarget as HTMLButtonElement).style.color="#a1a1aa";}}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
             </button>
-            <YStack flex={1}>
-              <H2 color="$color12" size="$6" fontWeight="bold">Pagamento</H2>
-              <Text color="$color11" fontSize={13}>Finalize o pagamento para confirmar sua consulta</Text>
-            </YStack>
-          </XStack>
-
-          <Suspense fallback={<Text color="$color11">Carregando...</Text>}>
+            <div style={{ flex:1 }}>
+              <h2 style={{ color:"#fafafa", fontSize:24, fontWeight:"bold", margin:0 }}>Pagamento</h2>
+              <span style={{ color:"#a1a1aa", fontSize:13 }}>Finalize o pagamento para confirmar sua consulta</span>
+            </div>
+          </div>
+          <Suspense fallback={<span style={{ color:"#a1a1aa" }}>Carregando...</span>}>
             <PagamentoInner />
           </Suspense>
-        </YStack>
-      </ScrollView>
+        </div>
+      </div>
     </>
   );
 }

@@ -1,13 +1,11 @@
 //@ts-nocheck
 "use client";
 
-import { YStack, H2, Text } from "tamagui";
-
 export default function AgendaPage() {
   return (
-    <YStack flex={1} backgroundColor="$background" padding="$4" gap="$4">
-      <H2 color="$color12" size="$6" fontWeight="bold">Agenda</H2>
-      <Text color="$color11">Em breve...</Text>
-    </YStack>
+    <div style={{ flex:1, backgroundColor:"#111", padding:16, display:"flex", flexDirection:"column", gap:16 }}>
+      <h2 style={{ color:"#fafafa", fontSize:24, fontWeight:"bold", margin:0 }}>Agenda</h2>
+      <p style={{ color:"#a1a1aa", margin:0 }}>Em breve...</p>
+    </div>
   );
 }

@@ -3,7 +3,7 @@
 
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ScrollView, YStack, XStack, Text, H2 } from "tamagui";
+
 import TimelineStatus from "../TimelineStatus";
 import { useStatusMap } from "../consultasStore";
 
@@ -82,17 +82,13 @@ function StatusInner() {
   function irPagar() { router.push(`/painel/consultas/pagamento?id=${id}`); }
 
   return (
-    <YStack gap="$4">
-
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
       {/* Resumo */}
       <div className="st-card">
-        <XStack alignItems="center" justifyContent="space-between" marginBottom="$3" flexWrap="wrap" gap="$2">
-          <Text color="$color11" fontSize={11} fontWeight="700"
-            style={{ textTransform:"uppercase", letterSpacing:"0.06em" }}>
-            Detalhes da Consulta
-          </Text>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12, flexWrap:"wrap", gap:8 }}>
+          <span style={{ color:"#a1a1aa", fontSize:11, fontWeight:"700", textTransform:"uppercase", letterSpacing:"0.06em" }}>Detalhes da Consulta</span>
           <BadgeStatus status={status} />
-        </XStack>
+        </div>
 
         <div className="st-row">
           <span>👨‍⚕️</span>
@@ -122,12 +118,8 @@ function StatusInner() {
       {status === "pagamento_pendente" && (
         <div className="st-action-bar">
           <div>
-            <Text color="#fbbf24" fontSize={13} fontWeight="700" display="block" marginBottom="$1">
-              💳 Pagamento Pendente
-            </Text>
-            <Text color="$color11" fontSize={12}>
-              Realize o pagamento para confirmar sua consulta.
-            </Text>
+            <span style={{ color:"#fbbf24", fontSize:13, fontWeight:"700", display:"block", marginBottom:4 }}>💳 Pagamento Pendente</span>
+            <span style={{ color:"#a1a1aa", fontSize:12 }}>Realize o pagamento para confirmar sua consulta.</span>
           </div>
           <button className="st-pay-btn" id="st-btn-pagar" onClick={irPagar}>
             Pagar Agora →
@@ -138,22 +130,15 @@ function StatusInner() {
       {/* Banner confirmada */}
       {status === "consulta_confirmada" && (
         <div className="st-confirm-banner">
-          <Text fontSize={28} display="block" marginBottom="$2">🎉</Text>
-          <Text color="#10b981" fontSize={15} fontWeight="700" display="block" marginBottom="$1">
-            Consulta Confirmada!
-          </Text>
-          <Text color="$color11" fontSize={13}>
-            Seu pagamento foi recebido. Até {formatDate(consulta.data)} às {consulta.horario}!
-          </Text>
+          <span style={{ fontSize:28, display:"block", marginBottom:8 }}>🎉</span>
+          <span style={{ color:"#10b981", fontSize:15, fontWeight:"700", display:"block", marginBottom:4 }}>Consulta Confirmada!</span>
+          <span style={{ color:"#a1a1aa", fontSize:13 }}>Seu pagamento foi recebido. Até {formatDate(consulta.data)} às {consulta.horario}!</span>
         </div>
       )}
 
       {/* Timeline */}
       <div className="st-card">
-        <Text color="$color11" fontSize={11} fontWeight="700" display="block" marginBottom="$4"
-          style={{ textTransform:"uppercase", letterSpacing:"0.06em" }}>
-          Histórico do Agendamento
-        </Text>
+        <span style={{ color:"#a1a1aa", fontSize:11, fontWeight:"700", display:"block", marginBottom:16, textTransform:"uppercase", letterSpacing:"0.06em" }}>Histórico do Agendamento</span>
         <TimelineStatus
           consultaId={id}
           defaultStatus="consulta_solicitada"
@@ -163,7 +148,7 @@ function StatusInner() {
         />
       </div>
 
-    </YStack>
+    </div>
   );
 }
 
@@ -174,34 +159,24 @@ export default function ConsultaStatusPage() {
   return (
     <>
       <style>{STYLES}</style>
-      <ScrollView flex={1} backgroundColor="$background" showsVerticalScrollIndicator={false}>
-        <YStack
-          padding="$4" $gtSm={{ padding:"$6" }}
-          maxWidth={640} marginHorizontal="auto" width="100%"
-          gap="$5" className="st-page"
-        >
-          <XStack alignItems="center" gap="$3">
-            <button
-              onClick={() => router.push("/painel/consultas")}
-              style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, width:38, height:38, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#a1a1aa", flexShrink:0, transition:"all 0.15s" }}
-              onMouseEnter={e=>{ e.currentTarget.style.borderColor="#10b981"; e.currentTarget.style.color="#10b981"; }}
-              onMouseLeave={e=>{ e.currentTarget.style.borderColor="rgba(255,255,255,0.1)"; e.currentTarget.style.color="#a1a1aa"; }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
-              </svg>
+      <div style={{ flex:1, overflowY:"auto", backgroundColor:"#111" }}>
+        <div style={{ padding:16, maxWidth:640, margin:"0 auto", width:"100%", display:"flex", flexDirection:"column", gap:20 }} className="st-page sm:p-6">
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+            <button onClick={()=>router.push("/painel/consultas")} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, width:38, height:38, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#a1a1aa", flexShrink:0, transition:"all 0.15s" }}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor="#10b981";e.currentTarget.style.color="#10b981";}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.1)";e.currentTarget.style.color="#a1a1aa";}}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
             </button>
-            <YStack flex={1}>
-              <H2 color="$color12" size="$6" fontWeight="bold">Status da Consulta</H2>
-              <Text color="$color11" fontSize={13}>Acompanhe o progresso do seu agendamento</Text>
-            </YStack>
-          </XStack>
-
-          <Suspense fallback={<Text color="$color11">Carregando...</Text>}>
+            <div style={{ flex:1 }}>
+              <h2 style={{ color:"#fafafa", fontSize:24, fontWeight:"bold", margin:0 }}>Status da Consulta</h2>
+              <span style={{ color:"#a1a1aa", fontSize:13 }}>Acompanhe o progresso do seu agendamento</span>
+            </div>
+          </div>
+          <Suspense fallback={<span style={{ color:"#a1a1aa" }}>Carregando...</span>}>
             <StatusInner />
           </Suspense>
-        </YStack>
-      </ScrollView>
+        </div>
+      </div>
     </>
   );
 }

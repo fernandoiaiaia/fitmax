@@ -3,7 +3,17 @@
 
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ScrollView, YStack, XStack, Text, H2, Card } from "tamagui";
+
+// ─── Tamagui Shims (migration compatibility layer) ────────────────────────────
+const ScrollView = ({ children, ...p }: any) => <div style={{ flex:1, overflowY:"auto", ...p.style }}>{children}</div>;
+const YStack = ({ children, gap, flex, maxWidth, marginHorizontal, width, padding, className, style, ...p }: any) =>
+  <div className={className} style={{ display:"flex", flexDirection:"column", gap:typeof gap==="string"?16:gap, flex, maxWidth, margin:marginHorizontal==="auto"?"0 auto":undefined, width, padding:typeof padding==="string"?16:padding, ...style }}>{children}</div>;
+const XStack = ({ children, gap, alignItems, justifyContent, flexWrap, marginTop, marginBottom, style, ...p }: any) =>
+  <div style={{ display:"flex", flexDirection:"row", gap:typeof gap==="string"?8:gap, alignItems, justifyContent, flexWrap, marginTop:typeof marginTop==="string"?20:marginTop, marginBottom:typeof marginBottom==="string"?16:marginBottom, ...style }}>{children}</div>;
+const Text = ({ children, color, fontSize, fontWeight, display, marginBottom, style, ...p }: any) =>
+  <span style={{ color:color?.startsWith("$")?undefined:color, fontSize, fontWeight, display, marginBottom:typeof marginBottom==="string"?16:marginBottom, ...style }}>{children}</span>;
+const H2 = ({ children, color, size, fontWeight, style, ...p }: any) =>
+  <h2 style={{ color:color?.startsWith("$")?undefined:color, fontSize:24, fontWeight:"bold", margin:0, ...style }}>{children}</h2>;
 
 // ─── Types & Mock Data ────────────────────────────────────────────────────────
 

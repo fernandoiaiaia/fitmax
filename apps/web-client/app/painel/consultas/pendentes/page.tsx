@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ScrollView, YStack, XStack, Text, H2 } from "tamagui";
+
 import { updateStatus, useStatusMap } from "../consultasStore";
 import TimelineStatus from "../TimelineStatus";
 
@@ -403,39 +403,19 @@ export default function PainelProfissionalPage() {
   return (
     <>
       <style>{STYLES}</style>
-      <ScrollView flex={1} backgroundColor="$background" showsVerticalScrollIndicator={false}>
-        <YStack
-          padding="$4"
-          $gtSm={{ padding: "$6" }}
-          maxWidth={760}
-          marginHorizontal="auto"
-          width="100%"
-          gap="$5"
-          className="pf-page"
-        >
-          {/* ── Header ── */}
-          <XStack alignItems="center" gap="$3">
-            <button
-              onClick={() => router.push("/painel/consultas")}
-              style={{
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 10, width: 38, height: 38,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", color: "#a1a1aa", flexShrink: 0, transition: "all 0.15s",
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#10b981"; (e.currentTarget as HTMLButtonElement).style.color = "#10b981"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLButtonElement).style.color = "#a1a1aa"; }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
-              </svg>
+      <div style={{ flex:1, overflowY:"auto", backgroundColor:"#111" }}>
+        <div style={{ padding:16, maxWidth:760, margin:"0 auto", width:"100%", display:"flex", flexDirection:"column", gap:20 }} className="pf-page sm:p-6">
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+            <button onClick={()=>router.push("/painel/consultas")} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, width:38, height:38, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#a1a1aa", flexShrink:0, transition:"all 0.15s" }}
+              onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.borderColor="#10b981";(e.currentTarget as HTMLButtonElement).style.color="#10b981";}}
+              onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.borderColor="rgba(255,255,255,0.1)";(e.currentTarget as HTMLButtonElement).style.color="#a1a1aa";}}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
             </button>
-            <YStack flex={1}>
-              <H2 color="$color12" size="$6" fontWeight="bold">Solicitações de Consulta</H2>
-              <Text color="$color11" fontSize={13}>Painel do Profissional</Text>
-            </YStack>
-          </XStack>
+            <div style={{ flex:1 }}>
+              <h2 style={{ color:"#fafafa", fontSize:24, fontWeight:"bold", margin:0 }}>Solicitações de Consulta</h2>
+              <span style={{ color:"#a1a1aa", fontSize:13 }}>Painel do Profissional</span>
+            </div>
+          </div>
 
           {/* ── Tabs / Filtro ── */}
           <div className="pf-tabs">
@@ -456,12 +436,12 @@ export default function PainelProfissionalPage() {
 
           {/* ── Lista de Consultas ── */}
           {filtered.length === 0 ? (
-            <div className="pf-empty">
-              <div className="pf-empty-icon">📭</div>
-              <Text color="$color10" fontSize={14} display="block">Nenhuma consulta nesta categoria.</Text>
+            <div style={{ textAlign:"center", padding:"56px 24px", color:"#52525b" }}>
+              <div style={{ fontSize:48, marginBottom:16 }}>📭</div>
+              <span style={{ color:"#71717a", fontSize:14 }}>Nenhuma consulta nesta categoria.</span>
             </div>
           ) : (
-            <YStack gap="$4">
+            <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
               {filtered.map(c => {
                 const isLoading   = loadingId === c.id;
                 const isRecusando = recusandoId === c.id;
@@ -621,11 +601,11 @@ export default function PainelProfissionalPage() {
                   </div>
                 );
               })}
-            </YStack>
+            </div>
           )}
 
-        </YStack>
-      </ScrollView>
+        </div>
+      </div>
     </>
   );
 }
