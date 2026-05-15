@@ -3,7 +3,6 @@
 
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ScrollView, YStack, XStack, Text, H2 } from "tamagui";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -113,7 +112,6 @@ const STYLES = `
     margin: 0 auto 20px; font-size: 32px;
   }
 
-  /* Botões reutilizáveis */
   .pro-btn-primary {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     padding: 14px 24px; border-radius: 12px; font-size: 14px; font-weight: 700;
@@ -153,14 +151,13 @@ function ConsultaDetalheInner() {
   const [confirmDone, setConfirmDone] = useState(false);
 
   const statusLabels: Record<string, { label: string; bg: string; color: string }> = {
-    agendada:     { label: "AGENDADA",     bg: "rgba(16,185,129,0.12)",  color: "#10b981" },
-    pendente:     { label: "PENDENTE",     bg: "rgba(234,179,8,0.12)",   color: "#facc15" },
-    a_confirmar:  { label: "A CONFIRMAR",  bg: "rgba(161,161,170,0.1)",  color: "#a1a1aa" },
-    em_andamento: { label: "EM ANDAMENTO", bg: "rgba(96,165,250,0.12)",  color: "#60a5fa" },
+    agendada:     { label:"AGENDADA",     bg:"rgba(16,185,129,0.12)",  color:"#10b981" },
+    pendente:     { label:"PENDENTE",     bg:"rgba(234,179,8,0.12)",   color:"#facc15" },
+    a_confirmar:  { label:"A CONFIRMAR",  bg:"rgba(161,161,170,0.1)",  color:"#a1a1aa" },
+    em_andamento: { label:"EM ANDAMENTO", bg:"rgba(96,165,250,0.12)",  color:"#60a5fa" },
   };
-  const statusCfg = statusLabels[consultaStatus] ?? { label: consultaStatus.toUpperCase(), bg: "rgba(255,255,255,0.08)", color: "#a1a1aa" };
+  const statusCfg = statusLabels[consultaStatus] ?? { label: consultaStatus.toUpperCase(), bg:"rgba(255,255,255,0.08)", color:"#a1a1aa" };
 
-  // Se não vier com ID, redireciona para a lista
   if (!consultaId) {
     router.push("/painel/consultas");
     return null;
@@ -169,41 +166,28 @@ function ConsultaDetalheInner() {
   return (
     <>
       <style>{STYLES}</style>
-      <ScrollView flex={1} backgroundColor="$background" showsVerticalScrollIndicator={false}>
-        <YStack
-          padding="$4"
-          $gtSm={{ padding: "$6" }}
-          maxWidth={680}
-          marginHorizontal="auto"
-          width="100%"
-          gap="$5"
+      <div style={{ flex:1, overflowY:"auto" }}>
+        <div
           className="pro-mg-page"
+          style={{ padding:"1.5rem 2rem", maxWidth:680, margin:"0 auto", width:"100%", display:"flex", flexDirection:"column", gap:24 }}
         >
           {/* Voltar */}
-          <XStack alignItems="center" gap="$3">
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
             <button
               onClick={() => router.push("/painel/consultas")}
-              style={{
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 10,
-                width: 38, height: 38,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", color: "#a1a1aa", flexShrink: 0,
-                transition: "all 0.15s",
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#60a5fa"; (e.currentTarget as HTMLButtonElement).style.color = "#60a5fa"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLButtonElement).style.color = "#a1a1aa"; }}
+              style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, width:38, height:38, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#a1a1aa", flexShrink:0, transition:"all 0.15s" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor="#60a5fa"; (e.currentTarget as HTMLButtonElement).style.color="#60a5fa"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor="rgba(255,255,255,0.1)"; (e.currentTarget as HTMLButtonElement).style.color="#a1a1aa"; }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
+                <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
               </svg>
             </button>
-            <YStack flex={1}>
-              <H2 color="$color12" size="$6" fontWeight="bold">Detalhes da Consulta</H2>
-              <Text color="$color11" fontSize={13}>Consulta #{consultaId}</Text>
-            </YStack>
-          </XStack>
+            <div style={{ flex:1 }}>
+              <h2 style={{ color:"#fafafa", fontSize:22, fontWeight:"bold", margin:0 }}>Detalhes da Consulta</h2>
+              <span style={{ color:"#a1a1aa", fontSize:13 }}>Consulta #{consultaId}</span>
+            </div>
+          </div>
 
           {/* Hero card */}
           <div className="pro-mg-hero">
@@ -216,189 +200,115 @@ function ConsultaDetalheInner() {
               <p className="pro-mg-nome">{consultaNome}</p>
               <p className="pro-mg-esp">{consultaEsp}</p>
               <div className="pro-mg-meta">
-                <span className="pro-mg-pill" style={{ background: statusCfg.bg, borderColor: statusCfg.color + "55", color: statusCfg.color }}>
-                  {statusCfg.label}
-                </span>
-                <span className="pro-mg-pill" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.1)", color: "#a1a1aa" }}>
-                  📅 {consultaData}
-                </span>
-                <span className="pro-mg-pill" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.1)", color: "#a1a1aa" }}>
-                  🕐 {consultaHor}
-                </span>
-                <span className="pro-mg-pill" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.1)", color: "#a1a1aa" }}>
-                  {consultaMod === "Online" ? "🌐" : "📍"} {consultaMod}
-                </span>
+                <span className="pro-mg-pill" style={{ background:statusCfg.bg, borderColor:statusCfg.color+"55", color:statusCfg.color }}>{statusCfg.label}</span>
+                <span className="pro-mg-pill" style={{ background:"rgba(255,255,255,0.04)", borderColor:"rgba(255,255,255,0.1)", color:"#a1a1aa" }}>📅 {consultaData}</span>
+                <span className="pro-mg-pill" style={{ background:"rgba(255,255,255,0.04)", borderColor:"rgba(255,255,255,0.1)", color:"#a1a1aa" }}>🕐 {consultaHor}</span>
+                <span className="pro-mg-pill" style={{ background:"rgba(255,255,255,0.04)", borderColor:"rgba(255,255,255,0.1)", color:"#a1a1aa" }}>{consultaMod === "Online" ? "🌐" : "📍"} {consultaMod}</span>
               </div>
             </div>
           </div>
 
-          {/* ── MENU PRINCIPAL ── */}
+          {/* ── MENU ── */}
           {view === "menu" && !cancelDone && !confirmDone && (
-            <YStack gap="$4">
-              <Text color="$color11" fontSize={13} fontWeight="600">O que você deseja fazer?</Text>
+            <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+              <span style={{ color:"#a1a1aa", fontSize:13, fontWeight:600 }}>O que você deseja fazer?</span>
               <div className="pro-mg-actions-grid">
-
-                {/* Confirmar (só aparece se a_confirmar ou pendente) */}
                 {(consultaStatus === "a_confirmar" || consultaStatus === "pendente") && (
-                  <div
-                    id="btn-pro-confirmar"
-                    className="pro-mg-action-card confirmar"
-                    onClick={() => setView("confirmar")}
-                  >
-                    <div className="pro-mg-action-icon" style={{ background: "rgba(16,185,129,0.12)" }}>✅</div>
-                    <p className="pro-mg-action-title" style={{ color: "#10b981" }}>Confirmar</p>
+                  <div id="btn-pro-confirmar" className="pro-mg-action-card confirmar" onClick={() => setView("confirmar")}>
+                    <div className="pro-mg-action-icon" style={{ background:"rgba(16,185,129,0.12)" }}>✅</div>
+                    <p className="pro-mg-action-title" style={{ color:"#10b981" }}>Confirmar</p>
                     <p className="pro-mg-action-sub">Confirme a presença do paciente nesta consulta</p>
                   </div>
                 )}
-
-                {/* Reagendar */}
                 <div
                   id="btn-pro-reagendar"
                   className="pro-mg-action-card reagendar"
                   onClick={() => setView("reagendar")}
-                  style={{ gridColumn: (consultaStatus !== "a_confirmar" && consultaStatus !== "pendente") ? "span 2" : "auto" }}
+                  style={{ gridColumn: (consultaStatus !== "a_confirmar" && consultaStatus !== "pendente") ? "1 / -1" : "auto" }}
                 >
-                  <div className="pro-mg-action-icon" style={{ background: "rgba(96,165,250,0.12)" }}>📅</div>
-                  <p className="pro-mg-action-title" style={{ color: "#60a5fa" }}>Reagendar</p>
+                  <div className="pro-mg-action-icon" style={{ background:"rgba(96,165,250,0.12)" }}>📅</div>
+                  <p className="pro-mg-action-title" style={{ color:"#60a5fa" }}>Reagendar</p>
                   <p className="pro-mg-action-sub">Proponha uma nova data e horário para esta consulta</p>
                 </div>
-
-                {/* Cancelar */}
-                <div
-                  id="btn-pro-cancelar"
-                  className="pro-mg-action-card cancelar"
-                  onClick={() => setView("cancelar")}
-                  style={{ gridColumn: "span 2" }}
-                >
-                  <div className="pro-mg-action-icon" style={{ background: "rgba(244,63,94,0.1)" }}>🗑️</div>
-                  <p className="pro-mg-action-title" style={{ color: "#f43f5e" }}>Cancelar Consulta</p>
+                <div id="btn-pro-cancelar" className="pro-mg-action-card cancelar" onClick={() => setView("cancelar")} style={{ gridColumn:"1 / -1" }}>
+                  <div className="pro-mg-action-icon" style={{ background:"rgba(244,63,94,0.1)" }}>🗑️</div>
+                  <p className="pro-mg-action-title" style={{ color:"#f43f5e" }}>Cancelar Consulta</p>
                   <p className="pro-mg-action-sub">Cancele esta consulta e notifique o paciente</p>
                 </div>
               </div>
-            </YStack>
+            </div>
           )}
 
           {/* ── CONFIRMAR ── */}
           {view === "confirmar" && !confirmDone && (
-            <div className="pro-mg-confirm-box" style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}>
-              <Text color="#10b981" fontSize={12} fontWeight="800" display="block"
-                style={{ letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}
-              >✅ Confirmar Consulta</Text>
-
-              <Text color="$color11" fontSize={14} display="block" marginBottom="$2">
-                Confirmar a consulta de <strong style={{ color: "#f4f4f5" }}>{consultaNome}</strong>?
-              </Text>
-              <Text color="#71717a" fontSize={13} display="block" marginBottom="$5">
-                📅 {consultaData} às {consultaHor} · {consultaMod}
-              </Text>
-
-              <XStack gap="$3">
-                <button className="pro-btn-ghost" onClick={() => setView("menu")} style={{ flex: 1 }}>← Voltar</button>
-                <button
-                  id="btn-pro-confirmar-ok"
-                  className="pro-btn-primary"
-                  onClick={() => setConfirmDone(true)}
-                  style={{ flex: 2 }}
-                >
-                  Confirmar ✅
-                </button>
-              </XStack>
+            <div className="pro-mg-confirm-box" style={{ background:"rgba(16,185,129,0.06)", border:"1px solid rgba(16,185,129,0.2)" }}>
+              <span style={{ color:"#10b981", fontSize:12, fontWeight:800, display:"block", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:12 }}>✅ Confirmar Consulta</span>
+              <p style={{ color:"#a1a1aa", fontSize:14, margin:"0 0 8px" }}>Confirmar a consulta de <strong style={{ color:"#f4f4f5" }}>{consultaNome}</strong>?</p>
+              <p style={{ color:"#71717a", fontSize:13, margin:"0 0 20px" }}>📅 {consultaData} às {consultaHor} · {consultaMod}</p>
+              <div style={{ display:"flex", gap:12 }}>
+                <button className="pro-btn-ghost" onClick={() => setView("menu")} style={{ flex:1 }}>← Voltar</button>
+                <button id="btn-pro-confirmar-ok" className="pro-btn-primary" onClick={() => setConfirmDone(true)} style={{ flex:2 }}>Confirmar ✅</button>
+              </div>
             </div>
           )}
 
           {/* ── CONFIRMADO ── */}
           {confirmDone && (
             <div className="pro-mg-success">
-              <div className="pro-mg-success-icon" style={{ background: "rgba(16,185,129,0.15)", border: "2px solid #10b981" }}>✅</div>
-              <Text color="$color12" fontSize={20} fontWeight="bold" display="block" marginBottom="$2">Consulta Confirmada!</Text>
-              <Text color="$color11" fontSize={13} display="block" marginBottom="$5">
-                A consulta com <strong style={{ color: "#f4f4f5" }}>{consultaNome}</strong> foi confirmada com sucesso.
-              </Text>
-              <button className="pro-btn-primary" style={{ margin: "0 auto" }} onClick={() => router.push("/painel/consultas")}>
-                Ver Consultas →
-              </button>
+              <div className="pro-mg-success-icon" style={{ background:"rgba(16,185,129,0.15)", border:"2px solid #10b981" }}>✅</div>
+              <p style={{ color:"#fafafa", fontSize:20, fontWeight:"bold", margin:"0 0 8px" }}>Consulta Confirmada!</p>
+              <p style={{ color:"#a1a1aa", fontSize:13, margin:"0 0 20px" }}>A consulta com <strong style={{ color:"#f4f4f5" }}>{consultaNome}</strong> foi confirmada com sucesso.</p>
+              <button className="pro-btn-primary" style={{ margin:"0 auto" }} onClick={() => router.push("/painel/consultas")}>Ver Consultas →</button>
             </div>
           )}
 
           {/* ── REAGENDAR ── */}
           {view === "reagendar" && (
-            <div className="pro-mg-confirm-box" style={{ background: "rgba(96,165,250,0.06)", border: "1px solid rgba(96,165,250,0.2)" }}>
-              <Text color="#60a5fa" fontSize={12} fontWeight="800" display="block"
-                style={{ letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}
-              >📅 Reagendar Consulta</Text>
-
-              <Text color="$color11" fontSize={14} display="block" marginBottom="$2">
-                Propor novo horário para <strong style={{ color: "#f4f4f5" }}>{consultaNome}</strong>.
-              </Text>
-              <Text color="#71717a" fontSize={12} display="block" marginBottom="$5"
-                style={{ background: "rgba(96,165,250,0.06)", borderRadius: 8, padding: "10px 12px", border: "1px solid rgba(96,165,250,0.15)" }}
-              >
+            <div className="pro-mg-confirm-box" style={{ background:"rgba(96,165,250,0.06)", border:"1px solid rgba(96,165,250,0.2)" }}>
+              <span style={{ color:"#60a5fa", fontSize:12, fontWeight:800, display:"block", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:12 }}>📅 Reagendar Consulta</span>
+              <p style={{ color:"#a1a1aa", fontSize:14, margin:"0 0 8px" }}>Propor novo horário para <strong style={{ color:"#f4f4f5" }}>{consultaNome}</strong>.</p>
+              <p style={{ color:"#71717a", fontSize:12, margin:"0 0 20px", background:"rgba(96,165,250,0.06)", borderRadius:8, padding:"10px 12px", border:"1px solid rgba(96,165,250,0.15)" }}>
                 O paciente será notificado e precisará aceitar o novo horário proposto.
-              </Text>
-
-              <XStack gap="$3">
-                <button className="pro-btn-ghost" onClick={() => setView("menu")} style={{ flex: 1 }}>← Voltar</button>
-                <button
-                  className="pro-btn-primary"
-                  style={{ flex: 2, background: "linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)", boxShadow: "0 4px 16px rgba(96,165,250,0.25)" }}
-                  onClick={() => router.push("/painel/consultas")}
-                >
+              </p>
+              <div style={{ display:"flex", gap:12 }}>
+                <button className="pro-btn-ghost" onClick={() => setView("menu")} style={{ flex:1 }}>← Voltar</button>
+                <button className="pro-btn-primary" style={{ flex:2, background:"linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)", boxShadow:"0 4px 16px rgba(96,165,250,0.25)" }} onClick={() => router.push("/painel/consultas")}>
                   Ir para Agenda 📅
                 </button>
-              </XStack>
+              </div>
             </div>
           )}
 
-          {/* ── CONFIRMAR CANCELAMENTO ── */}
+          {/* ── CANCELAR ── */}
           {view === "cancelar" && !cancelDone && (
-            <div className="pro-mg-confirm-box" style={{ background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.2)" }}>
-              <Text color="#f43f5e" fontSize={12} fontWeight="800" display="block"
-                style={{ letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}
-              >⚠️ Confirmar Cancelamento</Text>
-
-              <Text color="$color11" fontSize={14} display="block" marginBottom="$2">
-                Tem certeza que deseja cancelar a consulta de <strong style={{ color: "#f4f4f5" }}>{consultaNome}</strong>?
-              </Text>
-              <Text color="#71717a" fontSize={13} display="block" marginBottom="$3">
-                📅 {consultaData} às {consultaHor} · {consultaMod}
-              </Text>
-              <Text color="#71717a" fontSize={12} display="block" marginBottom="$5"
-                style={{ background: "rgba(244,63,94,0.06)", borderRadius: 8, padding: "10px 12px", border: "1px solid rgba(244,63,94,0.15)" }}
-              >
+            <div className="pro-mg-confirm-box" style={{ background:"rgba(244,63,94,0.06)", border:"1px solid rgba(244,63,94,0.2)" }}>
+              <span style={{ color:"#f43f5e", fontSize:12, fontWeight:800, display:"block", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:12 }}>⚠️ Confirmar Cancelamento</span>
+              <p style={{ color:"#a1a1aa", fontSize:14, margin:"0 0 8px" }}>Tem certeza que deseja cancelar a consulta de <strong style={{ color:"#f4f4f5" }}>{consultaNome}</strong>?</p>
+              <p style={{ color:"#71717a", fontSize:13, margin:"0 0 12px" }}>📅 {consultaData} às {consultaHor} · {consultaMod}</p>
+              <p style={{ color:"#71717a", fontSize:12, margin:"0 0 20px", background:"rgba(244,63,94,0.06)", borderRadius:8, padding:"10px 12px", border:"1px solid rgba(244,63,94,0.15)" }}>
                 O paciente será notificado automaticamente sobre o cancelamento.
-              </Text>
-
-              <XStack gap="$3">
-                <button className="pro-btn-ghost" onClick={() => setView("menu")} style={{ flex: 1 }}>← Voltar</button>
-                <button
-                  id="btn-pro-confirmar-cancelamento"
-                  onClick={() => setCancelDone(true)}
-                  style={{
-                    flex: 2, padding: "14px 0", borderRadius: 12, fontSize: 14, fontWeight: 700,
-                    background: "#f43f5e", border: "none", color: "#fff", cursor: "pointer",
-                    fontFamily: "inherit", transition: "all 0.15s",
-                  }}
-                >Cancelar Consulta</button>
-              </XStack>
+              </p>
+              <div style={{ display:"flex", gap:12 }}>
+                <button className="pro-btn-ghost" onClick={() => setView("menu")} style={{ flex:1 }}>← Voltar</button>
+                <button id="btn-pro-confirmar-cancelamento" onClick={() => setCancelDone(true)} style={{ flex:2, padding:"14px 0", borderRadius:12, fontSize:14, fontWeight:700, background:"#f43f5e", border:"none", color:"#fff", cursor:"pointer", fontFamily:"inherit", transition:"all 0.15s" }}>
+                  Cancelar Consulta
+                </button>
+              </div>
             </div>
           )}
 
-          {/* ── CANCELAMENTO CONFIRMADO ── */}
+          {/* ── CANCELADO ── */}
           {cancelDone && (
             <div className="pro-mg-success">
-              <div className="pro-mg-success-icon" style={{ background: "rgba(244,63,94,0.1)", border: "2px solid #f43f5e" }}>🗑️</div>
-              <Text color="$color12" fontSize={20} fontWeight="bold" display="block" marginBottom="$2">Consulta Cancelada</Text>
-              <Text color="$color11" fontSize={13} display="block" marginBottom="$5">
-                A consulta de <strong style={{ color: "#f4f4f5" }}>{consultaNome}</strong> foi cancelada e o paciente foi notificado.
-              </Text>
-              <button className="pro-btn-primary" style={{ margin: "0 auto" }} onClick={() => router.push("/painel/consultas")}>
-                Ver Consultas →
-              </button>
+              <div className="pro-mg-success-icon" style={{ background:"rgba(244,63,94,0.1)", border:"2px solid #f43f5e" }}>🗑️</div>
+              <p style={{ color:"#fafafa", fontSize:20, fontWeight:"bold", margin:"0 0 8px" }}>Consulta Cancelada</p>
+              <p style={{ color:"#a1a1aa", fontSize:13, margin:"0 0 20px" }}>A consulta de <strong style={{ color:"#f4f4f5" }}>{consultaNome}</strong> foi cancelada e o paciente foi notificado.</p>
+              <button className="pro-btn-primary" style={{ margin:"0 auto" }} onClick={() => router.push("/painel/consultas")}>Ver Consultas →</button>
             </div>
           )}
 
-        </YStack>
-      </ScrollView>
+        </div>
+      </div>
     </>
   );
 }

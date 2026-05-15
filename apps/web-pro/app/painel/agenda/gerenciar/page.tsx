@@ -3,7 +3,6 @@
 
 import { useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
-import { ScrollView, YStack, XStack, Text, H2 } from "tamagui";
 
 const S = `
 @keyframes gfadeUp {
@@ -17,13 +16,14 @@ const S = `
   border-radius: 16px;
   padding: 24px;
 }
-.g-tabs { display:flex; gap:8px; margin-bottom:0; }
+.g-tabs { display:flex; gap:8px; margin-bottom:0; flex-wrap:wrap; }
 .g-tab {
   padding: 8px 18px; border-radius: 10px; font-size:13px; font-weight:700;
   background:rgba(255,255,255,0.04); border:1.5px solid rgba(255,255,255,0.1);
   color:#a1a1aa; cursor:pointer; font-family:inherit; transition:all 0.15s;
 }
 .g-tab.active { background:rgba(16,185,129,0.15); border-color:#10b981; color:#10b981; }
+.g-tab:hover:not(.active) { background:rgba(255,255,255,0.08); color:#e4e4e7; }
 .g-cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-top:8px; }
 .g-cal-head { font-size:11px; font-weight:600; color:#71717a; text-align:center; padding:4px 0; }
 .g-cal-day {
@@ -77,7 +77,7 @@ const S = `
   display:flex; align-items:center; justify-content:space-between;
   padding:12px 16px; border-radius:12px;
   border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02);
-  margin-bottom:8px;
+  margin-bottom:8px; flex-wrap:wrap; gap:12px;
 }
 .g-rm-btn {
   width:28px; height:28px; border-radius:8px; background:rgba(244,63,94,0.1);
@@ -86,10 +86,10 @@ const S = `
   font-family:inherit; transition:all 0.15s; flex-shrink:0;
 }
 .g-rm-btn:hover { background:rgba(244,63,94,0.2); }
-.g-seg { display:flex; border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,0.12); }
+.g-seg { display:flex; border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,0.12); flex-wrap:wrap; }
 .g-seg-btn {
   flex:1; padding:9px 0; font-size:13px; font-weight:600; background:transparent;
-  border:none; color:#71717a; cursor:pointer; font-family:inherit; transition:all 0.15s;
+  border:none; color:#71717a; cursor:pointer; font-family:inherit; transition:all 0.15s; min-width:80px;
 }
 .g-seg-btn.active { background:rgba(16,185,129,0.15); color:#10b981; }
 .g-success-box {
@@ -419,18 +419,21 @@ function GerenciarInner() {
   return (
     <>
       <style>{S}</style>
-      <ScrollView flex={1} backgroundColor="$background" showsVerticalScrollIndicator={false}>
-        <YStack
-          padding="$4"
-          $gtSm={{ padding: "$6" }}
-          maxWidth={800}
-          marginHorizontal="auto"
-          width="100%"
-          gap="$5"
+      <div style={{ flex: 1, overflowY: "auto", backgroundColor: "#09090b" }}>
+        <div
           className="g-page"
+          style={{
+            padding: "1.5rem 2rem",
+            maxWidth: 800,
+            margin: "0 auto",
+            width: "100%",
+            display: "flex",
+            flexDirection: "column",
+            gap: 20
+          }}
         >
           {/* Header */}
-          <XStack alignItems="center" gap="$3">
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <button
               onClick={() => router.push("/painel/agenda")}
               style={{
@@ -446,11 +449,11 @@ function GerenciarInner() {
                 <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
               </svg>
             </button>
-            <YStack flex={1}>
-              <H2 color="$color12" size="$6" fontWeight="bold">Gerenciar Disponibilidade</H2>
-              <Text color="$color11" fontSize={13}>Dr. Rafael Costa · Cardiologista</Text>
-            </YStack>
-          </XStack>
+            <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+              <h2 style={{ color: "#fafafa", fontSize: 24, fontWeight: "bold", margin: 0 }}>Gerenciar Disponibilidade</h2>
+              <span style={{ color: "#a1a1aa", fontSize: 13 }}>Dr. Rafael Costa · Cardiologista</span>
+            </div>
+          </div>
 
           {/* Tabs */}
           <div className="g-tabs">
@@ -464,8 +467,8 @@ function GerenciarInner() {
           {tab === "bloqueios"       && <AbaBloqueios />}
           {tab === "configuracoes"   && <AbaConfiguracoes />}
 
-        </YStack>
-      </ScrollView>
+        </div>
+      </div>
     </>
   );
 }

@@ -124,6 +124,9 @@ export default function HistoricoPage() {
         @media(max-width:640px){.hist-mob{display:block!important}.hist-desk{display:none!important}}
         @media(min-width:641px){.hist-mob{display:none!important}.hist-desk{display:flex!important}}
         @media(max-width:640px){.hist-body{flex-direction:column!important}}
+        @media(max-width:640px){.hist-lista{min-width:0!important;width:100%!important}}
+        @media(max-width:640px){.hist-sidebar{min-width:0!important;width:100%!important}}
+        *{box-sizing:border-box}
       `}</style>
       <div style={{ flex:1, overflowY:"auto", backgroundColor:C.bg }}>
         <div style={{ padding:16, maxWidth:1100, margin:"0 auto", display:"flex", flexDirection:"column", gap:20, width:"100%" }}
@@ -164,7 +167,7 @@ export default function HistoricoPage() {
           <div className="hist-body" style={{ display:"flex", gap:20, alignItems:"flex-start" }}>
 
             {/* Lista */}
-            <div style={{ flex:2, display:"flex", flexDirection:"column", gap:20, minWidth:280 }}>
+            <div className="hist-lista" style={{ flex:2, display:"flex", flexDirection:"column", gap:20, minWidth:280 }}>
               <h2 style={{ color:C.color12, fontSize:20, fontWeight:"bold", margin:0 }}>Consultas Realizadas</h2>
               {meses.map(mk=>{
                 const items=grupos[mk]; const label=mesLabels[mk]??mk;
@@ -184,7 +187,7 @@ export default function HistoricoPage() {
             </div>
 
             {/* Sidebar */}
-            <div style={{ flex:1, display:"flex", flexDirection:"column", gap:16, minWidth:240 }}>
+            <div className="hist-sidebar" style={{ flex:1, display:"flex", flexDirection:"column", gap:16, minWidth:240 }}>
 
               {/* Linha do Tempo */}
               <HoverCard hoverBorder="#a78bfa">

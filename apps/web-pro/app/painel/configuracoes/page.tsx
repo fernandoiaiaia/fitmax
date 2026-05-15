@@ -2,10 +2,6 @@
 "use client";
 
 import { useState, useRef } from "react";
-import {
-  Card, Text, H2, XStack, YStack,
-  ScrollView, Button, Avatar, Separator, Input, ZStack, Circle,
-} from "tamagui";
 
 type Aba = "dados" | "plano" | "notificacoes" | "senha";
 
@@ -40,13 +36,122 @@ const CONVENIOS = [
   "Mediservice", "Fusex", "Geap", "Petrobras Saúde", "Particular (Sem convênio)",
 ];
 
+const STYLES = `
+.cfg-card {
+  background: #141414;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.2s;
+  animation: cfgFadeUp 0.3s ease;
+}
+.cfg-card:hover {
+  background: #1a1a1a;
+  border-color: #10b981;
+}
+@keyframes cfgFadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.cfg-input {
+  background: #111;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 0 12px;
+  height: 42px;
+  color: #fafafa;
+  font-family: inherit;
+  font-size: 14px;
+  width: 100%;
+  transition: border-color 0.2s;
+  outline: none;
+  box-sizing: border-box;
+}
+.cfg-input:focus {
+  border-color: #10b981;
+}
+.cfg-input:disabled {
+  background: rgba(255,255,255,0.03);
+  color: #a1a1aa;
+}
+.cfg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  height: 42px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+.cfg-btn-primary {
+  background: #10b981;
+  color: white;
+}
+.cfg-btn-primary:hover {
+  background: #059669;
+}
+.cfg-btn-outline {
+  background: transparent;
+  border-color: rgba(255,255,255,0.1);
+  color: #a1a1aa;
+}
+.cfg-btn-outline:hover {
+  background: rgba(255,255,255,0.05);
+  color: #e4e4e7;
+}
+.cfg-btn-outline.active {
+  background: rgba(16,185,129,0.12);
+  border-color: #10b981;
+  color: #10b981;
+}
+.cfg-btn-danger {
+  background: rgba(244,63,94,0.1);
+  border-color: rgba(244,63,94,0.3);
+  color: #f43f5e;
+}
+.cfg-btn-danger:hover {
+  background: rgba(244,63,94,0.2);
+}
+.cfg-toggle {
+  width: 44px;
+  height: 24px;
+  border-radius: 99px;
+  position: relative;
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s;
+}
+.cfg-toggle-knob {
+  position: absolute;
+  top: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  transition: left 0.2s;
+}
+@media(max-width:600px){
+  .cfg-tabs-desk { display: none !important; }
+  .cfg-tabs-mob  { display: block !important; }
+}
+@media(min-width:601px){
+  .cfg-tabs-desk { display: flex !important; }
+  .cfg-tabs-mob  { display: none !important; }
+}
+`;
+
 /* ── helpers ── */
 function SectionTitle({ children }: { children: string }) {
   return (
-    <Text color="$color11" fontSize={11} fontWeight="bold"
-      letterSpacing={1} textTransform="uppercase" marginBottom="$2">
+    <div style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "bold", letterSpacing: 1, textTransform: "uppercase", marginBottom: 12 }}>
       {children}
-    </Text>
+    </div>
   );
 }
 
@@ -55,23 +160,14 @@ function InputField({ id, label, value, onChange, type = "text", disabled }: {
   onChange: (v: string) => void; type?: string; disabled?: boolean;
 }) {
   return (
-    <YStack gap="$1" flex={1}>
-      <Text color="$color10" fontSize={12}>{label}</Text>
-      <Input
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 200 }}>
+      <label style={{ color: "#a1a1aa", fontSize: 12 }}>{label}</label>
+      <input
         id={id} type={type} value={value} disabled={disabled}
-        onChangeText={onChange}
-        backgroundColor={disabled ? "rgba(255,255,255,0.03)" : "$color2"}
-        borderColor="$borderColor"
-        borderRadius="$3"
-        height={42}
-        paddingHorizontal="$3"
-        color={disabled ? "$color10" : "$color12"}
-        fontSize={14}
-        width="100%"
-        hoverStyle={{ borderColor: disabled ? "$borderColor" : "$green8" }}
-        focusStyle={{ borderColor: "$green10", outlineWidth: 0 }}
+        onChange={(e) => onChange(e.target.value)}
+        className="cfg-input"
       />
-    </YStack>
+    </div>
   );
 }
 
@@ -79,35 +175,22 @@ function Toggle({ id, label, desc, value, onChange }: {
   id: string; label: string; desc: string; value: boolean; onChange: () => void;
 }) {
   return (
-    <XStack justifyContent="space-between" alignItems="center"
-      paddingVertical="$3" borderBottomWidth={1} borderColor="$borderColor">
-      <YStack flex={1} gap="$0.5" paddingRight="$4">
-        <Text color="$color12" fontSize={14} fontWeight="500">{label}</Text>
-        <Text color="$color11" fontSize={12}>{desc}</Text>
-      </YStack>
-      <XStack
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.08)", flexWrap:"wrap", gap:12 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, paddingRight: 16, minWidth: 200 }}>
+        <span style={{ color: "#fafafa", fontSize: 14, fontWeight: 500 }}>{label}</span>
+        <span style={{ color: "#a1a1aa", fontSize: 12 }}>{desc}</span>
+      </div>
+      <button
         id={id}
         role="switch"
         aria-checked={value}
-        onPress={onChange}
-        width={44}
-        height={24}
-        borderRadius="$10"
-        cursor="pointer"
-        backgroundColor={value ? "$green9" : "$color5"}
-        position="relative"
-       
+        onClick={onChange}
+        className="cfg-toggle"
+        style={{ background: value ? "#10b981" : "rgba(255,255,255,0.1)" }}
       >
-        <Circle
-          size={20}
-          backgroundColor="white"
-          position="absolute"
-          top={2}
-          left={value ? 22 : 2}
-         
-        />
-      </XStack>
-    </XStack>
+        <div className="cfg-toggle-knob" style={{ left: value ? 22 : 2 }} />
+      </button>
+    </div>
   );
 }
 
@@ -154,314 +237,186 @@ function AbaDados() {
   }
 
   return (
-    <YStack gap="$4">
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Profile Card */}
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" padding="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-       >
-        <XStack alignItems="center" gap="$4">
-          <ZStack width={80} height={80}>
-            <Avatar circular size="$8" backgroundColor="$color4">
-              <Avatar.Image src="https://picsum.photos/200/200?random=30" />
-            </Avatar>
-            <Circle
-              size={28}
-              backgroundColor="$green9"
-              borderWidth={2}
-              borderColor="$color2"
-              position="absolute"
-              bottom={0}
-              right={0}
-              cursor="pointer"
-              onPress={() => avatarRef.current?.click()}
-              hoverStyle={{ backgroundColor: "$green10" }}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
-            </Circle>
-            <input ref={avatarRef} type="file" accept="image/*" style={{ display: "none" }} />
-          </ZStack>
-          <YStack gap="$1">
-            <Text color="$color12" fontSize={18} fontWeight="bold">{nome}</Text>
-            <Text color="$color11" fontSize={13}>{email}</Text>
-            <XStack paddingHorizontal="$3" paddingVertical="$1" borderRadius="$10"
-              backgroundColor="rgba(16,185,129,0.12)" marginTop="$1">
-              <Text color="#10b981" fontSize={11} fontWeight="bold">Plano Pro · Ativo</Text>
-            </XStack>
-          </YStack>
-        </XStack>
-      </Card>
+      <div className="cfg-card" style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ position: "relative", width: 80, height: 80 }}>
+          <img src="https://picsum.photos/200/200?random=30" alt="Avatar" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", backgroundColor: "rgba(255,255,255,0.05)" }} />
+          <button
+            onClick={() => avatarRef.current?.click()}
+            style={{ position: "absolute", bottom: 0, right: 0, width: 28, height: 28, borderRadius: "50%", background: "#10b981", border: "2px solid #141414", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+              <circle cx="12" cy="13" r="4" />
+            </svg>
+          </button>
+          <input ref={avatarRef} type="file" accept="image/*" style={{ display: "none" }} />
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span style={{ color: "#fafafa", fontSize: 18, fontWeight: "bold" }}>{nome}</span>
+          <span style={{ color: "#a1a1aa", fontSize: 13 }}>{email}</span>
+          <div style={{ padding: "4px 12px", borderRadius: 99, background: "rgba(16,185,129,0.12)", marginTop: 4, display: "inline-flex", width: "max-content" }}>
+            <span style={{ color: "#10b981", fontSize: 11, fontWeight: "bold" }}>Plano Pro · Ativo</span>
+          </div>
+        </div>
+      </div>
 
       {/* Dados */}
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" padding="$4" gap="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-       >
+      <div className="cfg-card">
         <SectionTitle>Dados Pessoais</SectionTitle>
-        <XStack gap="$3" flexWrap="wrap">
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 12 }}>
           <InputField id="input-nome"  label="Nome completo" value={nome}  onChange={setNome} />
           <InputField id="input-email" label="E-mail"        value={email} onChange={setEmail} type="email" />
-        </XStack>
-        <XStack gap="$3" flexWrap="wrap">
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
           <InputField id="input-tel"  label="Telefone"        value={tel}  onChange={setTel}  type="tel" />
           <InputField id="input-user" label="Nome de usuário" value={user} onChange={setUser} />
-        </XStack>
-      </Card>
+        </div>
+      </div>
 
       {/* Profissão e Conselho */}
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor={errorMsg && (!profissao || !registro || !uf) ? "$red8" : "$borderColor"}
-        borderRadius="$5" padding="$4" gap="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: errorMsg && (!profissao || !registro || !uf) ? "$red9" : "$green8" }}
-       >
+      <div className="cfg-card" style={{ borderColor: errorMsg && (!profissao || !registro || !uf) ? "#ef4444" : undefined }}>
         <SectionTitle>Profissão e Conselho (Obrigatório)</SectionTitle>
-        <XStack flexWrap="wrap" gap="$2">
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {PROFISSOES.map((p) => {
             const isActive = profissao === p.id;
             return (
-              <Button key={p.id} size="$3" borderRadius="$10" borderWidth={1}
-                animation="quick"
-                borderColor={isActive ? "#10b981" : "$borderColor"}
-                backgroundColor={isActive ? "rgba(16,185,129,0.12)" : "transparent"}
-                onPress={() => setProfissao(p.id)}
-                hoverStyle={{ borderColor: "$green8", backgroundColor: "$color3" }}
-                id={`prof-${p.id}`}>
-                <Text color={isActive ? "#10b981" : "$color11"} fontSize={13}
-                  fontWeight={isActive ? "bold" : "400"}>{p.label}</Text>
-              </Button>
+              <button key={p.id} onClick={() => setProfissao(p.id)} id={`prof-${p.id}`} className={`cfg-btn cfg-btn-outline ${isActive ? "active" : ""}`} style={{ borderRadius: 99 }}>
+                {p.label}
+              </button>
             );
           })}
-        </XStack>
+        </div>
         
         {selectedProf && (
-          <XStack gap="$3" flexWrap="wrap" marginTop="$2">
-            <YStack gap="$1" flex={1} minWidth={100}>
-              <Text color="$color10" fontSize={12}>Conselho</Text>
-              <Input
-                value={selectedProf.conselho}
-                disabled
-                backgroundColor="rgba(255,255,255,0.03)"
-                borderColor="$borderColor"
-                borderRadius="$3"
-                height={42}
-                paddingHorizontal="$3"
-                color="$color10"
-                fontSize={14}
-              />
-            </YStack>
-            <YStack gap="$1" flex={2} minWidth={150}>
-              <Text color="$color10" fontSize={12}>Número de Registro</Text>
-              <Input
-                value={registro}
-                onChangeText={setRegistro}
-                placeholder="Ex: 123456"
-                backgroundColor="$color2"
-                borderColor={!registro && errorMsg ? "$red8" : "$borderColor"}
-                borderRadius="$3"
-                height={42}
-                paddingHorizontal="$3"
-                color="$color12"
-                fontSize={14}
-                hoverStyle={{ borderColor: "$green8" }}
-                focusStyle={{ borderColor: "$green10", outlineWidth: 0 }}
-              />
-            </YStack>
-            <YStack gap="$1" flex={1} minWidth={100}>
-              <Text color="$color10" fontSize={12}>UF</Text>
-              <div style={{ position: "relative", width: "100%", height: "42px" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 16 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 100 }}>
+              <label style={{ color: "#a1a1aa", fontSize: 12 }}>Conselho</label>
+              <input value={selectedProf.conselho} disabled className="cfg-input" />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 2, minWidth: 150 }}>
+              <label style={{ color: "#a1a1aa", fontSize: 12 }}>Número de Registro</label>
+              <input value={registro} onChange={(e) => setRegistro(e.target.value)} placeholder="Ex: 123456" className="cfg-input" style={{ borderColor: !registro && errorMsg ? "#ef4444" : undefined }} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 100 }}>
+              <label style={{ color: "#a1a1aa", fontSize: 12 }}>UF</label>
+              <div style={{ position: "relative", width: "100%", height: 42 }}>
                 <select
                   value={uf}
                   onChange={(e) => setUf(e.target.value)}
                   style={{
-                    width: "100%",
-                    height: "100%",
-                    backgroundColor: "transparent",
-                    color: "white",
+                    width: "100%", height: "100%", backgroundColor: "transparent", color: "white",
                     border: `1px solid ${!uf && errorMsg ? "#ef4444" : "rgba(255,255,255,0.1)"}`,
-                    borderRadius: "8px",
-                    padding: "0 12px",
-                    fontSize: "14px",
-                    outline: "none",
-                    appearance: "none",
-                    cursor: "pointer"
+                    borderRadius: 8, padding: "0 12px", fontSize: 14, outline: "none", appearance: "none", cursor: "pointer"
                   }}
                 >
                   <option value="" style={{ color: "black" }}>Selecione</option>
                   {ESTADOS_BR.map(e => <option key={e} value={e} style={{ color: "black" }}>{e}</option>)}
                 </select>
-                <div style={{ position: "absolute", right: "12px", top: "14px", pointerEvents: "none" }}>
+                <div style={{ position: "absolute", right: 12, top: 14, pointerEvents: "none" }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
                 </div>
               </div>
-            </YStack>
-          </XStack>
+            </div>
+          </div>
         )}
-      </Card>
+      </div>
 
       {/* Área de Atuação */}
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" padding="$4" gap="$3"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-       >
+      <div className="cfg-card">
         <SectionTitle>Área de Atuação</SectionTitle>
-        <XStack flexWrap="wrap" gap="$2">
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {["Cardiologia", "Endocrinologia", "Nutrição Clínica", "Medicina Esportiva", "Ortopedia", "Personal Trainer"].map((o) => {
             const isActive = obj === o;
             return (
-              <Button key={o} size="$3" borderRadius="$10" borderWidth={1}
-                animation="quick"
-                borderColor={isActive ? "#10b981" : "$borderColor"}
-                backgroundColor={isActive ? "rgba(16,185,129,0.12)" : "transparent"}
-                onPress={() => setObj(o)}
-                hoverStyle={{ borderColor: "$green8", backgroundColor: "$color3" }}
-                id={`obj-${o.toLowerCase().replace(/\s/g, "-")}`}>
-                <Text color={isActive ? "#10b981" : "$color11"} fontSize={13}
-                  fontWeight={isActive ? "bold" : "400"}>{o}</Text>
-              </Button>
+              <button key={o} onClick={() => setObj(o)} id={`obj-${o.toLowerCase().replace(/\s/g, "-")}`} className={`cfg-btn cfg-btn-outline ${isActive ? "active" : ""}`} style={{ borderRadius: 99 }}>
+                {o}
+              </button>
             );
           })}
-        </XStack>
-      </Card>
+        </div>
+      </div>
 
       {/* Convênios */}
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" padding="$4" gap="$3"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-       >
-        <YStack gap="$1">
+      <div className="cfg-card">
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
           <SectionTitle>Convênios Aceitos</SectionTitle>
-          <Text color="$color10" fontSize={12}>
-            Selecione os planos de saúde que você aceita. Aparecerá no seu perfil para os pacientes.
-          </Text>
-        </YStack>
+          <span style={{ color: "#a1a1aa", fontSize: 12 }}>Selecione os planos de saúde que você aceita. Aparecerá no seu perfil para os pacientes.</span>
+        </div>
 
-        {/* chips dos convênios */}
-        <XStack flexWrap="wrap" gap="$2">
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
           {CONVENIOS.map((c) => {
             const isActive = convenios.includes(c);
             return (
-              <Button key={c} size="$3" borderRadius="$10" borderWidth={1}
-                animation="quick"
-                borderColor={isActive ? "#10b981" : "$borderColor"}
-                backgroundColor={isActive ? "rgba(16,185,129,0.12)" : "transparent"}
-                onPress={() => toggleConvenio(c)}
-                hoverStyle={{ borderColor: "$green8", backgroundColor: "$color3" }}
-                id={`conv-${c.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
-                <XStack gap="$1" alignItems="center">
-                  {isActive && (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                      stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  )}
-                  <Text color={isActive ? "#10b981" : "$color11"} fontSize={13}
-                    fontWeight={isActive ? "bold" : "400"}>{c}</Text>
-                </XStack>
-              </Button>
+              <button key={c} onClick={() => toggleConvenio(c)} id={`conv-${c.toLowerCase().replace(/[^a-z0-9]/g, "-")}`} className={`cfg-btn cfg-btn-outline ${isActive ? "active" : ""}`} style={{ borderRadius: 99, gap: 4 }}>
+                {isActive && (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+                {c}
+              </button>
             );
           })}
-        </XStack>
+        </div>
 
-        {/* convênios customizados selecionados */}
         {convenios.filter((c) => !CONVENIOS.includes(c)).length > 0 && (
-          <XStack flexWrap="wrap" gap="$2">
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
             {convenios.filter((c) => !CONVENIOS.includes(c)).map((c) => (
-              <XStack key={c} alignItems="center" gap="$1"
-                paddingHorizontal="$3" paddingVertical="$1.5"
-                borderRadius="$10" borderWidth={1}
-                borderColor="#10b981"
-                backgroundColor="rgba(16,185,129,0.12)">
-                <Text color="#10b981" fontSize={13} fontWeight="bold">{c}</Text>
-                <Button size="$1" circular backgroundColor="transparent"
-                  hoverStyle={{ backgroundColor: "transparent", opacity: 0.7 }}
-                  onPress={() => toggleConvenio(c)}
-                  id={`remove-conv-${c.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
-                    stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <div key={c} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 12px", borderRadius: 99, border: "1px solid #10b981", background: "rgba(16,185,129,0.12)" }}>
+                <span style={{ color: "#10b981", fontSize: 13, fontWeight: "bold" }}>{c}</span>
+                <button onClick={() => toggleConvenio(c)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }} id={`remove-conv-${c.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
-                </Button>
-              </XStack>
+                </button>
+              </div>
             ))}
-          </XStack>
+          </div>
         )}
 
-        {/* adicionar convênio customizado */}
-        <XStack gap="$2" alignItems="center" marginTop="$1">
-          <Input
-            id="input-convenio-custom"
-            value={convenioCustom}
-            onChangeText={setConvenioCustom}
-            placeholder="Adicionar outro convênio..."
-            backgroundColor="$color2"
-            borderColor="$borderColor"
-            borderRadius="$3"
-            height={38}
-            paddingHorizontal="$3"
-            color="$color12"
-            fontSize={13}
-            flex={1}
-            hoverStyle={{ borderColor: "$green8" }}
-            focusStyle={{ borderColor: "$green10", outlineWidth: 0 }}
-            onSubmitEditing={addConvenioCustom}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+          <input
+            id="input-convenio-custom" value={convenioCustom} onChange={(e) => setConvenioCustom(e.target.value)}
+            placeholder="Adicionar outro convênio..." className="cfg-input" style={{ flex: 1, minWidth: 200 }}
+            onKeyDown={(e) => { if (e.key === "Enter") addConvenioCustom(); }}
           />
-          <Button size="$3" borderRadius="$3"
-            backgroundColor="rgba(16,185,129,0.12)"
-            borderWidth={1} borderColor="#10b981"
-            hoverStyle={{ backgroundColor: "rgba(16,185,129,0.22)" }}
-            onPress={addConvenioCustom}
-            id="btn-add-convenio">
-            <Text color="#10b981" fontSize={13} fontWeight="bold">+ Adicionar</Text>
-          </Button>
-        </XStack>
+          <button onClick={addConvenioCustom} className="cfg-btn" style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid #10b981" }} id="btn-add-convenio">
+            + Adicionar
+          </button>
+        </div>
 
-        {/* resumo selecionados */}
         {convenios.length > 0 && (
-          <XStack alignItems="center" gap="$2" marginTop="$1"
-            paddingHorizontal="$3" paddingVertical="$2"
-            borderRadius="$3" backgroundColor="rgba(16,185,129,0.06)"
-            borderWidth={1} borderColor="rgba(16,185,129,0.15)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-              stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 8, background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.15)" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 11l3 3L22 4" />
               <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
             </svg>
-            <Text color="#10b981" fontSize={12} fontWeight="500">
+            <span style={{ color: "#10b981", fontSize: 12, fontWeight: 500 }}>
               {convenios.length} convênio{convenios.length !== 1 ? "s" : ""} selecionado{convenios.length !== 1 ? "s" : ""}
-            </Text>
-          </XStack>
+            </span>
+          </div>
         )}
-      </Card>
+      </div>
 
       {/* Ações */}
-      <YStack gap="$3">
-        {errorMsg ? <Text color="$red9" fontSize={13} fontWeight="bold" textAlign="right">{errorMsg}</Text> : null}
-        <XStack justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="$3">
-          <Text color="$color10" fontSize={12} textDecorationLine="underline"
-            cursor="pointer" id="link-termos">
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {errorMsg && <span style={{ color: "#ef4444", fontSize: 13, fontWeight: "bold", textAlign: "right" }}>{errorMsg}</span>}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <span style={{ color: "#a1a1aa", fontSize: 12, textDecoration: "underline", cursor: "pointer" }} id="link-termos">
             Termos de Uso e Política de Privacidade
-          </Text>
-          <XStack gap="$2">
-            <Button size="$3" borderRadius="$10" backgroundColor="rgba(244,63,94,0.1)"
-              borderWidth={1} borderColor="rgba(244,63,94,0.3)"
-              hoverStyle={{ backgroundColor: "rgba(244,63,94,0.2)" }}
-              id="btn-excluir-conta">
-              <Text color="#f43f5e" fontSize={13} fontWeight="600">Excluir conta</Text>
-            </Button>
-            <Button size="$3" borderRadius="$10" backgroundColor={saved ? "#059669" : "$green9"}
-              hoverStyle={{ backgroundColor: "$green10" }}
-              onPress={handleSave} id="btn-salvar-dados">
-              <Text color="white" fontSize={13} fontWeight="bold">
-                {saved ? "✓ Salvo!" : "Salvar alterações"}
-              </Text>
-            </Button>
-          </XStack>
-        </XStack>
-      </YStack>
-    </YStack>
+          </span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="cfg-btn cfg-btn-danger" style={{ borderRadius: 99 }} id="btn-excluir-conta">Excluir conta</button>
+            <button onClick={handleSave} className="cfg-btn cfg-btn-primary" style={{ borderRadius: 99, background: saved ? "#059669" : undefined }} id="btn-salvar-dados">
+              {saved ? "✓ Salvo!" : "Salvar alterações"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -469,86 +424,70 @@ function AbaPlano() {
   const [selectedPlan, setSelectedPlan] = useState("plus");
 
   return (
-    <YStack gap="$4">
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Plano Atual */}
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="rgba(16,185,129,0.05)"
-        borderColor="rgba(16,185,129,0.3)" borderRadius="$5" padding="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}>
-        <XStack justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="$3">
-          <YStack gap="$1">
-            <XStack alignItems="center" gap="$2">
-              <XStack paddingHorizontal="$2" paddingVertical="$0.5" borderRadius="$10"
-                backgroundColor="rgba(16,185,129,0.15)">
-                <Text color="#10b981" fontSize={10} fontWeight="bold">ATIVO</Text>
-              </XStack>
-              <Text color="$color12" fontSize={22} fontWeight="bold">Pro</Text>
-            </XStack>
-            <Text color="#10b981" fontSize={18} fontWeight="bold">
-              R$ 89<Text color="$color11" fontSize={13}>/mês</Text>
-            </Text>
-          </YStack>
-          <YStack gap="$1" alignItems="flex-end">
-            <Text color="$color11" fontSize={13}>Renovação em <Text color="$color12" fontWeight="bold">21 dias</Text></Text>
-            <Text color="$color11" fontSize={13}>Próxima cobrança: <Text color="$color12" fontWeight="bold">17/05/2026</Text></Text>
-          </YStack>
-        </XStack>
-      </Card>
+      <div className="cfg-card" style={{ background: "rgba(16,185,129,0.05)", borderColor: "rgba(16,185,129,0.3)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ padding: "2px 8px", borderRadius: 99, background: "rgba(16,185,129,0.15)" }}>
+                <span style={{ color: "#10b981", fontSize: 10, fontWeight: "bold" }}>ATIVO</span>
+              </div>
+              <span style={{ color: "#fafafa", fontSize: 22, fontWeight: "bold" }}>Pro</span>
+            </div>
+            <span style={{ color: "#10b981", fontSize: 18, fontWeight: "bold" }}>
+              R$ 89<span style={{ color: "#a1a1aa", fontSize: 13 }}>/mês</span>
+            </span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+            <span style={{ color: "#a1a1aa", fontSize: 13 }}>Renovação em <span style={{ color: "#fafafa", fontWeight: "bold" }}>21 dias</span></span>
+            <span style={{ color: "#a1a1aa", fontSize: 13 }}>Próxima cobrança: <span style={{ color: "#fafafa", fontWeight: "bold" }}>17/05/2026</span></span>
+          </div>
+        </div>
+      </div>
 
       {/* Comparar */}
       <SectionTitle>Comparar planos</SectionTitle>
-      <XStack gap="$3" flexWrap="wrap">
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
         {PLANOS.map((p) => {
           const isSelected = selectedPlan === p.id;
           return (
-          <Card cursor="pointer" animation="quick" key={p.id} flex={1} minWidth={200} borderWidth={isSelected ? 2 : 1}
-            backgroundColor={isSelected ? "rgba(16,185,129,0.04)" : "$color2"}
-            borderColor={isSelected ? "#10b981" : "$borderColor"}
-            borderRadius="$5" padding="$4" gap="$3" overflow="hidden"
-            onPress={() => setSelectedPlan(p.id)}
-            hoverStyle={{ backgroundColor: "$color3", borderColor: isSelected ? "#10b981" : "$green8" }}>
-            {p.destaque && (
-              <XStack paddingHorizontal="$3" paddingVertical="$1" borderRadius="$10"
-                backgroundColor={p.color} alignSelf="flex-start">
-                <Text color="white" fontSize={11} fontWeight="bold">⭐ Popular</Text>
-              </XStack>
-            )}
-            <Text style={{ color: p.color }} fontSize={18} fontWeight="bold">{p.nome}</Text>
-            <Text color="$color12" fontSize={22} fontWeight="bold">
-              {p.preco}<Text color="$color11" fontSize={13}>{p.periodo}</Text>
-            </Text>
-            <YStack gap="$2">
-              {p.features.map((f) => (
-                <XStack key={f} gap="$2" alignItems="center">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                    stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  <Text color="$color11" fontSize={13}>{f}</Text>
-                </XStack>
-              ))}
-            </YStack>
-            <Button size="$3" borderRadius="$10" borderWidth={1}
-              borderColor={isSelected ? "transparent" : p.color}
-              backgroundColor={isSelected ? "#10b981" : "transparent"}
-              marginTop="auto" id={`btn-plano-${p.id}`}
-              onPress={() => setSelectedPlan(p.id)}>
-              <Text color={isSelected ? "white" : p.color} fontSize={13} fontWeight="bold">
-                {isSelected ? "Selecionado" : (p.ativo ? "Plano atual" : "Selecionar")}
-              </Text>
-            </Button>
-          </Card>
-        )})}
-      </XStack>
+            <div key={p.id} className="cfg-card" onClick={() => setSelectedPlan(p.id)} style={{ flex: 1, minWidth: 250, cursor: "pointer", borderColor: isSelected ? "#10b981" : undefined, borderWidth: isSelected ? 2 : 1, background: isSelected ? "rgba(16,185,129,0.04)" : undefined, display: "flex", flexDirection: "column", gap: 12 }}>
+              {p.destaque && (
+                <div style={{ padding: "4px 12px", borderRadius: 99, background: p.color, alignSelf: "flex-start" }}>
+                  <span style={{ color: "white", fontSize: 11, fontWeight: "bold" }}>⭐ Popular</span>
+                </div>
+              )}
+              <span style={{ color: p.color, fontSize: 18, fontWeight: "bold" }}>{p.nome}</span>
+              <span style={{ color: "#fafafa", fontSize: 22, fontWeight: "bold" }}>
+                {p.preco}<span style={{ color: "#a1a1aa", fontSize: 13 }}>{p.periodo}</span>
+              </span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                {p.features.map((f) => (
+                  <div key={f} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    <span style={{ color: "#a1a1aa", fontSize: 13 }}>{f}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: "auto", paddingTop: 16 }}>
+                <button className={`cfg-btn ${isSelected ? "cfg-btn-primary" : "cfg-btn-outline"}`} style={{ width: "100%", borderRadius: 99, borderColor: isSelected ? "transparent" : p.color, color: isSelected ? "white" : p.color }} id={`btn-plano-${p.id}`} onClick={(e) => { e.stopPropagation(); setSelectedPlan(p.id); }}>
+                  {isSelected ? "Selecionado" : (p.ativo ? "Plano atual" : "Selecionar")}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
-      <XStack justifyContent="flex-end">
-        <Button size="$3" borderRadius="$10" backgroundColor="rgba(244,63,94,0.1)"
-          borderWidth={1} borderColor="rgba(244,63,94,0.3)"
-          hoverStyle={{ backgroundColor: "rgba(244,63,94,0.2)" }}
-          id="btn-cancelar-assinatura">
-          <Text color="#f43f5e" fontSize={13} fontWeight="600">Cancelar assinatura</Text>
-        </Button>
-      </XStack>
-    </YStack>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button className="cfg-btn cfg-btn-danger" style={{ borderRadius: 99 }} id="btn-cancelar-assinatura">
+          Cancelar assinatura
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -562,47 +501,33 @@ function AbaNotificacoes() {
   const [saved, setSaved] = useState(false);
 
   return (
-    <YStack gap="$4" maxWidth={640}>
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" paddingHorizontal="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-       >
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 640 }}>
+      <div className="cfg-card">
         <SectionTitle>Consultas</SectionTitle>
         <Toggle id="notif-confirmacao"  label="Confirmação de agendamento" desc="Receba quando uma consulta for confirmada"      value={notifs.confirmacao}        onChange={() => toggle("confirmacao")} />
         <Toggle id="notif-lembrete"     label="Lembrete de consulta"       desc="Notificação 1h antes da consulta"               value={notifs.lembrete}           onChange={() => toggle("lembrete")} />
         <Toggle id="notif-cancelamento" label="Cancelamentos"              desc="Alertas de consultas canceladas ou reagendadas" value={notifs.cancelamento}       onChange={() => toggle("cancelamento")} />
-      </Card>
+      </div>
 
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" paddingHorizontal="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-       >
+      <div className="cfg-card">
         <SectionTitle>Descoberta</SectionTitle>
         <Toggle id="notif-novos"  label="Novos profissionais" desc="Profissionais que combinam com seu objetivo"    value={notifs.novosProfissionais} onChange={() => toggle("novosProfissionais")} />
         <Toggle id="notif-dicas"  label="Dicas de saúde"     desc="Conteúdo personalizado baseado no seu objetivo" value={notifs.dicas}              onChange={() => toggle("dicas")} />
-      </Card>
+      </div>
 
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" paddingHorizontal="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-       >
+      <div className="cfg-card">
         <SectionTitle>Canais</SectionTitle>
         <Toggle id="notif-email"    label="E-mail"    desc="Notificações por e-mail"       value={notifs.email}    onChange={() => toggle("email")} />
         <Toggle id="notif-whatsapp" label="WhatsApp"  desc="Notificações via WhatsApp"     value={notifs.whatsapp} onChange={() => toggle("whatsapp")} />
         <Toggle id="notif-push"     label="Push"      desc="Notificações no navegador"     value={notifs.push}     onChange={() => toggle("push")} />
-      </Card>
+      </div>
 
-      <XStack justifyContent="flex-end">
-        <Button size="$3" borderRadius="$10" backgroundColor={saved ? "#059669" : "$green9"}
-          hoverStyle={{ backgroundColor: "$green10" }}
-          onPress={() => { setSaved(true); setTimeout(() => setSaved(false), 2500); }}
-          id="btn-salvar-notificacoes">
-          <Text color="white" fontSize={13} fontWeight="bold">
-            {saved ? "✓ Salvo!" : "Salvar preferências"}
-          </Text>
-        </Button>
-      </XStack>
-    </YStack>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button className="cfg-btn cfg-btn-primary" style={{ borderRadius: 99, background: saved ? "#059669" : undefined }} onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2500); }} id="btn-salvar-notificacoes">
+          {saved ? "✓ Salvo!" : "Salvar preferências"}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -619,7 +544,7 @@ function AbaSenha() {
   if (novaSenha.length >= 12 && /[0-9]/.test(novaSenha)) strength++;
   if (novaSenha.length >= 14 && /[^a-zA-Z0-9]/.test(novaSenha)) strength++;
 
-  const strengthColors = ["#f43f5e", "#f97316", "#facc15", "#10b981"];
+  const strengthColors = ["#ef4444", "#f97316", "#eab308", "#10b981"];
   const strengthLabel  = ["Muito curta", "Fraca", "Razoável", "Forte"];
 
   function PwdInput({ id, label, field, value, onChange }: {
@@ -628,88 +553,60 @@ function AbaSenha() {
     value: string; onChange: (v: string) => void;
   }) {
     return (
-      <YStack gap="$1">
-        <Text color="$color10" fontSize={12}>{label}</Text>
-        <ZStack position="relative" width="100%">
-          <Input
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <label style={{ color: "#a1a1aa", fontSize: 12 }}>{label}</label>
+        <div style={{ position: "relative", width: "100%" }}>
+          <input
             id={id}
             type={show[field] ? "text" : "password"}
             value={value}
-            onChangeText={onChange}
-            backgroundColor="$color2"
-            borderColor="$borderColor"
-            borderRadius="$3"
-            height={42}
-            paddingLeft="$3"
-            paddingRight={40}
-            color="$color12"
-            fontSize={14}
-            width="100%"
-            hoverStyle={{ borderColor: "$green8" }}
-            focusStyle={{ borderColor: "$green10", outlineWidth: 0 }}
+            onChange={(e) => onChange(e.target.value)}
+            className="cfg-input"
+            style={{ paddingRight: 40 }}
           />
-          <Button
-            size="$3"
+          <button
             id={`toggle-${id}`}
-            onPress={() => setShow((p) => ({ ...p, [field]: !p[field] }))}
-            position="absolute"
-            right={0}
-            top={0}
-            bottom={0}
-            backgroundColor="transparent"
-            hoverStyle={{ backgroundColor: "transparent", opacity: 0.8 }}
-            color="$green10"
-            padding="$2"
-            focusStyle={{ outlineWidth: 0 }}
+            onClick={() => setShow((p) => ({ ...p, [field]: !p[field] }))}
+            style={{ position: "absolute", right: 0, top: 0, bottom: 0, background: "transparent", border: "none", color: "#10b981", padding: "0 12px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
           >
             {show[field]
               ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
               : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
             }
-          </Button>
-        </ZStack>
-      </YStack>
+          </button>
+        </div>
+      </div>
     );
   }
 
   return (
-    <YStack gap="$4" maxWidth={480}>
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" padding="$4" gap="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-       >
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 480 }}>
+      <div className="cfg-card" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <PwdInput id="input-senha-atual"    label="Senha atual"         field="atual"     value={senhaAtual} onChange={setSenhaAtual} />
         <PwdInput id="input-nova-senha"     label="Nova senha"          field="nova"      value={novaSenha}  onChange={setNovaSenha} />
 
         {novaSenha.length > 0 && (
-          <YStack gap="$2">
-            <XStack gap="$1">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", gap: 4 }}>
               {[0, 1, 2, 3].map((i) => (
-                <YStack key={i} flex={1} height={4} borderRadius={4}
-                  backgroundColor={i < strength ? strengthColors[strength - 1] : "rgba(255,255,255,0.08)"} />
+                <div key={i} style={{ flex: 1, height: 4, borderRadius: 4, background: i < strength ? strengthColors[strength - 1] : "rgba(255,255,255,0.08)" }} />
               ))}
-            </XStack>
-            <Text fontSize={12} style={{ color: strength > 0 ? strengthColors[strength - 1] : "#52525b" }}>
+            </div>
+            <span style={{ fontSize: 12, color: strength > 0 ? strengthColors[strength - 1] : "#52525b" }}>
               {strength === 0 ? "Senha muito curta" : strengthLabel[strength - 1]}
-            </Text>
-          </YStack>
+            </span>
+          </div>
         )}
 
         <PwdInput id="input-confirmar-senha" label="Confirmar nova senha" field="confirmar" value={confirmar}  onChange={setConfirmar} />
-      </Card>
+      </div>
 
-      <XStack justifyContent="flex-end">
-        <Button size="$3" borderRadius="$10"
-          backgroundColor={saved ? "#059669" : "$green9"}
-          hoverStyle={{ backgroundColor: "$green10" }}
-          onPress={() => { setSaved(true); setTimeout(() => setSaved(false), 2500); }}
-          id="btn-salvar-senha">
-          <Text color="white" fontSize={13} fontWeight="bold">
-            {saved ? "✓ Salvo!" : "Salvar senha"}
-          </Text>
-        </Button>
-      </XStack>
-    </YStack>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button className="cfg-btn cfg-btn-primary" style={{ borderRadius: 99, background: saved ? "#059669" : undefined }} onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2500); }} id="btn-salvar-senha">
+          {saved ? "✓ Salvo!" : "Salvar senha"}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -718,50 +615,74 @@ export default function ConfigPage() {
   const [aba, setAba] = useState<Aba>("dados");
 
   return (
-    <ScrollView flex={1} backgroundColor="$background" showsVerticalScrollIndicator={false}>
-      <YStack padding="$4" $gtSm={{ padding: "$6" }} gap="$5"
-        maxWidth={1100} marginHorizontal="auto" width="100%">
+    <>
+      <style>{STYLES}</style>
+      <div style={{ flex: 1, overflowY: "auto", backgroundColor: "#09090b" }}>
+        <div style={{ padding: "1.5rem 2rem", maxWidth: 1100, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", gap: 20 }}>
 
-        {/* Cabeçalho */}
-        <YStack gap="$1">
-          <H2 color="$color12" size="$6" fontWeight="bold">Configurações</H2>
-          <Text color="$color11" fontSize={14}>Gerencie suas preferências e dados da conta.</Text>
-        </YStack>
+          {/* Cabeçalho */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <h2 style={{ color: "#fafafa", fontSize: 24, fontWeight: "bold", margin: 0 }}>Configurações</h2>
+            <span style={{ color: "#a1a1aa", fontSize: 14 }}>Gerencie suas preferências e dados da conta.</span>
+          </div>
 
-        {/* Tabs */}
-        <XStack gap="$2" flexWrap="wrap">
-          {ABAS.map((a) => {
-            const isActive = aba === a.id;
-            return (
-              <Button key={a.id} size="$3" borderRadius="$10" borderWidth={1}
-                animation="quick"
-                borderColor={isActive ? "$green8" : "$borderColor"}
-                backgroundColor={isActive ? "rgba(16,185,129,0.1)" : "$color2"}
-                hoverStyle={{ backgroundColor: isActive ? "rgba(16,185,129,0.15)" : "$color3", borderColor: "$green8" }}
-                onPress={() => setAba(a.id)}
-                id={`tab-${a.id}`}
-                paddingHorizontal="$4">
-                <XStack gap="$2" alignItems="center">
-                  <Text fontSize={14}>{a.icon}</Text>
-                  <Text color={isActive ? "#10b981" : "$color11"}
-                    fontWeight={isActive ? "bold" : "400"} fontSize={14}>
-                    {a.label}
-                  </Text>
-                </XStack>
-              </Button>
-            );
-          })}
-        </XStack>
+          {/* Tabs — desktop */}
+          <div className="cfg-tabs-desk" style={{ gap: 8, flexWrap: "wrap" }}>
+            {ABAS.map((a) => {
+              const isActive = aba === a.id;
+              return (
+                <button
+                  key={a.id}
+                  onClick={() => setAba(a.id)}
+                  id={`tab-${a.id}`}
+                  className={`cfg-btn cfg-btn-outline ${isActive ? "active" : ""}`}
+                  style={{ borderRadius: 99, padding: "0 16px" }}
+                >
+                  <span style={{ fontSize: 14 }}>{a.icon}</span>
+                  <span style={{ fontSize: 14 }}>{a.label}</span>
+                </button>
+              );
+            })}
+          </div>
 
-        <Separator borderColor="$borderColor" />
+          {/* Tabs — mobile */}
+          <div className="cfg-tabs-mob">
+            <select
+              value={aba}
+              onChange={(e) => setAba(e.target.value as Aba)}
+              style={{
+                width: "100%",
+                background: "#141414",
+                border: "1px solid #10b981",
+                borderRadius: 10,
+                padding: "12px 16px",
+                color: "#10b981",
+                fontSize: 14,
+                fontWeight: 700,
+                fontFamily: "inherit",
+                outline: "none",
+                cursor: "pointer",
+                appearance: "none",
+              }}
+            >
+              {ABAS.map((a) => (
+                <option key={a.id} value={a.id} style={{ background: "#09090b" }}>
+                  {a.icon} {a.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        {/* Conteúdo */}
-        {aba === "dados"        && <AbaDados />}
-        {aba === "plano"        && <AbaPlano />}
-        {aba === "notificacoes" && <AbaNotificacoes />}
-        {aba === "senha"        && <AbaSenha />}
+          <div style={{ height: 1, backgroundColor: "rgba(255,255,255,0.08)", width: "100%" }} />
 
-      </YStack>
-    </ScrollView>
+          {/* Conteúdo */}
+          {aba === "dados"        && <AbaDados />}
+          {aba === "plano"        && <AbaPlano />}
+          {aba === "notificacoes" && <AbaNotificacoes />}
+          {aba === "senha"        && <AbaSenha />}
+
+        </div>
+      </div>
+    </>
   );
 }

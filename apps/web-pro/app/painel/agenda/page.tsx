@@ -2,10 +2,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import {
-  Card, Avatar, Text, H2, XStack, YStack, Circle,
-  Button, Separator, ScrollView, Input, ZStack,
-} from "tamagui";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -150,7 +146,7 @@ const STYLES = `
 .ag-add-input{
   flex:1; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);
   border-radius:10px; padding:9px 12px; color:#f4f4f5; font-size:13px; font-family:inherit;
-  outline:none; transition:border-color 0.15s; min-width:0; colorScheme:dark;
+  outline:none; transition:border-color 0.15s; min-width:0; color-scheme:dark;
 }
 .ag-add-input:focus{ border-color:#10b981; }
 
@@ -172,7 +168,7 @@ const STYLES = `
 .ag-recorr-input{
   background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);
   border-radius:9px; padding:8px 11px; color:#f4f4f5; font-size:13px; font-family:inherit;
-  outline:none; width:100px; transition:border-color 0.15s;
+  outline:none; width:100px; transition:border-color 0.15s; color-scheme:dark;
 }
 .ag-recorr-input:focus{ border-color:#10b981; }
 .ag-dur-row{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
@@ -253,6 +249,21 @@ const STYLES = `
   color:#10b981;
   transform:translateX(3px);
 }
+
+.c-card {
+  background:#141414; border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:12px 16px;
+  transition:background 0.15s, border-color 0.15s; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+}
+.c-card:hover { background:#1a1a1a; border-color:#10b981; }
+
+.modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:100; display:flex; align-items:flex-start; justify-content:center; padding-top:80px; }
+.modal-content { background:#1a1a1a; border:1px solid rgba(255,255,255,0.08); border-radius:12px; width:400px; max-width:90vw; z-index:101; animation:agFadeUp 0.2s ease; box-shadow:0 10px 30px rgba(0,0,0,0.5); }
+.modal-header { padding:16px; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; justify-content:space-between; align-items:center; }
+.modal-body { padding:16px; display:flex; flex-direction:column; gap:16px; }
+.modal-footer { padding:16px; border-top:1px solid rgba(255,255,255,0.08); display:flex; justify-content:flex-end; gap:12px; }
+.modal-input { background:#111; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px 12px; color:#fafafa; font-family:inherit; outline:none; font-size:14px; width:100%; transition:border-color 0.15s; color-scheme:dark; }
+.modal-input:focus { border-color:#10b981; }
+
 `;
 
 
@@ -261,8 +272,6 @@ const STYLES = `
 const ChevronLeft  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>;
 const ChevronRight = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>;
 const PlusIcon     = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
-const VideoIcon    = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>;
-const MapPinIcon   = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>;
 const ChevronDown  = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>;
 const ClockIcon    = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
 
@@ -272,59 +281,45 @@ function ConsultaCard({ c, onPress }: { c: Consulta; onPress?: () => void }) {
   const st = STATUS_CONFIG[c.status];
   return (
     <div className="pro-cons-card-wrap" style={{width:"100%"}} onClick={onPress}>
-      <Card
-        borderWidth={1} animation="quick"
-        backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$4" paddingHorizontal="$4" paddingVertical="$3"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-      >
-        <XStack alignItems="center" gap="$3" flexWrap="wrap">
+      <div className="c-card">
+        <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",width:"100%"}}>
           {/* Hora */}
-          <YStack alignItems="center" width={52} flexShrink={0}>
-            <Text color="$color11" fontSize={13} fontWeight="bold">{c.hora}</Text>
-          </YStack>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"center",width:52,flexShrink:0}}>
+            <span style={{color:"#a1a1aa",fontSize:13,fontWeight:"bold"}}>{c.hora}</span>
+          </div>
 
-          <Separator vertical height={36} borderColor="$borderColor"/>
+          <div style={{width:1,height:36,background:"rgba(255,255,255,0.08)"}} />
 
           {/* Avatar com fallback */}
-          <Avatar circular size="$4" backgroundColor="$color4" flexShrink={0}>
-            <Avatar.Image src={c.avatar}/>
-            <Avatar.Fallback alignItems="center" justifyContent="center">
-              <Text color="$color12" fontSize={14} fontWeight="bold">{c.paciente[0]}</Text>
-            </Avatar.Fallback>
-          </Avatar>
+          <img src={c.avatar} alt={c.paciente} style={{width:40,height:40,borderRadius:"50%",objectFit:"cover",background:"#27272a",flexShrink:0}} />
 
           {/* Info */}
-          <YStack flex={1} gap="$1" minWidth={140}>
-            <Text color="$color12" fontSize={14} fontWeight="bold" numberOfLines={1}>{c.paciente}</Text>
-            <XStack alignItems="center" gap="$2">
-              <Text color="$color11" fontSize={12}>{c.especialidade}</Text>
-              <Circle size={3} backgroundColor="$color9"/>
-              <Text color="$color11" fontSize={12}>{c.modalidade}</Text>
-            </XStack>
-            <XStack alignItems="center" gap="$1" marginTop={2}>
+          <div style={{flex:1,display:"flex",flexDirection:"column",gap:4,minWidth:140}}>
+            <span style={{color:"#fafafa",fontSize:14,fontWeight:"bold",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.paciente}</span>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{color:"#a1a1aa",fontSize:12}}>{c.especialidade}</span>
+              <div style={{width:3,height:3,borderRadius:"50%",background:"#52525b"}} />
+              <span style={{color:"#a1a1aa",fontSize:12}}>{c.modalidade}</span>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:4,marginTop:2}}>
               <span style={{color:"#71717a"}}><ClockIcon/></span>
-              <Text color="$color10" fontSize={11}>{c.hora} · {c.duracao}h</Text>
-            </XStack>
-          </YStack>
+              <span style={{color:"#71717a",fontSize:11}}>{c.hora} · {c.duracao}h</span>
+            </div>
+          </div>
 
           {/* Badge + Seta */}
-          <XStack alignItems="center" gap="$2" flexShrink={0}>
-            <XStack
-              paddingHorizontal="$3" paddingVertical="$1" borderRadius="$10"
-              borderWidth={1} alignItems="center" justifyContent="center"
-              style={{ background: st.bg, borderColor: st.color + "44" }}
-            >
-              <Text fontSize={10} fontWeight="bold" style={{color: st.color}}>{st.label}</Text>
-            </XStack>
+          <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+            <div style={{padding:"4px 12px",borderRadius:999,border:`1px solid ${st.color}44`,background:st.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <span style={{color:st.color,fontSize:10,fontWeight:"bold"}}>{st.label}</span>
+            </div>
             <span className="pro-cons-arrow-icon">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
               </svg>
             </span>
-          </XStack>
-        </XStack>
-      </Card>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -462,7 +457,7 @@ function PainelSlots({ iso, slots, setSlots, highlightHora, consultasDia }: {
 
       <div className="ag-add-row">
         <input type="time" value={novoHor} onChange={e=>setNovoHor(e.target.value)}
-          className="ag-add-input" style={{colorScheme:"dark"}}/>
+          className="ag-add-input" />
         <button className="ag-btn-primary" style={{padding:"9px 16px",fontSize:12}} onClick={addHor}>
           <PlusIcon/> Adicionar
         </button>
@@ -519,11 +514,11 @@ function RecorrenciaSemanal(){
       <div className="ag-recorr-row">
         <div className="ag-recorr-field-wrap">
           <span className="ag-recorr-label">Início</span>
-          <input type="time" value={inicio} onChange={e=>setInicio(e.target.value)} className="ag-recorr-input" style={{colorScheme:"dark"}}/>
+          <input type="time" value={inicio} onChange={e=>setInicio(e.target.value)} className="ag-recorr-input" />
         </div>
         <div className="ag-recorr-field-wrap">
           <span className="ag-recorr-label">Fim</span>
-          <input type="time" value={fim} onChange={e=>setFim(e.target.value)} className="ag-recorr-input" style={{colorScheme:"dark"}}/>
+          <input type="time" value={fim} onChange={e=>setFim(e.target.value)} className="ag-recorr-input" />
         </div>
       </div>
 
@@ -676,181 +671,182 @@ export default function AgendaPage() {
   }
 
   return (
-    <ScrollView flex={1} backgroundColor="$background" showsVerticalScrollIndicator={false}>
+    <>
       <style>{STYLES}</style>
-      <YStack padding="$4" $gtSm={{padding:"$6"}} gap="$5" maxWidth={1200} marginHorizontal="auto" width="100%" position="relative">
+      <div style={{ flex:1, overflowY:"auto", background:"#09090b" }}>
+        <div style={{ padding:"1.5rem 2rem", maxWidth:1200, margin:"0 auto", width:"100%", position:"relative", display:"flex", flexDirection:"column", gap:20 }}>
 
-        {/* Toolbar */}
-        <XStack justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="$4">
-          <YStack>
-            <H2 color="$color12" size="$6" fontWeight="bold">Agenda</H2>
-            <Text color="$color11" fontSize={14} textTransform="capitalize">{fmtWeekDay(currentDate)}</Text>
-          </YStack>
-          {/* Tab switcher */}
-          <div className="ag-tab-bar">
-            <button className={`ag-tab${tab==="agenda"?" active":""}`}    onClick={()=>setTab("agenda")}>📅 Agenda</button>
-            <button className={`ag-tab${tab==="gerenciar"?" active":""}`} onClick={()=>setTab("gerenciar")}>🗓 Gerenciar Disponibilidade</button>
+          {/* Toolbar */}
+          <div className="pro-page-header" style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:16}}>
+            <div>
+              <h2 style={{color:"#fafafa",fontSize:22,fontWeight:"bold",margin:0}}>Agenda</h2>
+              <p style={{color:"#a1a1aa",fontSize:14,margin:"4px 0 0",textTransform:"capitalize"}}>{fmtWeekDay(currentDate)}</p>
+            </div>
+            {/* Tab switcher */}
+            <div className="ag-tab-bar">
+              <button className={`ag-tab${tab==="agenda"?" active":""}`}    onClick={()=>setTab("agenda")}>📅 Agenda</button>
+              <button className={`ag-tab${tab==="gerenciar"?" active":""}`} onClick={()=>setTab("gerenciar")}>🗓 Gerenciar Disponibilidade</button>
+            </div>
           </div>
-        </XStack>
 
-        {/* ── Aba Agenda ── */}
-        {tab==="agenda" && (
-          <div className="ag-panel">
-            {/* Nav Bar */}
-            <XStack justifyContent="space-between" alignItems="center" backgroundColor="$color2"
-              padding="$3" borderRadius="$5" borderWidth={1} borderColor="$borderColor"
-              flexWrap="wrap" gap="$3" marginBottom="$5">
-              <XStack gap="$3" alignItems="center">
-                <Avatar circular size="$3" backgroundColor="$color4">
-                  <Avatar.Image src="https://picsum.photos/200/200?random=30"/>
-                </Avatar>
-                <YStack $sm={{display:"none"}}>
-                  <Text color="$color12" fontSize={14} fontWeight="bold">Dr. Rafael Costa</Text>
-                  <Text color="$color11" fontSize={12}>Cardiologista · CRM 54321</Text>
-                </YStack>
-              </XStack>
-              <XStack alignItems="center" gap="$4">
-                <Button size="$3" circular chromeless icon={<ChevronLeft/>} onPress={prevDay}/>
-                <YStack alignItems="center">
-                  {isToday&&<XStack backgroundColor="$green5" paddingHorizontal="$2" paddingVertical={2} borderRadius="$10" marginBottom={2}><Text color="$green10" fontSize={10} fontWeight="bold">Hoje</Text></XStack>}
-                  <Text color="$color12" fontSize={15} fontWeight="bold">{fmtLong(currentDate)}</Text>
-                </YStack>
-                <Button size="$3" circular chromeless icon={<ChevronRight/>} onPress={nextDay}/>
-              </XStack>
-              <YStack position="relative">
-                <Button size="$3" backgroundColor="$color3" borderWidth={1} borderColor="$borderColor" color="$color12"
-                  onPress={()=>setMesDropdown(v=>!v)} iconAfter={<ChevronDown/>}>
-                  {MESES[currentDate.getMonth()]} {currentDate.getFullYear()}
-                </Button>
-                {mesDropdown&&(
-                  <Card cursor="pointer" animation="quick" position="absolute" top={45} right={0} zIndex={50}
-                    width={200} backgroundColor="$color2" borderWidth={1} borderColor="$borderColor" padding="$2" elevation={10}>
-                    {MESES.map((mes,idx)=>(
-                      <Button key={mes} chromeless justifyContent="flex-start"
-                        color={currentDate.getMonth()===idx?"$green10":"$color12"}
-                        fontWeight={currentDate.getMonth()===idx?"bold":"normal"}
-                        onPress={()=>{ const d=new Date(currentDate); d.setMonth(idx); setCurrentDate(d); setMesDropdown(false); }}>
-                        {mes}
-                      </Button>
-                    ))}
-                  </Card>
-                )}
-              </YStack>
-            </XStack>
-
-            {/* Corpo */}
-            <XStack gap="$5" alignItems="flex-start" flexWrap="wrap" $gtSm={{flexWrap:"nowrap"}}>
-              {/* Timeline */}
-              <YStack flex={2} minWidth={300} backgroundColor="$color2" borderRadius="$5" borderWidth={1} borderColor="$borderColor" overflow="hidden">
-                {HORARIOS_DIA.map((h,i)=>{
-                  const c=consultasPorHora[h.hora];
-                  return (
-                    <XStack key={h.hora} borderBottomWidth={i<HORARIOS_DIA.length-1?1:0} borderColor="$borderColor">
-                      <YStack width={80} alignItems="center" paddingVertical="$4" borderRightWidth={1} borderColor="$borderColor" backgroundColor="$background">
-                        <Text color="$color11" fontSize={14} fontWeight="bold">{h.hora}</Text>
-                      </YStack>
-                      <YStack flex={1} padding="$2" justifyContent="center" minHeight={80}>
-                        {c ? <ConsultaCard c={c} onPress={()=>handleCardClick(iso,c)}/> : h.disponivel ? (
-                          <Button size="$3" borderWidth={1} borderStyle="dashed" borderColor="$borderColor"
-                            backgroundColor="transparent" hoverStyle={{backgroundColor:"$color3",borderColor:"$color8"}}
-                            onPress={()=>setShowNova(true)} width="100%" justifyContent="center" gap="$2">
-                            <Circle size={6} backgroundColor="$color8"/>
-                            <Text color="$color10" fontSize={13}>Horário disponível</Text>
-                          </Button>
-                        ) : (
-                          <YStack flex={1} backgroundColor="rgba(0,0,0,0.1)" borderRadius="$3"/>
-                        )}
-                      </YStack>
-                    </XStack>
-                  );
-                })}
-              </YStack>
-
-              {/* Sidebar */}
-              <YStack flex={1} minWidth={260} gap="$4">
-                <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2"
-                  borderColor="$borderColor" borderRadius="$5" padding="$4"
-                  hoverStyle={{backgroundColor:"$color3",borderColor:"$green8"}}>
-                  <Text color="$color11" fontSize={11} fontWeight="bold" letterSpacing={1} textTransform="uppercase" marginBottom="$3">Resumo do Dia</Text>
-                  <YStack gap="$2">
-                    {[
-                      {label:"Confirmadas",  value:consultasHoje.filter(c=>c.status==="confirmada").length,   color:"#10b981"},
-                      {label:"Pendentes",    value:consultasHoje.filter(c=>c.status==="pendente").length,     color:"#facc15"},
-                      {label:"Em andamento", value:consultasHoje.filter(c=>c.status==="em_andamento").length, color:"#60a5fa"},
-                      {label:"Disponíveis",  value:HORARIOS_DIA.filter(h=>h.disponivel&&!consultasPorHora[h.hora]).length, color:"#a1a1aa"},
-                    ].map((s,i)=>(
-                      <XStack key={i} justifyContent="space-between" alignItems="center"
-                        paddingVertical="$2" paddingHorizontal="$3" borderRadius="$3"
-                        backgroundColor="$background" borderWidth={1} borderColor="$borderColor">
-                        <XStack alignItems="center" gap="$2">
-                          <Circle size={8} backgroundColor={s.color}/>
-                          <Text color="$color11" fontSize={13}>{s.label}</Text>
-                        </XStack>
-                        <Text color={s.color as any} fontSize={14} fontWeight="bold">{s.value}</Text>
-                      </XStack>
-                    ))}
-                  </YStack>
-                </Card>
-
-                {consultasHoje.length>0&&(
-                  <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2"
-                    borderColor="$borderColor" borderRadius="$5" padding="$4"
-                    hoverStyle={{backgroundColor:"$color3",borderColor:"$green8"}}>
-                    <span style={{display:"block",color:"#71717a",fontSize:11,fontWeight:"bold",letterSpacing:1,textTransform:"uppercase",marginBottom:12}}>Consultas do Dia</span>
-                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                      {consultasHoje.map(c=>(
-                        <ConsultaCard key={c.id} c={c} onPress={()=>handleCardClick(iso,c)}/>
+          {/* ── Aba Agenda ── */}
+          {tab==="agenda" && (
+            <div className="ag-panel">
+              {/* Nav Bar */}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#141414",padding:12,borderRadius:14,border:"1px solid rgba(255,255,255,0.08)",flexWrap:"wrap",gap:12,marginBottom:20}}>
+                <div style={{display:"flex",gap:12,alignItems:"center"}}>
+                  <img src="https://picsum.photos/200/200?random=30" style={{width:36,height:36,borderRadius:"50%",background:"#27272a",objectFit:"cover"}} alt="Doctor" />
+                  <div className="dr-info" style={{display:"flex",flexDirection:"column"}}>
+                    <span style={{color:"#fafafa",fontSize:14,fontWeight:"bold"}}>Dr. Rafael Costa</span>
+                    <span style={{color:"#a1a1aa",fontSize:12}}>Cardiologista · CRM 54321</span>
+                  </div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:16}}>
+                  <button onClick={prevDay} style={{width:32,height:32,borderRadius:999,background:"transparent",border:"none",color:"#fafafa",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><ChevronLeft/></button>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
+                    {isToday && <span style={{background:"rgba(16,185,129,0.15)",color:"#10b981",padding:"2px 8px",borderRadius:999,fontSize:10,fontWeight:"bold",marginBottom:2}}>Hoje</span>}
+                    <span style={{color:"#fafafa",fontSize:15,fontWeight:"bold"}}>{fmtLong(currentDate)}</span>
+                  </div>
+                  <button onClick={nextDay} style={{width:32,height:32,borderRadius:999,background:"transparent",border:"none",color:"#fafafa",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><ChevronRight/></button>
+                </div>
+                <div style={{position:"relative"}}>
+                  <button onClick={()=>setMesDropdown(v=>!v)} style={{display:"flex",alignItems:"center",gap:8,background:"#1a1a1a",border:"1px solid rgba(255,255,255,0.08)",borderRadius:8,padding:"8px 12px",color:"#fafafa",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
+                    {MESES[currentDate.getMonth()]} {currentDate.getFullYear()} <ChevronDown/>
+                  </button>
+                  {mesDropdown && (
+                    <div style={{position:"absolute",top:45,right:0,zIndex:50,width:200,background:"#141414",border:"1px solid rgba(255,255,255,0.08)",borderRadius:12,padding:8,boxShadow:"0 10px 30px rgba(0,0,0,0.5)",display:"flex",flexDirection:"column"}}>
+                      {MESES.map((mes,idx)=>(
+                        <button key={mes} onClick={()=>{ const d=new Date(currentDate); d.setMonth(idx); setCurrentDate(d); setMesDropdown(false); }}
+                          style={{textAlign:"left",padding:"8px 12px",background:"transparent",border:"none",borderRadius:6,cursor:"pointer",fontFamily:"inherit",color:currentDate.getMonth()===idx?"#10b981":"#fafafa",fontWeight:currentDate.getMonth()===idx?"bold":"normal",transition:"background 0.15s"}}
+                          onMouseEnter={e=>(e.currentTarget.style.background="rgba(255,255,255,0.05)")}
+                          onMouseLeave={e=>(e.currentTarget.style.background="transparent")}>
+                          {mes}
+                        </button>
                       ))}
                     </div>
-                  </Card>
-                )}
-              </YStack>
-            </XStack>
+                  )}
+                </div>
+              </div>
+
+              {/* Corpo */}
+              <div style={{display:"flex",gap:20,alignItems:"flex-start",flexWrap:"wrap"}} className="ag-corpo-grid">
+                {/* Timeline */}
+                <div style={{flex:2,minWidth:300,background:"#141414",borderRadius:14,border:"1px solid rgba(255,255,255,0.08)",overflow:"hidden"}}>
+                  {HORARIOS_DIA.map((h,i)=>{
+                    const c=consultasPorHora[h.hora];
+                    return (
+                      <div key={h.hora} style={{display:"flex",borderBottom:i<HORARIOS_DIA.length-1?"1px solid rgba(255,255,255,0.08)":"none"}}>
+                        <div style={{width:80,display:"flex",alignItems:"center",justifyContent:"center",padding:"16px 0",borderRight:"1px solid rgba(255,255,255,0.08)",background:"#09090b"}}>
+                          <span style={{color:"#a1a1aa",fontSize:14,fontWeight:"bold"}}>{h.hora}</span>
+                        </div>
+                        <div style={{flex:1,padding:8,display:"flex",flexDirection:"column",justifyContent:"center",minHeight:80}}>
+                          {c ? <ConsultaCard c={c} onPress={()=>handleCardClick(iso,c)}/> : h.disponivel ? (
+                            <button onClick={()=>setShowNova(true)} style={{width:"100%",padding:"16px",display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"transparent",border:"1px dashed rgba(255,255,255,0.15)",borderRadius:12,color:"#71717a",fontSize:13,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}
+                              onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.03)";e.currentTarget.style.borderColor="rgba(255,255,255,0.25)";}}
+                              onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor="rgba(255,255,255,0.15)";}}>
+                              <div style={{width:6,height:6,borderRadius:"50%",background:"#52525b"}} />
+                              Horário disponível
+                            </button>
+                          ) : (
+                            <div style={{flex:1,background:"rgba(255,255,255,0.02)",borderRadius:8,minHeight:40}}/>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Sidebar */}
+                <div style={{flex:1,minWidth:260,display:"flex",flexDirection:"column",gap:16}}>
+                  <div style={{background:"#141414",border:"1px solid rgba(255,255,255,0.08)",borderRadius:14,padding:16}}>
+                    <span style={{display:"block",color:"#a1a1aa",fontSize:11,fontWeight:"bold",letterSpacing:1,textTransform:"uppercase",marginBottom:12}}>Resumo do Dia</span>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      {[
+                        {label:"Confirmadas",  value:consultasHoje.filter(c=>c.status==="confirmada").length,   color:"#10b981"},
+                        {label:"Pendentes",    value:consultasHoje.filter(c=>c.status==="pendente").length,     color:"#facc15"},
+                        {label:"Em andamento", value:consultasHoje.filter(c=>c.status==="em_andamento").length, color:"#60a5fa"},
+                        {label:"Disponíveis",  value:HORARIOS_DIA.filter(h=>h.disponivel&&!consultasPorHora[h.hora]).length, color:"#a1a1aa"},
+                      ].map((s,i)=>(
+                        <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",borderRadius:8,background:"#09090b",border:"1px solid rgba(255,255,255,0.05)"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8}}>
+                            <div style={{width:8,height:8,borderRadius:"50%",background:s.color}} />
+                            <span style={{color:"#a1a1aa",fontSize:13}}>{s.label}</span>
+                          </div>
+                          <span style={{color:s.color,fontSize:14,fontWeight:"bold"}}>{s.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {consultasHoje.length>0&&(
+                    <div style={{background:"#141414",border:"1px solid rgba(255,255,255,0.08)",borderRadius:14,padding:16}}>
+                      <span style={{display:"block",color:"#71717a",fontSize:11,fontWeight:"bold",letterSpacing:1,textTransform:"uppercase",marginBottom:12}}>Consultas do Dia</span>
+                      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                        {consultasHoje.map(c=>(
+                          <ConsultaCard key={c.id} c={c} onPress={()=>handleCardClick(iso,c)}/>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Aba Gerenciar ── */}
+          {tab==="gerenciar" && (
+            <AbaGerenciar
+              sel={gerSel} setSel={setGerSel}
+              cy={gerCy}   setCy={setGerCy}
+              cm={gerCm}   setCm={setGerCm}
+              consulta={gerConsulta}
+              setConsulta={setGerConsulta}
+              consultasDia={consultasSel}
+              onStatusChange={(id, status)=>{
+                setStatusOverrides(prev=>({...prev,[id]:status}));
+                setGerConsulta(prev=>prev ? {...prev,status} : prev);
+              }}
+            />
+          )}
+
+        </div>
+
+        {/* Modal Nova Consulta */}
+        {showNova&&(
+          <div className="modal-overlay" onClick={()=>setShowNova(false)}>
+            <div className="modal-content" onClick={e=>e.stopPropagation()}>
+              <div className="modal-header">
+                <h2 style={{color:"#fafafa",fontSize:20,fontWeight:"bold",margin:0}}>Nova Consulta</h2>
+                <button onClick={()=>setShowNova(false)} style={{background:"transparent",border:"none",color:"#a1a1aa",fontSize:18,cursor:"pointer"}}>✕</button>
+              </div>
+              <div className="modal-body">
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  <span style={{color:"#a1a1aa",fontSize:13}}>Paciente</span>
+                  <input type="text" placeholder="Buscar paciente..." className="modal-input"/>
+                </div>
+                <div style={{display:"flex",gap:12}}>
+                  <div style={{flex:1,display:"flex",flexDirection:"column",gap:8}}>
+                    <span style={{color:"#a1a1aa",fontSize:13}}>Data</span>
+                    <input type="date" defaultValue={iso} className="modal-input"/>
+                  </div>
+                  <div style={{flex:1,display:"flex",flexDirection:"column",gap:8}}>
+                    <span style={{color:"#a1a1aa",fontSize:13}}>Horário</span>
+                    <input type="time" placeholder="Ex: 09:00" className="modal-input"/>
+                  </div>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  <span style={{color:"#a1a1aa",fontSize:13}}>Especialidade</span>
+                  <input type="text" placeholder="Ex: Cardiologia" className="modal-input"/>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button onClick={()=>setShowNova(false)} style={{padding:"10px 16px",background:"transparent",border:"none",color:"#a1a1aa",fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>Cancelar</button>
+                <button onClick={()=>setShowNova(false)} style={{padding:"10px 20px",background:"#10b981",border:"none",borderRadius:8,color:"#fff",fontSize:13,fontWeight:"bold",cursor:"pointer",fontFamily:"inherit"}}>Agendar</button>
+              </div>
+            </div>
           </div>
         )}
-
-        {/* ── Aba Gerenciar ── */}
-        {tab==="gerenciar" && (
-          <AbaGerenciar
-            sel={gerSel} setSel={setGerSel}
-            cy={gerCy}   setCy={setGerCy}
-            cm={gerCm}   setCm={setGerCm}
-            consulta={gerConsulta}
-            setConsulta={setGerConsulta}
-            consultasDia={consultasSel}
-            onStatusChange={(id, status)=>{
-              setStatusOverrides(prev=>({...prev,[id]:status}));
-              setGerConsulta(prev=>prev ? {...prev,status} : prev);
-            }}
-          />
-        )}
-
-      </YStack>
-
-      {/* Modal Nova Consulta */}
-      {showNova&&(
-        <ZStack position="absolute" top={0} left={0} right={0} bottom={0} zIndex={100} alignItems="center" justifyContent="flex-start" paddingTop={80}>
-          <YStack position="absolute" top={0} left={0} right={0} bottom={0} backgroundColor="rgba(0,0,0,0.6)" onPress={()=>setShowNova(false)}/>
-          <Card cursor="pointer" animation="quick" width={400} backgroundColor="$color2" borderWidth={1} borderColor="$borderColor" borderRadius="$5" elevation={20}>
-            <XStack justifyContent="space-between" alignItems="center" padding="$4" borderBottomWidth={1} borderColor="$borderColor">
-              <H2 color="$color12" size="$5" fontWeight="bold">Nova Consulta</H2>
-              <Button size="$2" circular chromeless onPress={()=>setShowNova(false)}>✕</Button>
-            </XStack>
-            <YStack padding="$4" gap="$4">
-              <YStack gap="$2"><Text color="$color11" fontSize={13}>Paciente</Text><Input size="$3" placeholder="Buscar paciente..." backgroundColor="$background" borderColor="$borderColor"/></YStack>
-              <XStack gap="$3">
-                <YStack flex={1} gap="$2"><Text color="$color11" fontSize={13}>Data</Text><Input type="date" size="$3" defaultValue={iso} backgroundColor="$background" borderColor="$borderColor" color="$color12"/></YStack>
-                <YStack flex={1} gap="$2"><Text color="$color11" fontSize={13}>Horário</Text><Input size="$3" placeholder="Ex: 09:00" backgroundColor="$background" borderColor="$borderColor"/></YStack>
-              </XStack>
-              <YStack gap="$2"><Text color="$color11" fontSize={13}>Especialidade</Text><Input size="$3" placeholder="Ex: Cardiologia" backgroundColor="$background" borderColor="$borderColor"/></YStack>
-            </YStack>
-            <XStack justifyContent="flex-end" padding="$4" borderTopWidth={1} borderColor="$borderColor" gap="$3">
-              <Button size="$3" backgroundColor="transparent" color="$color11" onPress={()=>setShowNova(false)}>Cancelar</Button>
-              <Button size="$3" backgroundColor="$green9" color="white" hoverStyle={{backgroundColor:"$green10"}} fontWeight="bold" onPress={()=>setShowNova(false)}>Agendar</Button>
-            </XStack>
-          </Card>
-        </ZStack>
-      )}
-    </ScrollView>
+      </div>
+    </>
   );
 }

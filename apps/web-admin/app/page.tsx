@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -61,7 +63,7 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="login-form">
             <div className="form-group">
               <label htmlFor="email">E-mail</label>
-              <input
+              <Input
                 id="email"
                 type="email"
                 value={email}
@@ -75,7 +77,7 @@ export default function LoginPage() {
             <div className="form-group">
               <label htmlFor="password">Senha</label>
               <div className="form-input-wrapper">
-                <input
+                <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
@@ -113,7 +115,7 @@ export default function LoginPage() {
               <a href="#" className="form-link">Esqueci a senha</a>
             </div>
 
-            <button type="submit" disabled={isLoading} className="login-submit">
+            <Button type="submit" disabled={isLoading} className="login-submit w-full">
               {isLoading ? (
                 <svg className="spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle opacity="0.25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -122,10 +124,8 @@ export default function LoginPage() {
               ) : (
                 "Entrar"
               )}
-            </button>
+            </Button>
           </form>
-
-
 
           <p className="login-footer">
             Problemas com o acesso? <a href="#">Contatar suporte</a>

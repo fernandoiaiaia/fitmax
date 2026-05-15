@@ -69,19 +69,17 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
 
             {/* Topbar Actions */}
             <div style={{ display: "flex", justifyContent: desktopCollapsed ? "center" : "flex-end", alignItems: "center", marginBottom: 16 }}>
-              {/* Mobile Close */}
+              {/* Mobile Close — só aparece quando sidebar está aberta no mobile */}
               <button
-                className="sm:hidden"
                 onClick={() => setSidebarOpen(false)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "white", padding: 6, borderRadius: "50%", display: "flex" }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "white", padding: 6, borderRadius: "50%", display: sidebarOpen ? "flex" : "none" }}
               >
                 <SidebarIcon name="arrow-left" color="white" />
               </button>
-              {/* Desktop Collapse */}
+              {/* Desktop Collapse — sempre visível no desktop */}
               <button
-                className="hidden sm:flex"
                 onClick={() => setDesktopCollapsed(!desktopCollapsed)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "white", padding: 6, borderRadius: "50%", display: "flex" }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "white", padding: 6, borderRadius: "50%", display: sidebarOpen ? "none" : "flex" }}
               >
                 <SidebarIcon name={desktopCollapsed ? "arrow-right" : "arrow-left"} color="white" />
               </button>
@@ -141,7 +139,7 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
               {menuItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
-                  <Link key={item.href} href={item.href} style={{ textDecoration: "none", display: "flex" }}>
+                  <Link key={item.href} href={item.href} onClick={() => setSidebarOpen(false)} style={{ textDecoration: "none", display: "flex" }}>
                     <div style={{
                       display: "flex", width: "100%",
                       justifyContent: desktopCollapsed ? "center" : "flex-start",
@@ -170,7 +168,7 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
               })}
 
               {/* Logout */}
-              <Link href="/" style={{ textDecoration: "none", display: "flex" }}>
+              <Link href="/" onClick={() => setSidebarOpen(false)} style={{ textDecoration: "none", display: "flex" }}>
                 <div style={{
                   display: "flex", width: "100%",
                   justifyContent: desktopCollapsed ? "center" : "flex-start",

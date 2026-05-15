@@ -2,157 +2,104 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
-import {
-  Card,
-  Avatar,
-  Text,
-  H2,
-  XStack,
-  YStack,
-  Circle,
-  Button,
-  Separator,
-  ScrollView,
-} from "tamagui";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 type StatusPagamento = "pago" | "pendente" | "reembolsado";
 
 interface ConsultaHistorico {
-  id: number;
-  data: string;
-  dataISO: string;
-  horario: string;
-  paciente: string;
-  especialidade: string;
-  modalidade: "Presencial" | "Online";
-  avatar: string;
-  valor: string;
-  statusPagamento: StatusPagamento;
-  nota?: number;
+  id: number; data: string; dataISO: string; horario: string;
+  paciente: string; especialidade: string; modalidade: "Presencial" | "Online";
+  avatar: string; valor: string; statusPagamento: StatusPagamento; nota?: number;
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
 const historico: ConsultaHistorico[] = [
-  { id: 1, data: "23/04/2026", dataISO: "2026-04", horario: "11:00", paciente: "Guilherme Augusto", especialidade: "Cardiologia", modalidade: "Presencial", avatar: "https://picsum.photos/200/200?random=30", valor: "R$ 350", statusPagamento: "pago", nota: 5 },
-  { id: 2, data: "23/04/2026", dataISO: "2026-04", horario: "13:00", paciente: "Mariana Ferreira", especialidade: "Cardiologia", modalidade: "Online", avatar: "https://picsum.photos/200/200?random=31", valor: "R$ 280", statusPagamento: "pendente" },
-  { id: 3, data: "22/04/2026", dataISO: "2026-04", horario: "09:00", paciente: "Fernanda Lima", especialidade: "Cardiologia", modalidade: "Presencial", avatar: "https://picsum.photos/200/200?random=41", valor: "R$ 350", statusPagamento: "pago", nota: 4 },
-  { id: 4, data: "20/04/2026", dataISO: "2026-04", horario: "15:30", paciente: "Ricardo Nunes", especialidade: "Check-up Cardíaco", modalidade: "Presencial", avatar: "https://picsum.photos/200/200?random=45", valor: "R$ 420", statusPagamento: "pago" },
-  { id: 5, data: "15/04/2026", dataISO: "2026-04", horario: "10:00", paciente: "Beatriz Santos", especialidade: "Cardiologia", modalidade: "Online", avatar: "https://picsum.photos/200/200?random=46", valor: "R$ 280", statusPagamento: "reembolsado" },
-  { id: 6, data: "30/03/2026", dataISO: "2026-03", horario: "14:00", paciente: "Carlos Eduardo", especialidade: "Avaliação Cardíaca", modalidade: "Presencial", avatar: "https://picsum.photos/200/200?random=47", valor: "R$ 500", statusPagamento: "pago", nota: 5 },
+  { id:1, data:"23/04/2026", dataISO:"2026-04", horario:"11:00", paciente:"Guilherme Augusto", especialidade:"Cardiologia",       modalidade:"Presencial", avatar:"https://picsum.photos/200/200?random=30", valor:"R$ 350", statusPagamento:"pago",        nota:5 },
+  { id:2, data:"23/04/2026", dataISO:"2026-04", horario:"13:00", paciente:"Mariana Ferreira",  especialidade:"Cardiologia",       modalidade:"Online",     avatar:"https://picsum.photos/200/200?random=31", valor:"R$ 280", statusPagamento:"pendente" },
+  { id:3, data:"22/04/2026", dataISO:"2026-04", horario:"09:00", paciente:"Fernanda Lima",     especialidade:"Cardiologia",       modalidade:"Presencial", avatar:"https://picsum.photos/200/200?random=41", valor:"R$ 350", statusPagamento:"pago",        nota:4 },
+  { id:4, data:"20/04/2026", dataISO:"2026-04", horario:"15:30", paciente:"Ricardo Nunes",     especialidade:"Check-up Cardíaco", modalidade:"Presencial", avatar:"https://picsum.photos/200/200?random=45", valor:"R$ 420", statusPagamento:"pago" },
+  { id:5, data:"15/04/2026", dataISO:"2026-04", horario:"10:00", paciente:"Beatriz Santos",    especialidade:"Cardiologia",       modalidade:"Online",     avatar:"https://picsum.photos/200/200?random=46", valor:"R$ 280", statusPagamento:"reembolsado" },
+  { id:6, data:"30/03/2026", dataISO:"2026-03", horario:"14:00", paciente:"Carlos Eduardo",    especialidade:"Avaliação Cardíaca",modalidade:"Presencial", avatar:"https://picsum.photos/200/200?random=47", valor:"R$ 500", statusPagamento:"pago",        nota:5 },
 ];
 
 const PERIODOS = ["Semana", "Mês", "Ano", "Tudo"];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+const mesLabels: Record<string, string> = { "2026-04":"Abril 2026", "2026-03":"Março 2026" };
+
+function agruparPorMes(items: ConsultaHistorico[]) {
+  const g: Record<string, ConsultaHistorico[]> = {};
+  for (const i of items) { if (!g[i.dataISO]) g[i.dataISO]=[]; g[i.dataISO].push(i); }
+  return g;
+}
+
+const pagConfig: Record<StatusPagamento, { label:string; bg:string; color:string; border:string }> = {
+  pago:        { label:"PAGO",        bg:"rgba(16,185,129,0.12)",  color:"#10b981", border:"rgba(16,185,129,0.3)" },
+  pendente:    { label:"PENDENTE",    bg:"rgba(234,179,8,0.12)",   color:"#facc15", border:"rgba(234,179,8,0.3)" },
+  reembolsado: { label:"REEMBOLSADO", bg:"rgba(161,161,170,0.1)",  color:"#a1a1aa", border:"rgba(161,161,170,0.25)" },
+};
 
 function useOutsideClick(ref: React.RefObject<HTMLElement>, cb: () => void) {
   useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) cb();
-    }
+    function handler(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) cb(); }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [ref, cb]);
 }
 
+const CalendarIcon = () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>);
+const ExternalLinkIcon = () => (<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>);
+const ChevronDownIcon = () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>);
+const StarIcon = ({ filled }: { filled:boolean }) => (<svg width="12" height="12" viewBox="0 0 24 24" fill={filled?"#facc15":"none"} stroke={filled?"#facc15":"#3f3f46"} strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>);
 
-const mesLabels: Record<string, string> = {
-  "2026-04": "Abril 2026",
-  "2026-03": "Março 2026",
-};
-
-function agruparPorMes(items: ConsultaHistorico[]) {
-  const grupos: Record<string, ConsultaHistorico[]> = {};
-  for (const item of items) {
-    if (!grupos[item.dataISO]) grupos[item.dataISO] = [];
-    grupos[item.dataISO].push(item);
-  }
-  return grupos;
+function StarRow({ nota }: { nota:number }) {
+  return <div style={{ display:"flex", gap:2 }}>{[1,2,3,4,5].map(i=><StarIcon key={i} filled={i<=nota}/>)}</div>;
 }
 
-const pagConfig: Record<StatusPagamento, { label: string; bg: string; color: string; border: string }> = {
-  pago:        { label: "PAGO",        bg: "rgba(16,185,129,0.12)",  color: "#10b981", border: "rgba(16,185,129,0.3)" },
-  pendente:    { label: "PENDENTE",    bg: "rgba(234,179,8,0.12)",   color: "#facc15", border: "rgba(234,179,8,0.3)" },
-  reembolsado: { label: "REEMBOLSADO", bg: "rgba(161,161,170,0.1)",  color: "#a1a1aa", border: "rgba(161,161,170,0.25)" },
-};
+const C = { card:"#141414", card2:"#1a1a1a", border:"rgba(255,255,255,0.07)", bg:"#111111" };
 
-// ─── Icons ────────────────────────────────────────────────────────────────────
-
-const CalendarIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-);
-const ExternalLinkIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
-);
-const ChevronDownIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-);
-const StarIcon = ({ filled }: { filled: boolean }) => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill={filled ? "#facc15" : "none"} stroke={filled ? "#facc15" : "#3f3f46"} strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
-);
-
-function StarRow({ nota }: { nota: number }) {
-  return (
-    <XStack gap={2}>
-      {[1, 2, 3, 4, 5].map((i) => <StarIcon key={i} filled={i <= nota} />)}
-    </XStack>
-  );
-}
-
-// ─── Consulta Card ────────────────────────────────────────────────────────────
-
-function ConsultaCard({ c }: { c: ConsultaHistorico }) {
+function ConsultaCard({ c }: { c:ConsultaHistorico }) {
   const cfg = pagConfig[c.statusPagamento];
   return (
-    <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor" borderRadius="$3" hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}>
+    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden", cursor:"pointer", transition:"background .15s, border-color .15s" }}
+      onMouseEnter={e=>{ (e.currentTarget as HTMLElement).style.background=C.card2; (e.currentTarget as HTMLElement).style.borderColor="rgba(16,185,129,0.45)"; }}
+      onMouseLeave={e=>{ (e.currentTarget as HTMLElement).style.background=C.card;  (e.currentTarget as HTMLElement).style.borderColor=C.border; }}
+    >
       {/* Header */}
-      <XStack justifyContent="space-between" alignItems="center" padding="$3" borderBottomWidth={1} borderColor="$borderColor">
-        <XStack alignItems="center" gap="$2">
-          <Text color="$color11"><CalendarIcon /></Text>
-          <Text color="$color11" fontSize={12}>{c.data} · {c.horario}</Text>
-        </XStack>
-        <XStack paddingHorizontal="$2" paddingVertical="$1" borderRadius="$10" borderWidth={1} backgroundColor={cfg.bg} borderColor={cfg.border}>
-          <Text color={cfg.color} fontSize={10} fontWeight="bold">{cfg.label}</Text>
-        </XStack>
-      </XStack>
-
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", borderBottom:`1px solid ${C.border}` }}>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <span style={{ color:"#71717a" }}><CalendarIcon /></span>
+          <span style={{ color:"#a1a1aa", fontSize:12 }}>{c.data} · {c.horario}</span>
+        </div>
+        <span style={{ background:cfg.bg, border:`1px solid ${cfg.border}`, color:cfg.color, fontSize:10, fontWeight:"bold", padding:"2px 10px", borderRadius:999 }}>{cfg.label}</span>
+      </div>
       {/* Body */}
-      <XStack padding="$3" gap="$3" alignItems="center">
-        <Avatar circular size="$4" backgroundColor="$color4" borderWidth={1} borderColor="$borderColor">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <Avatar.Image src={c.avatar} />
-        </Avatar>
-        <YStack flex={1}>
-          <Text color="$color12" fontSize={14} fontWeight="bold">{c.paciente}</Text>
-          <Text color="$color11" fontSize={12}>{c.especialidade} · {c.modalidade}</Text>
+      <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px" }}>
+        <img src={c.avatar} alt={c.paciente} style={{ width:42, height:42, borderRadius:"50%", objectFit:"cover", flexShrink:0, border:`1px solid ${C.border}` }} />
+        <div style={{ flex:1, minWidth:0 }}>
+          <p style={{ color:"#fafafa", fontSize:14, fontWeight:"bold", margin:0 }}>{c.paciente}</p>
+          <p style={{ color:"#a1a1aa", fontSize:12, margin:0 }}>{c.especialidade} · {c.modalidade}</p>
           {c.nota && (
-            <XStack alignItems="center" gap="$2" marginTop="$1">
+            <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:4 }}>
               <StarRow nota={c.nota} />
-              <Text color="$color10" fontSize={11}>Sua avaliação</Text>
-            </XStack>
+              <span style={{ color:"#71717a", fontSize:11 }}>Sua avaliação</span>
+            </div>
           )}
-        </YStack>
-        <YStack alignItems="flex-end" gap="$1" flexShrink={0}>
-          <Text color="$color10" fontSize={11}>Valor</Text>
-          <Text color="$color12" fontSize={16} fontWeight="bold">{c.valor}</Text>
-        </YStack>
-      </XStack>
-
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:3, flexShrink:0 }}>
+          <span style={{ color:"#71717a", fontSize:11 }}>Valor</span>
+          <span style={{ color:"#fafafa", fontSize:16, fontWeight:"bold" }}>{c.valor}</span>
+        </div>
+      </div>
       {/* Footer */}
-      <XStack paddingHorizontal="$4" paddingVertical="$2" borderTopWidth={1} borderColor="$borderColor">
-        <Button size="$2" chromeless paddingHorizontal="$2" gap="$1" borderWidth={1} borderColor="transparent" hoverStyle={{ backgroundColor: "$color4", borderColor: "$green8" }}>
-          <Text color="$color10"><ExternalLinkIcon /></Text>
-          <Text color="$color11" fontSize={12}>Ver detalhes</Text>
-        </Button>
-      </XStack>
-    </Card>
+      <div style={{ padding:"6px 14px", borderTop:`1px solid ${C.border}` }}>
+        <button style={{ display:"flex", alignItems:"center", gap:5, background:"none", border:"none", cursor:"pointer", padding:"4px 8px", borderRadius:6, color:"#71717a", fontSize:12, fontFamily:"inherit", transition:"background .15s" }}
+          onMouseEnter={e=>{ (e.currentTarget as HTMLElement).style.background=C.card2; }}
+          onMouseLeave={e=>{ (e.currentTarget as HTMLElement).style.background="none"; }}
+        >
+          <ExternalLinkIcon /> Ver detalhes
+        </button>
+      </div>
+    </div>
   );
 }
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HistoricoPage() {
   const [periodo, setPeriodo] = useState("Mês");
@@ -161,148 +108,157 @@ export default function HistoricoPage() {
   useOutsideClick(headerMenuRef, useCallback(() => setHeaderMenuOpen(false), []));
 
   const grupos = agruparPorMes(historico);
-  const meses = Object.keys(grupos).sort((a, b) => b.localeCompare(a));
+  const meses  = Object.keys(grupos).sort((a,b) => b.localeCompare(a));
+  const totalPago = historico.filter(c=>c.statusPagamento==="pago").reduce((acc,c)=>acc+parseInt(c.valor.replace(/\D/g,"")),0);
+  const pendentes = historico.filter(c=>c.statusPagamento==="pendente").length;
+  const timeline  = historico.slice().sort((a,b)=>b.id-a.id).map(c=>({ data:c.data, descricao:`${c.especialidade} · ${c.modalidade}`, paciente:c.paciente }));
 
-  const totalPago = historico.filter((c) => c.statusPagamento === "pago").reduce((acc, c) => acc + parseInt(c.valor.replace(/\D/g, "")), 0);
-  const pendentes = historico.filter((c) => c.statusPagamento === "pendente").length;
-  
-  const timeline = historico.slice().sort((a, b) => b.id - a.id).map((c) => ({
-    data: c.data,
-    descricao: `${c.especialidade} · ${c.modalidade}`,
-    paciente: c.paciente,
-    statusPagamento: c.statusPagamento,
-  }));
+  const resumoItems = [
+    { label:"Total de atendimentos",    value:String(historico.length),                    color:"#fafafa" },
+    { label:"Total recebido",           value:`R$ ${totalPago.toLocaleString("pt-BR")}`,   color:"#10b981" },
+    { label:"Pendentes de pagamento",   value:String(pendentes),                           color:"#facc15" },
+    { label:"Reembolsados",             value:String(historico.filter(c=>c.statusPagamento==="reembolsado").length), color:"#a1a1aa" },
+  ];
 
   return (
-    <ScrollView flex={1} backgroundColor="$background" showsVerticalScrollIndicator={false}>
-      <YStack padding="$4" $gtSm={{ padding: "$6" }} gap="$5" maxWidth={1100} marginHorizontal="auto" width="100%">
-        
-        {/* Cabeçalho */}
-        <XStack className="pro-page-header" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap="$3">
-          <YStack gap="$1">
-            <H2 color="$color12" size="$6" fontWeight="bold">Histórico</H2>
-            <Text color="$color11" fontSize={14}>Consultas realizadas, pagamentos e linha do tempo de atendimentos.</Text>
-          </YStack>
-          {/* Ações Desktop */}
-          <div className="pro-filter-desktop">
-            <XStack gap="$2" flexWrap="wrap">
-              {PERIODOS.map((p) => {
-                const isActive = periodo === p;
+    <>
+      <style>{`
+        .hist-cols { display:flex; gap:20px; align-items:flex-start; }
+        .hist-col-left  { flex:2; min-width:280px; display:flex; flex-direction:column; gap:20px; }
+        .hist-col-right { flex:1; min-width:240px; display:flex; flex-direction:column; gap:16px; }
+        @media(max-width:768px){
+          .hist-cols { flex-direction:column; }
+          .hist-col-left,.hist-col-right { min-width:0; width:100%; }
+        }
+        .sidebar-card {
+          background:${C.card}; border:1px solid ${C.border}; border-radius:14px;
+          overflow:hidden; cursor:pointer; transition:background .15s,border-color .15s;
+        }
+        .sidebar-card--purple:hover { background:${C.card2}; border-color:rgba(167,139,250,0.45); }
+        .sidebar-card--green:hover  { background:${C.card2}; border-color:rgba(16,185,129,0.45); }
+        .period-pill {
+          padding:6px 16px; border-radius:999px; border:1px solid;
+          font-size:13px; cursor:pointer; font-family:inherit; transition:all .15s;
+        }
+        .hist-btn-full {
+          display:flex; align-items:center; justify-content:center; gap:6px;
+          width:100%; padding:10px 0; border-radius:8px; border:1px solid ${C.border};
+          background:transparent; color:#a1a1aa; font-size:13px; cursor:pointer;
+          font-family:inherit; transition:background .15s;
+        }
+        .hist-btn-full:hover { background:${C.card2}; }
+      `}</style>
+
+      <div style={{ flex:1, overflowY:"auto" }}>
+        <div style={{ padding:"1.5rem 2rem", maxWidth:1100, margin:"0 auto", display:"flex", flexDirection:"column", gap:24, width:"100%" }}>
+
+          {/* Cabeçalho */}
+          <div className="pro-page-header" style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:12 }}>
+            <div>
+              <h2 style={{ color:"#fafafa", fontSize:22, fontWeight:"bold", margin:0 }}>Histórico</h2>
+              <p style={{ color:"#a1a1aa", fontSize:14, margin:"4px 0 0" }}>Consultas realizadas, pagamentos e linha do tempo de atendimentos.</p>
+            </div>
+            {/* Desktop pills */}
+            <div className="pro-filter-desktop" style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+              {PERIODOS.map(p => {
+                const isActive = periodo===p;
                 return (
-                  <Button key={p} size="$3" borderRadius="$10" borderWidth={1} animation="quick"
-                    borderColor={isActive ? "$green8" : "$borderColor"}
-                    backgroundColor={isActive ? "rgba(16,185,129,0.1)" : "transparent"}
-                    onPress={() => setPeriodo(p)}
-                    hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-                    paddingHorizontal="$4">
-                    <Text fontWeight={isActive ? "bold" : "500"} color={isActive ? "#10b981" : "$color11"} fontSize={13}>{p}</Text>
-                  </Button>
+                  <button key={p} className="period-pill" onClick={()=>setPeriodo(p)} style={{ borderColor:isActive?"#10b981":C.border, background:isActive?"rgba(16,185,129,0.1)":"transparent", color:isActive?"#10b981":"#a1a1aa", fontWeight:isActive?"bold":"500" }}>{p}</button>
                 );
               })}
-            </XStack>
+            </div>
+            {/* Mobile dropdown */}
+            <div className="pro-filter-mobile" ref={headerMenuRef} style={{ position:"relative" }}>
+              <button className="pro-filter-dropdown-btn" onClick={()=>setHeaderMenuOpen(v=>!v)}>
+                Período: {periodo}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform:headerMenuOpen?"rotate(180deg)":"rotate(0deg)", transition:"transform .2s" }}>
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+              {headerMenuOpen && (
+                <div className="pro-filter-dropdown-menu" style={{ right:0, left:"auto", minWidth:160 }}>
+                  {PERIODOS.map(p=>(
+                    <div key={p} className={`pro-filter-dropdown-item${periodo===p?" active":""}`} onClick={()=>{setPeriodo(p);setHeaderMenuOpen(false);}}>
+                      {periodo===p && <span style={{ marginRight:6 }}>✓</span>}{p}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Ações Mobile */}
-          <div className="pro-filter-mobile" ref={headerMenuRef} style={{ position: "relative" }}>
-            <button className="pro-filter-dropdown-btn" onClick={() => setHeaderMenuOpen(v => !v)}>
-              Período: {periodo}
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                style={{ transform: headerMenuOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
-            {headerMenuOpen && (
-              <div className="pro-filter-dropdown-menu" style={{ right: 0, left: "auto", minWidth: 160 }}>
-                 {PERIODOS.map((p) => (
-                   <div key={p} className={`pro-filter-dropdown-item${periodo === p ? " active" : ""}`}
-                     onClick={() => { setPeriodo(p); setHeaderMenuOpen(false); }}>
-                     {periodo === p && <span style={{ marginRight: 6 }}>✓</span>}{p}
-                   </div>
-                 ))}
+          {/* Corpo */}
+          <div className="hist-cols">
+
+            {/* Coluna Esquerda */}
+            <div className="hist-col-left">
+              <h2 style={{ color:"#fafafa", fontSize:20, fontWeight:"bold", margin:0 }}>Consultas Realizadas</h2>
+              {meses.map(mesKey => {
+                const items = grupos[mesKey];
+                const label = mesLabels[mesKey] ?? mesKey;
+                return (
+                  <div key={mesKey} style={{ display:"flex", flexDirection:"column", gap:12 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                      <span style={{ color:"#a1a1aa", fontSize:12, fontWeight:"bold", textTransform:"uppercase", letterSpacing:1, flexShrink:0 }}>{label}</span>
+                      <div style={{ flex:1, height:1, background:C.border }} />
+                      <span style={{ color:"#71717a", fontSize:11, flexShrink:0 }}>{items.length} consultas</span>
+                    </div>
+                    <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+                      {items.map(c=><ConsultaCard key={c.id} c={c}/>)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Coluna Direita */}
+            <div className="hist-col-right">
+
+              {/* Linha do Tempo */}
+              <div className="sidebar-card sidebar-card--purple">
+                <div style={{ height:3, background:"#a78bfa" }} />
+                <div style={{ padding:16, display:"flex", flexDirection:"column", gap:16 }}>
+                  <span style={{ color:"#a1a1aa", fontSize:11, fontWeight:"bold", letterSpacing:1, textTransform:"uppercase" }}>Linha do tempo</span>
+                  <div>
+                    {timeline.slice(0,8).map((item,idx)=>{
+                      const isLast = idx===timeline.length-1;
+                      return (
+                        <div key={idx} style={{ display:"flex", gap:12, alignItems:"flex-start" }}>
+                          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", width:14, flexShrink:0, marginTop:4 }}>
+                            <div style={{ width:10, height:10, borderRadius:"50%", background:"#a78bfa", border:`2px solid ${C.bg}`, zIndex:2 }} />
+                            {!isLast && <div style={{ width:2, height:38, background:C.border, marginTop:-2, zIndex:1 }} />}
+                          </div>
+                          <div style={{ flex:1, paddingBottom:isLast?0:12 }}>
+                            <span style={{ color:"#71717a", fontSize:11, display:"block" }}>{item.data}</span>
+                            <span style={{ color:"#fafafa", fontSize:13, fontWeight:500, display:"block" }}>{item.descricao}</span>
+                            <span style={{ color:"#a1a1aa", fontSize:12, display:"block" }}>{item.paciente}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <button className="hist-btn-full">
+                    Ver histórico completo <ChevronDownIcon />
+                  </button>
+                </div>
               </div>
-            )}
-          </div>
-        </XStack>
 
-        {/* Corpo */}
-        <XStack gap="$5" alignItems="flex-start" flexWrap="wrap" $gtSm={{ flexWrap: "nowrap" }}>
-          
-          {/* Coluna Esquerda */}
-          <YStack flex={2} gap="$5" minWidth={280}>
-            <H2 color="$color12" size="$5" fontWeight="bold">Consultas Realizadas</H2>
-            {meses.map((mesKey) => {
-              const items = grupos[mesKey];
-              const label = mesLabels[mesKey] ?? mesKey;
-              return (
-                <YStack key={mesKey} gap="$3">
-                  <XStack alignItems="center" gap="$3">
-                    <Text color="$color11" fontSize={12} fontWeight="bold" textTransform="uppercase" letterSpacing={1} flexShrink={0}>{label}</Text>
-                    <Separator flex={1} borderColor="$borderColor" />
-                    <Text color="$color10" fontSize={11} flexShrink={0}>{items.length} consultas</Text>
-                  </XStack>
-                  <YStack gap="$3">
-                    {items.map((c) => <ConsultaCard key={c.id} c={c} />)}
-                  </YStack>
-                </YStack>
-              );
-            })}
-          </YStack>
-
-          {/* Coluna Direita */}
-          <YStack flex={1} minWidth={240} gap="$4">
-            
-            {/* Linha do Tempo */}
-            <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor" borderRadius="$5" overflow="hidden" hoverStyle={{ backgroundColor: "$color3", borderColor: "$purple8" }}>
-              <YStack height={3} backgroundColor="#a78bfa" />
-              <YStack padding="$4" gap="$4">
-                <Text color="$color11" fontSize={11} fontWeight="bold" letterSpacing={1} textTransform="uppercase">Linha do tempo</Text>
-                <YStack gap="$0">
-                  {timeline.slice(0, 8).map((item, idx) => {
-                    const isLast = idx === timeline.length - 1;
-                    return (
-                      <XStack key={idx} gap="$3" alignItems="flex-start">
-                        <YStack alignItems="center" width={14} flexShrink={0} marginTop="$1">
-                          <Circle size={10} borderWidth={2} borderColor="$color2" backgroundColor="#a78bfa" zIndex={2} />
-                          {!isLast && <YStack width={2} height={38} backgroundColor="$borderColor" marginTop={-2} zIndex={1} />}
-                        </YStack>
-                        <YStack flex={1} paddingBottom={isLast ? 0 : "$3"}>
-                          <Text color="$color10" fontSize={11}>{item.data}</Text>
-                          <Text color="$color12" fontSize={13} fontWeight="500">{item.descricao}</Text>
-                          <Text color="$color11" fontSize={12}>{item.paciente}</Text>
-                        </YStack>
-                      </XStack>
-                    );
-                  })}
-                </YStack>
-                <Button size="$3" borderRadius="$10" borderWidth={1} borderColor="$borderColor" backgroundColor="transparent" hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }} gap="$1">
-                  <Text color="$color11" fontSize={13}>Ver histórico completo</Text>
-                  <Text color="$color11"><ChevronDownIcon /></Text>
-                </Button>
-              </YStack>
-            </Card>
-
-            {/* Resumo Geral */}
-            <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor" borderRadius="$5" padding="$4" hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}>
-              <Text color="$color11" fontSize={11} fontWeight="bold" letterSpacing={1} textTransform="uppercase" marginBottom="$3">Resumo Geral</Text>
-              <YStack>
-                {[
-                  { label: "Total de atendimentos", value: String(historico.length), color: "$color12" },
-                  { label: "Total recebido", value: `R$ ${totalPago.toLocaleString("pt-BR")}`, color: "#10b981" },
-                  { label: "Pendentes de pagamento", value: String(pendentes), color: "#facc15" },
-                  { label: "Reembolsados", value: String(historico.filter(c => c.statusPagamento === "reembolsado").length), color: "#a1a1aa" },
-                ].map((item, i, arr) => (
-                  <XStack key={i} justifyContent="space-between" alignItems="center" paddingVertical="$3" borderBottomWidth={i < arr.length - 1 ? 1 : 0} borderColor="$borderColor">
-                    <Text color="$color11" fontSize={13}>{item.label}</Text>
-                    <Text fontSize={14} fontWeight="bold" style={{ color: item.color as string }}>{item.value}</Text>
-                  </XStack>
+              {/* Resumo Geral */}
+              <div className="sidebar-card sidebar-card--green" style={{ padding:16 }}>
+                <p style={{ color:"#a1a1aa", fontSize:11, fontWeight:"bold", letterSpacing:1, textTransform:"uppercase", margin:"0 0 12px" }}>Resumo Geral</p>
+                {resumoItems.map((item,i)=>(
+                  <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingTop:12, paddingBottom:12, borderBottom:i<resumoItems.length-1?`1px solid ${C.border}`:"none" }}>
+                    <span style={{ color:"#a1a1aa", fontSize:13 }}>{item.label}</span>
+                    <span style={{ fontSize:14, fontWeight:"bold", color:item.color }}>{item.value}</span>
+                  </div>
                 ))}
-              </YStack>
-            </Card>
+              </div>
 
-          </YStack>
-        </XStack>
-      </YStack>
-    </ScrollView>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </>
   );
 }

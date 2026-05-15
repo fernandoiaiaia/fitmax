@@ -1,12 +1,15 @@
-//@ts-nocheck
 "use client";
 
 import { useState, useRef } from "react";
-import {
-  Card, Text, H2, XStack, YStack,
-  ScrollView, Button, Avatar, Separator, Input, ZStack, Circle,
-} from "tamagui";
 
+// ── Paleta ─────────────────────────────────────────────────────────────────────
+const C = {
+  bg: "#111111", card: "#1a1a1a", hover: "#222222",
+  border: "#27272a", text: "#fafafa", muted: "#a1a1aa", dim: "#71717a",
+  green: "#10b981",
+};
+
+// ── Types e Mock Data ──────────────────────────────────────────────────────────
 type Aba = "dados" | "notificacoes" | "seguranca" | "convenios";
 
 const ABAS: { id: Aba; label: string; icon: string }[] = [
@@ -21,93 +24,72 @@ const CATEGORIAS_CONVENIO = ["Nacional", "Regional", "Empresarial", "Odontológi
 type Convenio = { id: number; nome: string; categoria: string; ativo: boolean };
 
 const CONVENIOS_INICIAIS: Convenio[] = [
-  { id: 1,  nome: "Unimed",                    categoria: "Nacional",     ativo: true  },
-  { id: 2,  nome: "Bradesco Saúde",            categoria: "Nacional",     ativo: true  },
-  { id: 3,  nome: "SulAmérica",                categoria: "Nacional",     ativo: true  },
-  { id: 4,  nome: "Amil",                      categoria: "Nacional",     ativo: true  },
-  { id: 5,  nome: "Notre Dame Intermédica",     categoria: "Nacional",     ativo: true  },
-  { id: 6,  nome: "Porto Seguro Saúde",        categoria: "Nacional",     ativo: true  },
-  { id: 7,  nome: "Hapvida",                   categoria: "Regional",     ativo: true  },
-  { id: 8,  nome: "Prevent Senior",            categoria: "Regional",     ativo: true  },
-  { id: 9,  nome: "Golden Cross",              categoria: "Regional",     ativo: false },
-  { id: 10, nome: "Cassi",                     categoria: "Empresarial",  ativo: true  },
-  { id: 11, nome: "Mediservice",               categoria: "Empresarial",  ativo: true  },
-  { id: 12, nome: "Fusex",                     categoria: "Empresarial",  ativo: true  },
-  { id: 13, nome: "Geap",                      categoria: "Empresarial",  ativo: false },
-  { id: 14, nome: "Petrobras Saúde",           categoria: "Empresarial",  ativo: true  },
-  { id: 15, nome: "Particular (Sem convênio)", categoria: "Outro",        ativo: true  },
+  { id:1, nome:"Unimed",                 categoria:"Nacional",    ativo:true  },
+  { id:2, nome:"Bradesco Saúde",         categoria:"Nacional",    ativo:true  },
+  { id:3, nome:"SulAmérica",             categoria:"Nacional",    ativo:true  },
+  { id:4, nome:"Amil",                   categoria:"Nacional",    ativo:true  },
+  { id:5, nome:"Notre Dame Intermédica", categoria:"Nacional",    ativo:true  },
+  { id:6, nome:"Porto Seguro Saúde",     categoria:"Nacional",    ativo:true  },
+  { id:7, nome:"Hapvida",                categoria:"Regional",    ativo:true  },
+  { id:8, nome:"Prevent Senior",         categoria:"Regional",    ativo:true  },
+  { id:9, nome:"Golden Cross",           categoria:"Regional",    ativo:false },
+  { id:10,nome:"Cassi",                  categoria:"Empresarial", ativo:true  },
 ];
 
-/* ── helpers ── */
-function SectionTitle({ children }: { children: string }) {
+// ── Shared UI ──────────────────────────────────────────────────────────────────
+function HCard({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
-    <Text color="$color11" fontSize={11} fontWeight="bold"
-      letterSpacing={1} textTransform="uppercase" marginBottom="$2">
+    <div style={{ border:`1px solid ${C.border}`, backgroundColor:C.card, borderRadius:12, overflow:"hidden", transition:"all .18s", ...style }}
+      onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor="#10b981"; (e.currentTarget as HTMLElement).style.transform="translateY(-1px)"; (e.currentTarget as HTMLElement).style.boxShadow="0 4px 20px rgba(16,185,129,0.08)";}}
+      onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=style?.borderColor as string || C.border; (e.currentTarget as HTMLElement).style.transform="translateY(0)"; (e.currentTarget as HTMLElement).style.boxShadow="none";}}>
       {children}
-    </Text>
+    </div>
   );
 }
 
-function InputField({ id, label, value, onChange, type = "text", disabled }: {
-  id: string; label: string; value: string;
-  onChange: (v: string) => void; type?: string; disabled?: boolean;
+function SectionTitle({ children }: { children: string }) {
+  return <p style={{ color:C.muted, fontSize:11, fontWeight:700, letterSpacing:1, textTransform:"uppercase", margin:"0 0 12px" }}>{children}</p>;
+}
+
+function InputField({ id, label, value, onChange, type = "text", disabled, placeholder }: {
+  id: string; label: string; value: string; onChange: (v: string) => void; type?: string; disabled?: boolean; placeholder?: string;
 }) {
   return (
-    <YStack gap="$1" flex={1}>
-      <Text color="$color10" fontSize={12}>{label}</Text>
-      <Input
-        id={id} type={type} value={value} disabled={disabled}
-        onChangeText={onChange}
-        backgroundColor={disabled ? "rgba(255,255,255,0.03)" : "$color2"}
-        borderColor="$borderColor"
-        borderRadius="$3"
-        height={42}
-        paddingHorizontal="$3"
-        color={disabled ? "$color10" : "$color12"}
-        fontSize={14}
-        width="100%"
-        hoverStyle={{ borderColor: disabled ? "$borderColor" : "$green8" }}
-        focusStyle={{ borderColor: "$green10", outlineWidth: 0 }}
+    <div style={{ display:"flex", flexDirection:"column", gap:6, flex:1, minWidth:200 }}>
+      <label style={{ color:C.muted, fontSize:12, fontWeight:600 }}>{label}</label>
+      <input id={id} type={type} value={value} disabled={disabled} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
+        style={{ background:disabled?"rgba(255,255,255,0.03)":"#141414", border:`1px solid ${C.border}`, borderRadius:10, height:42, padding:"0 12px", color:disabled?C.dim:C.text, fontSize:14, fontFamily:"inherit", outline:"none", width:"100%", transition:"border-color .2s" }}
+        onFocus={e=>(e.target.style.borderColor=C.green)} onBlur={e=>(e.target.style.borderColor=C.border)}
       />
-    </YStack>
+    </div>
   );
 }
 
-function Toggle({ id, label, desc, value, onChange }: {
-  id: string; label: string; desc: string; value: boolean; onChange: () => void;
-}) {
+function Toggle({ id, label, desc, value, onChange }: { id: string; label: string; desc: string; value: boolean; onChange: () => void; }) {
   return (
-    <XStack justifyContent="space-between" alignItems="center"
-      paddingVertical="$3" borderBottomWidth={1} borderColor="$borderColor">
-      <YStack flex={1} gap="$0.5" paddingRight="$4">
-        <Text color="$color12" fontSize={14} fontWeight="500">{label}</Text>
-        <Text color="$color11" fontSize={12}>{desc}</Text>
-      </YStack>
-      <XStack
-        id={id}
-        role="switch"
-        aria-checked={value}
-        onPress={onChange}
-        width={44}
-        height={24}
-        borderRadius="$10"
-        cursor="pointer"
-        backgroundColor={value ? "$green9" : "$color5"}
-        position="relative"
-      >
-        <Circle
-          size={20}
-          backgroundColor="white"
-          position="absolute"
-          top={2}
-          left={value ? 22 : 2}
-        />
-      </XStack>
-    </XStack>
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 0", borderBottom:`1px solid ${C.border}` }}>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", gap:2, paddingRight:16 }}>
+        <span style={{ color:C.text, fontSize:14, fontWeight:600 }}>{label}</span>
+        <span style={{ color:C.muted, fontSize:12 }}>{desc}</span>
+      </div>
+      <button id={id} role="switch" aria-checked={value} onClick={onChange}
+        style={{ width:44, height:24, borderRadius:99, border:"none", cursor:"pointer", background: value ? C.green : "#27272a", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
+        <span style={{ position:"absolute", top:2, left: value ? 22 : 2, width:20, height:20, borderRadius:"50%", background:"#fff", transition:"left 0.2s" }} />
+      </button>
+    </div>
   );
 }
 
-/* ── Aba: Dados do Admin ── */
+function SaveButton({ id, saved, onClick, text = "Salvar alterações" }: { id: string; saved: boolean; onClick: () => void; text?: string; }) {
+  return (
+    <button id={id} onClick={onClick} style={{ padding:"10px 20px", borderRadius:8, background:saved?"#059669":C.green, border:"none", color:"white", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit", transition:"background .15s" }}
+      onMouseEnter={e=>!saved&&((e.target as HTMLElement).style.background="#0ea370")} onMouseLeave={e=>!saved&&((e.target as HTMLElement).style.background=C.green)}>
+      {saved ? "✓ Salvo!" : text}
+    </button>
+  );
+}
+
+// ── Aba: Dados do Admin ──
 function AbaDados() {
   const avatarRef = useRef<HTMLInputElement>(null);
   const [nome,  setNome]  = useState("Admin FitMax");
@@ -119,129 +101,83 @@ function AbaDados() {
   function handleSave() { setSaved(true); setTimeout(() => setSaved(false), 2500); }
 
   return (
-    <YStack gap="$4">
-      {/* Profile Card */}
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" padding="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}>
-        <XStack alignItems="center" gap="$4">
-          <ZStack width={80} height={80}>
-            <Avatar circular size="$8" backgroundColor="$color4">
-              <Avatar.Image src="https://picsum.photos/200/200?random=40" />
-            </Avatar>
-            <Circle
-              size={28}
-              backgroundColor="$green9"
-              borderWidth={2}
-              borderColor="$color2"
-              position="absolute"
-              bottom={0}
-              right={0}
-              cursor="pointer"
-              onPress={() => avatarRef.current?.click()}
-              hoverStyle={{ backgroundColor: "$green10" }}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
-            </Circle>
-            <input ref={avatarRef} type="file" accept="image/*" style={{ display: "none" }} />
-          </ZStack>
-          <YStack gap="$1">
-            <Text color="$color12" fontSize={18} fontWeight="bold">{nome}</Text>
-            <Text color="$color11" fontSize={13}>{email}</Text>
-            <XStack paddingHorizontal="$3" paddingVertical="$1" borderRadius="$10"
-              backgroundColor="rgba(16,185,129,0.12)" marginTop="$1">
-              <Text color="#10b981" fontSize={11} fontWeight="bold">Administrador · Nível 5 🔐</Text>
-            </XStack>
-          </YStack>
-        </XStack>
-      </Card>
+    <div style={{ display:"flex", flexDirection:"column", gap:16, animation:"fadeIn .3s ease" }}>
+      <HCard style={{ padding:20 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:20, flexWrap:"wrap" }}>
+          <div style={{ position:"relative" }}>
+            <img src="https://picsum.photos/200/200?random=40" style={{ width:80, height:80, borderRadius:"50%", objectFit:"cover", border:`2px solid ${C.green}` }} alt="" />
+            <button onClick={() => avatarRef.current?.click()} style={{ position:"absolute", bottom:0, right:0, background:C.green, border:`2px solid ${C.card}`, borderRadius:"50%", width:30, height:30, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </button>
+            <input ref={avatarRef} type="file" accept="image/*" style={{ display:"none" }} />
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+            <span style={{ color:C.text, fontSize:20, fontWeight:700 }}>{nome}</span>
+            <span style={{ color:C.muted, fontSize:13 }}>{email}</span>
+            <span style={{ color:C.green, fontSize:11, fontWeight:700, background:"rgba(16,185,129,0.12)", padding:"3px 12px", borderRadius:999, alignSelf:"flex-start", marginTop:6 }}>Administrador · Nível 5 🔐</span>
+          </div>
+        </div>
+      </HCard>
 
-      {/* Dados */}
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" padding="$4" gap="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}>
+      <HCard style={{ padding:20, display:"flex", flexDirection:"column", gap:20 }}>
         <SectionTitle>Dados Pessoais</SectionTitle>
-        <XStack gap="$3" flexWrap="wrap">
+        <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
           <InputField id="input-nome"  label="Nome completo" value={nome}  onChange={setNome} />
           <InputField id="input-email" label="E-mail"        value={email} onChange={setEmail} type="email" />
-        </XStack>
-        <XStack gap="$3" flexWrap="wrap">
+        </div>
+        <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
           <InputField id="input-tel"  label="Telefone"        value={tel}  onChange={setTel}  type="tel" />
           <InputField id="input-user" label="Nome de usuário" value={user} onChange={setUser} />
-        </XStack>
-      </Card>
+        </div>
+      </HCard>
 
-      {/* Ações */}
-      <XStack justifyContent="flex-end" gap="$2">
-        <Button size="$3" borderRadius="$4" backgroundColor={saved ? "#059669" : "$green9"}
-          hoverStyle={{ backgroundColor: "$green10" }}
-          onPress={handleSave} id="btn-salvar-dados">
-          <Text color="white" fontSize={13} fontWeight="bold">
-            {saved ? "✓ Salvo!" : "Salvar alterações"}
-          </Text>
-        </Button>
-      </XStack>
-    </YStack>
+      <div style={{ display:"flex", justifyContent:"flex-end" }}>
+        <SaveButton id="btn-salvar-dados" saved={saved} onClick={handleSave} />
+      </div>
+    </div>
   );
 }
 
-
-/* ── Aba: Notificações ── */
+// ── Aba: Notificações ──
 function AbaNotificacoes() {
   const [notifs, setNotifs] = useState({
     novaConsulta: true, cancelamento: true, novoUsuario: true,
     assinaturaVencendo: true, relatorioSemanal: false,
     email: true, whatsapp: false, push: true,
   });
-  const toggle = (key: keyof typeof notifs) => setNotifs((p) => ({ ...p, [key]: !p[key] }));
+  const toggle = (key: keyof typeof notifs) => setNotifs(p => ({ ...p, [key]: !p[key] }));
   const [saved, setSaved] = useState(false);
 
   return (
-    <YStack gap="$4" maxWidth={640}>
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" paddingHorizontal="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}>
+    <div style={{ display:"flex", flexDirection:"column", gap:16, maxWidth:680, animation:"fadeIn .3s ease" }}>
+      <HCard style={{ padding:"16px 20px" }}>
         <SectionTitle>Consultas</SectionTitle>
-        <Toggle id="notif-nova-consulta"  label="Nova consulta agendada"  desc="Quando um usuário agenda uma consulta"          value={notifs.novaConsulta}       onChange={() => toggle("novaConsulta")} />
-        <Toggle id="notif-cancelamento"   label="Consulta cancelada"       desc="Alertas de consultas canceladas"                value={notifs.cancelamento}        onChange={() => toggle("cancelamento")} />
-      </Card>
+        <Toggle id="notif-nova-consulta" label="Nova consulta agendada" desc="Quando um usuário agenda uma consulta" value={notifs.novaConsulta} onChange={()=>toggle("novaConsulta")} />
+        <Toggle id="notif-cancelamento"  label="Consulta cancelada"     desc="Alertas de consultas canceladas"      value={notifs.cancelamento} onChange={()=>toggle("cancelamento")} />
+      </HCard>
 
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" paddingHorizontal="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}>
+      <HCard style={{ padding:"16px 20px" }}>
         <SectionTitle>Usuários & Assinaturas</SectionTitle>
-        <Toggle id="notif-novo-usuario"   label="Novo usuário cadastrado"  desc="Alerta quando um novo usuário se registra"    value={notifs.novoUsuario}         onChange={() => toggle("novoUsuario")} />
-        <Toggle id="notif-assinatura"     label="Assinatura vencendo"      desc="Planos próximos do vencimento"                 value={notifs.assinaturaVencendo}  onChange={() => toggle("assinaturaVencendo")} />
-        <Toggle id="notif-relatorio"      label="Relatório semanal"        desc="Resumo de métricas toda segunda-feira"         value={notifs.relatorioSemanal}    onChange={() => toggle("relatorioSemanal")} />
-      </Card>
+        <Toggle id="notif-novo-usuario" label="Novo usuário cadastrado" desc="Alerta quando um novo usuário se registra" value={notifs.novoUsuario}       onChange={()=>toggle("novoUsuario")} />
+        <Toggle id="notif-assinatura"   label="Assinatura vencendo"     desc="Planos próximos do vencimento"               value={notifs.assinaturaVencendo}onChange={()=>toggle("assinaturaVencendo")} />
+        <Toggle id="notif-relatorio"    label="Relatório semanal"       desc="Resumo de métricas toda segunda-feira"       value={notifs.relatorioSemanal}  onChange={()=>toggle("relatorioSemanal")} />
+      </HCard>
 
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" paddingHorizontal="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}>
+      <HCard style={{ padding:"16px 20px" }}>
         <SectionTitle>Canais</SectionTitle>
-        <Toggle id="notif-email"    label="E-mail"    desc="Notificações por e-mail"   value={notifs.email}    onChange={() => toggle("email")} />
-        <Toggle id="notif-whatsapp" label="WhatsApp"  desc="Notificações via WhatsApp" value={notifs.whatsapp} onChange={() => toggle("whatsapp")} />
-        <Toggle id="notif-push"     label="Push"      desc="Notificações no navegador" value={notifs.push}     onChange={() => toggle("push")} />
-      </Card>
+        <Toggle id="notif-email"    label="E-mail"   desc="Notificações por e-mail"       value={notifs.email}    onChange={()=>toggle("email")} />
+        <Toggle id="notif-whatsapp" label="WhatsApp" desc="Notificações via WhatsApp"     value={notifs.whatsapp} onChange={()=>toggle("whatsapp")} />
+        <Toggle id="notif-push"     label="Push"     desc="Notificações no navegador"     value={notifs.push}     onChange={()=>toggle("push")} />
+      </HCard>
 
-      <XStack justifyContent="flex-end">
-        <Button size="$3" borderRadius="$4" backgroundColor={saved ? "#059669" : "$green9"}
-          hoverStyle={{ backgroundColor: "$green10" }}
-          onPress={() => { setSaved(true); setTimeout(() => setSaved(false), 2500); }}
-          id="btn-salvar-notificacoes">
-          <Text color="white" fontSize={13} fontWeight="bold">
-            {saved ? "✓ Salvo!" : "Salvar preferências"}
-          </Text>
-        </Button>
-      </XStack>
-    </YStack>
+      <div style={{ display:"flex", justifyContent:"flex-end" }}>
+        <SaveButton id="btn-salvar-notificacoes" saved={saved} onClick={()=>{setSaved(true);setTimeout(()=>setSaved(false),2500);}} text="Salvar preferências" />
+      </div>
+    </div>
   );
 }
 
-/* ── Aba: Segurança ── */
+// ── Aba: Segurança ──
 function AbaSeguranca() {
   const [senhaAtual, setSenhaAtual] = useState("");
   const [novaSenha,  setNovaSenha]  = useState("");
@@ -258,442 +194,234 @@ function AbaSeguranca() {
   const strengthColors = ["#f43f5e", "#f97316", "#facc15", "#10b981"];
   const strengthLabel  = ["Muito curta", "Fraca", "Razoável", "Forte"];
 
-  function PwdInput({ id, label, field, value, onChange }: {
-    id: string; label: string;
-    field: "atual" | "nova" | "confirmar";
-    value: string; onChange: (v: string) => void;
-  }) {
+  function PwdInput({ id, label, field, value, onChange }: { id: string; label: string; field: "atual"|"nova"|"confirmar"; value: string; onChange: (v:string)=>void; }) {
     return (
-      <YStack gap="$1">
-        <Text color="$color10" fontSize={12}>{label}</Text>
-        <ZStack position="relative" width="100%">
-          <Input
-            id={id}
-            type={show[field] ? "text" : "password"}
-            value={value}
-            onChangeText={onChange}
-            backgroundColor="$color2"
-            borderColor="$borderColor"
-            borderRadius="$3"
-            height={42}
-            paddingLeft="$3"
-            paddingRight={40}
-            color="$color12"
-            fontSize={14}
-            width="100%"
-            hoverStyle={{ borderColor: "$green8" }}
-            focusStyle={{ borderColor: "$green10", outlineWidth: 0 }}
-          />
-          <Button
-            size="$3"
-            id={`toggle-${id}`}
-            onPress={() => setShow((p) => ({ ...p, [field]: !p[field] }))}
-            position="absolute"
-            right={0} top={0} bottom={0}
-            backgroundColor="transparent"
-            hoverStyle={{ backgroundColor: "transparent", opacity: 0.8 }}
-            color="$green10"
-            padding="$2"
-            focusStyle={{ outlineWidth: 0 }}
-          >
+      <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+        <label style={{ color:C.muted, fontSize:12, fontWeight:600 }}>{label}</label>
+        <div style={{ position:"relative" }}>
+          <input id={id} type={show[field] ? "text" : "password"} value={value} onChange={e=>onChange(e.target.value)}
+            style={{ background:"#141414", border:`1px solid ${C.border}`, borderRadius:10, height:42, padding:"0 40px 0 12px", color:C.text, fontSize:14, fontFamily:"inherit", outline:"none", width:"100%", transition:"border-color .2s" }}
+            onFocus={e=>(e.target.style.borderColor=C.green)} onBlur={e=>(e.target.style.borderColor=C.border)} />
+          <button type="button" onClick={()=>setShow(p=>({...p, [field]:!p[field]}))} style={{ position:"absolute", right:10, top:10, background:"none", border:"none", cursor:"pointer", color:C.green }}>
             {show[field]
-              ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
+              ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
             }
-          </Button>
-        </ZStack>
-      </YStack>
+          </button>
+        </div>
+      </div>
     );
   }
 
   return (
-    <YStack gap="$4" maxWidth={480}>
-
-      {/* Alterar Senha */}
-      <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" padding="$4" gap="$4"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}>
+    <div style={{ display:"flex", flexDirection:"column", gap:16, maxWidth:500, animation:"fadeIn .3s ease" }}>
+      <HCard style={{ padding:20, display:"flex", flexDirection:"column", gap:16 }}>
         <SectionTitle>Alterar senha</SectionTitle>
-        <PwdInput id="input-senha-atual"    label="Senha atual"         field="atual"     value={senhaAtual} onChange={setSenhaAtual} />
-        <PwdInput id="input-nova-senha"     label="Nova senha"          field="nova"      value={novaSenha}  onChange={setNovaSenha} />
-
+        <PwdInput id="input-senha-atual" label="Senha atual" field="atual" value={senhaAtual} onChange={setSenhaAtual} />
+        <PwdInput id="input-nova-senha"  label="Nova senha"  field="nova"  value={novaSenha}  onChange={setNovaSenha} />
         {novaSenha.length > 0 && (
-          <YStack gap="$2">
-            <XStack gap="$1">
-              {[0, 1, 2, 3].map((i) => (
-                <YStack key={i} flex={1} height={4} borderRadius={4}
-                  backgroundColor={i < strength ? strengthColors[strength - 1] : "rgba(255,255,255,0.08)"} />
-              ))}
-            </XStack>
-            <Text fontSize={12} style={{ color: strength > 0 ? strengthColors[strength - 1] : "#52525b" }}>
-              {strength === 0 ? "Senha muito curta" : strengthLabel[strength - 1]}
-            </Text>
-          </YStack>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            <div style={{ display:"flex", gap:4 }}>
+              {[0,1,2,3].map(i => <div key={i} style={{ flex:1, height:4, borderRadius:4, background: i<strength ? strengthColors[strength-1] : "rgba(255,255,255,0.1)" }} />)}
+            </div>
+            <span style={{ fontSize:12, fontWeight:600, color: strength>0 ? strengthColors[strength-1] : C.dim }}>{strength===0 ? "Senha muito curta" : strengthLabel[strength-1]}</span>
+          </div>
         )}
-
-        <PwdInput id="input-confirmar-senha" label="Confirmar nova senha" field="confirmar" value={confirmar}  onChange={setConfirmar} />
-      </Card>
-
-      <XStack justifyContent="flex-end">
-        <Button size="$3" borderRadius="$4"
-          backgroundColor={saved ? "#059669" : "$green9"}
-          hoverStyle={{ backgroundColor: "$green10" }}
-          onPress={() => { setSaved(true); setTimeout(() => setSaved(false), 2500); }}
-          id="btn-salvar-senha">
-          <Text color="white" fontSize={13} fontWeight="bold">
-            {saved ? "✓ Salvo!" : "Salvar senha"}
-          </Text>
-        </Button>
-      </XStack>
-    </YStack>
+        <PwdInput id="input-confirmar-senha" label="Confirmar nova senha" field="confirmar" value={confirmar} onChange={setConfirmar} />
+      </HCard>
+      <div style={{ display:"flex", justifyContent:"flex-end" }}>
+        <SaveButton id="btn-salvar-senha" saved={saved} onClick={()=>{setSaved(true);setTimeout(()=>setSaved(false),2500);}} text="Salvar senha" />
+      </div>
+    </div>
   );
 }
 
-/* ── Aba: Convênios ── */
+// ── Aba: Convênios ──
 function AbaConvenios() {
   const [lista, setLista] = useState<Convenio[]>(CONVENIOS_INICIAIS);
   const [novoNome, setNovoNome] = useState("");
   const [novaCategoria, setNovaCategoria] = useState(CATEGORIAS_CONVENIO[0]);
   const [busca, setBusca] = useState("");
-  const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [editandoId, setEditandoId] = useState<number|null>(null);
   const [editNome, setEditNome] = useState("");
   const [editCategoria, setEditCategoria] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("Todos");
   const [saved, setSaved] = useState(false);
-  let nextId = lista.length ? Math.max(...lista.map((c) => c.id)) + 1 : 1;
+  let nextId = lista.length ? Math.max(...lista.map(c=>c.id))+1 : 1;
 
   function adicionar() {
-    const trimmed = novoNome.trim();
-    if (!trimmed) return;
-    if (lista.some((c) => c.nome.toLowerCase() === trimmed.toLowerCase())) return;
-    setLista((prev) => [...prev, { id: nextId++, nome: trimmed, categoria: novaCategoria, ativo: true }]);
-    setNovoNome("");
-    flash();
+    const t = novoNome.trim();
+    if(!t || lista.some(c=>c.nome.toLowerCase()===t.toLowerCase())) return;
+    setLista(p => [...p, { id:nextId++, nome:t, categoria:novaCategoria, ativo:true }]);
+    setNovoNome(""); flash();
   }
-
-  function remover(id: number) { setLista((prev) => prev.filter((c) => c.id !== id)); }
-
-  function toggleAtivo(id: number) {
-    setLista((prev) => prev.map((c) => c.id === id ? { ...c, ativo: !c.ativo } : c));
-  }
-
-  function iniciarEdicao(c: Convenio) {
-    setEditandoId(c.id);
-    setEditNome(c.nome);
-    setEditCategoria(c.categoria);
-  }
-
+  function remover(id: number) { setLista(p => p.filter(c=>c.id!==id)); }
+  function toggleAtivo(id: number) { setLista(p => p.map(c=>c.id===id ? {...c, ativo:!c.ativo} : c)); }
+  function iniciarEdicao(c: Convenio) { setEditandoId(c.id); setEditNome(c.nome); setEditCategoria(c.categoria); }
   function salvarEdicao(id: number) {
-    const trimmed = editNome.trim();
-    if (!trimmed) return;
-    setLista((prev) => prev.map((c) => c.id === id ? { ...c, nome: trimmed, categoria: editCategoria } : c));
-    setEditandoId(null);
-    flash();
+    const t = editNome.trim();
+    if(!t) return;
+    setLista(p => p.map(c=>c.id===id ? {...c, nome:t, categoria:editCategoria} : c));
+    setEditandoId(null); flash();
   }
+  function flash() { setSaved(true); setTimeout(()=>setSaved(false),2500); }
 
-  function flash() { setSaved(true); setTimeout(() => setSaved(false), 2500); }
-
-  const categorias = ["Todos", ...CATEGORIAS_CONVENIO];
-
-  const listaFiltrada = lista.filter((c) => {
-    const matchBusca = c.nome.toLowerCase().includes(busca.toLowerCase());
-    const matchCat = filtroCategoria === "Todos" || c.categoria === filtroCategoria;
-    return matchBusca && matchCat;
-  });
-
-  const ativos   = lista.filter((c) => c.ativo).length;
-  const inativos = lista.filter((c) => !c.ativo).length;
-
-  const selectStyle = {
-    width: "100%", height: "42px", backgroundColor: "transparent",
-    color: "white", border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: "8px", padding: "0 12px", fontSize: "14px",
-    outline: "none", appearance: "none" as const, cursor: "pointer",
-  };
-
-  const selectSmStyle = { ...selectStyle, height: "38px", fontSize: "13px" };
+  const filtrados = lista.filter(c => c.nome.toLowerCase().includes(busca.toLowerCase()) && (filtroCategoria==="Todos" || c.categoria===filtroCategoria));
+  const ativos = lista.filter(c=>c.ativo).length;
 
   return (
-    <YStack gap="$4">
-
-      {/* Estatísticas */}
-      <XStack gap="$3" flexWrap="wrap">
+    <div style={{ display:"flex", flexDirection:"column", gap:16, animation:"fadeIn .3s ease" }}>
+      {/* Stats */}
+      <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
         {[
-          { label: "Total",    value: lista.length, color: "#a1a1aa",  bg: "rgba(255,255,255,0.04)" },
-          { label: "Ativos",   value: ativos,       color: "#10b981",  bg: "rgba(16,185,129,0.08)"  },
-          { label: "Inativos", value: inativos,     color: "#f97316",  bg: "rgba(249,115,22,0.08)"  },
-        ].map((s) => (
-          <Card key={s.label} flex={1} minWidth={100} borderWidth={1} borderRadius="$4"
-            padding="$3" gap="$1" backgroundColor={s.bg}
-            borderColor={`${s.color}30`}>
-            <Text style={{ color: s.color }} fontSize={26} fontWeight="bold">{s.value}</Text>
-            <Text color="$color11" fontSize={12}>{s.label}</Text>
-          </Card>
+          { label:"Total",    v:lista.length,        cor:C.text,      bg:"rgba(255,255,255,0.05)" },
+          { label:"Ativos",   v:ativos,              cor:C.green,     bg:"rgba(16,185,129,0.12)" },
+          { label:"Inativos", v:lista.length-ativos, cor:"#f97316",   bg:"rgba(249,115,22,0.12)" },
+        ].map((s,i) => (
+          <div key={i} style={{ flex:1, minWidth:120, background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16, display:"flex", flexDirection:"column", gap:4 }}>
+            <span style={{ color:s.cor, fontSize:28, fontWeight:800, lineHeight:1 }}>{s.v}</span>
+            <span style={{ color:C.muted, fontSize:13 }}>{s.label}</span>
+          </div>
         ))}
-      </XStack>
+      </div>
 
-      {/* Adicionar novo */}
-      <Card borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-        borderRadius="$5" padding="$4" gap="$3">
+      {/* Adicionar */}
+      <HCard style={{ padding:"16px 20px" }}>
         <SectionTitle>Adicionar Convênio</SectionTitle>
-        <XStack gap="$2" flexWrap="wrap" alignItems="flex-end">
-          <YStack flex={2} minWidth={180} gap="$1">
-            <Text color="$color10" fontSize={12}>Nome do convênio</Text>
-            <Input
-              id="input-novo-convenio"
-              value={novoNome}
-              onChangeText={setNovoNome}
-              placeholder="Ex: Unimed Nacional"
-              backgroundColor="$color2" borderColor="$borderColor"
-              borderRadius="$3" height={42} paddingHorizontal="$3"
-              color="$color12" fontSize={14}
-              hoverStyle={{ borderColor: "$green8" }}
-              focusStyle={{ borderColor: "$green10", outlineWidth: 0 }}
-              onSubmitEditing={adicionar}
-            />
-          </YStack>
-          <YStack flex={1} minWidth={140} gap="$1">
-            <Text color="$color10" fontSize={12}>Categoria</Text>
-            <div style={{ position: "relative", width: "100%", height: "42px" }}>
-              <select value={novaCategoria} onChange={(e) => setNovaCategoria(e.target.value)} style={selectStyle}>
-                {CATEGORIAS_CONVENIO.map((cat) => (
-                  <option key={cat} value={cat} style={{ color: "black" }}>{cat}</option>
-                ))}
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"flex-end" }}>
+          <InputField id="input-novo-convenio" label="Nome do convênio" value={novoNome} onChange={setNovoNome} placeholder="Ex: Unimed Nacional" />
+          <div style={{ display:"flex", flexDirection:"column", gap:6, flex:1, minWidth:150 }}>
+            <label style={{ color:C.muted, fontSize:12, fontWeight:600 }}>Categoria</label>
+            <div style={{ position:"relative" }}>
+              <select value={novaCategoria} onChange={e=>setNovaCategoria(e.target.value)} style={{ width:"100%", height:42, background:"#141414", border:`1px solid ${C.border}`, borderRadius:10, padding:"0 12px", color:C.text, fontSize:14, appearance:"none", outline:"none", cursor:"pointer", fontFamily:"inherit" }}>
+                {CATEGORIAS_CONVENIO.map(c => <option key={c} value={c} style={{ background:C.bg }}>{c}</option>)}
               </select>
-              <div style={{ position: "absolute", right: "12px", top: "14px", pointerEvents: "none" }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-              </div>
-            </div>
-          </YStack>
-          <Button size="$3" borderRadius="$3" height={42}
-            backgroundColor="$green9" hoverStyle={{ backgroundColor: "$green10" }}
-            onPress={adicionar} id="btn-add-convenio">
-            <XStack gap="$1" alignItems="center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-              <Text color="white" fontSize={13} fontWeight="bold">Adicionar</Text>
-            </XStack>
-          </Button>
-        </XStack>
-      </Card>
-
-      {/* Busca + Filtro */}
-      <XStack gap="$2" flexWrap="wrap" alignItems="center">
-        <YStack flex={2} minWidth={180} gap="$1">
-          <Input
-            id="input-busca-convenio"
-            value={busca}
-            onChangeText={setBusca}
-            placeholder="🔍  Buscar convênio..."
-            backgroundColor="$color2" borderColor="$borderColor"
-            borderRadius="$3" height={38} paddingHorizontal="$3"
-            color="$color12" fontSize={13}
-            hoverStyle={{ borderColor: "$green8" }}
-            focusStyle={{ borderColor: "$green10", outlineWidth: 0 }}
-          />
-        </YStack>
-        <YStack flex={1} minWidth={130}>
-          <div style={{ position: "relative", width: "100%", height: "38px" }}>
-            <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} style={selectSmStyle}>
-              {categorias.map((cat) => (
-                <option key={cat} value={cat} style={{ color: "black" }}>{cat}</option>
-              ))}
-            </select>
-            <div style={{ position: "absolute", right: "12px", top: "12px", pointerEvents: "none" }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2" style={{ position:"absolute", right:12, top:15, pointerEvents:"none" }}><polyline points="6 9 12 15 18 9"/></svg>
             </div>
           </div>
-        </YStack>
-      </XStack>
+          <button id="btn-add-convenio" onClick={adicionar} style={{ height:42, padding:"0 20px", borderRadius:10, background:C.green, border:"none", color:"white", fontSize:14, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:6, transition:"background .15s" }} onMouseEnter={e=>(e.currentTarget.style.background="#0ea370")} onMouseLeave={e=>(e.currentTarget.style.background=C.green)}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Adicionar
+          </button>
+        </div>
+      </HCard>
+
+      {/* Busca e Filtro */}
+      <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+        <input id="input-busca-convenio" value={busca} onChange={e=>setBusca(e.target.value)} placeholder="🔍 Buscar convênio..." style={{ flex:2, minWidth:200, height:42, background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"0 16px", color:C.text, fontSize:14, outline:"none", transition:"border-color .2s" }} onFocus={e=>(e.target.style.borderColor=C.green)} onBlur={e=>(e.target.style.borderColor=C.border)} />
+        <div style={{ position:"relative", flex:1, minWidth:140 }}>
+          <select value={filtroCategoria} onChange={e=>setFiltroCategoria(e.target.value)} style={{ width:"100%", height:42, background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"0 12px", color:C.text, fontSize:14, appearance:"none", outline:"none", cursor:"pointer" }}>
+            {["Todos", ...CATEGORIAS_CONVENIO].map(c => <option key={c} value={c} style={{ background:C.bg }}>{c}</option>)}
+          </select>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2" style={{ position:"absolute", right:12, top:15, pointerEvents:"none" }}><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
 
       {/* Lista */}
-      <Card borderWidth={1} backgroundColor="$color2" borderColor="$borderColor" borderRadius="$5" overflow="hidden">
-        {listaFiltrada.length === 0 ? (
-          <YStack padding="$6" alignItems="center" gap="$2">
-            <Text fontSize={32}>🏥</Text>
-            <Text color="$color11" fontSize={14}>Nenhum convênio encontrado.</Text>
-          </YStack>
+      <HCard style={{ border:`1px solid ${C.border}` }}>
+        {filtrados.length === 0 ? (
+          <div style={{ padding:40, textAlign:"center", color:C.muted }}>Nenhum convênio encontrado.</div>
         ) : (
-          listaFiltrada.map((c, idx) => {
-            const isEditing = editandoId === c.id;
-            const isLast = idx === listaFiltrada.length - 1;
+          filtrados.map((c, i) => {
+            const isEd = editandoId === c.id;
             return (
-              <XStack key={c.id} alignItems="center" gap="$3" paddingHorizontal="$4" paddingVertical="$3"
-                borderBottomWidth={isLast ? 0 : 1} borderColor="$borderColor"
-                backgroundColor={isEditing ? "rgba(16,185,129,0.04)" : "transparent"}
-                hoverStyle={{ backgroundColor: "$color3" }}
-                animation="quick">
-
-                {/* Toggle ativo */}
-                <XStack
-                  id={`toggle-conv-${c.id}`}
-                  role="switch" aria-checked={c.ativo}
-                  onPress={() => toggleAtivo(c.id)}
-                  width={36} height={20} borderRadius="$10"
-                  cursor="pointer" position="relative"
-                  backgroundColor={c.ativo ? "$green9" : "$color5"}
-                  flexShrink={0}>
-                  <Circle size={16} backgroundColor="white"
-                    position="absolute" top={2} left={c.ativo ? 18 : 2} />
-                </XStack>
-
-                {/* Nome / edição */}
-                {isEditing ? (
-                  <XStack flex={1} gap="$2" alignItems="center" flexWrap="wrap">
-                    <Input
-                      id={`edit-nome-${c.id}`}
-                      value={editNome} onChangeText={setEditNome}
-                      backgroundColor="$color1" borderColor="$green8"
-                      borderRadius="$3" height={36} paddingHorizontal="$3"
-                      color="$color12" fontSize={14} flex={2} minWidth={140}
-                      focusStyle={{ borderColor: "$green10", outlineWidth: 0 }}
-                      onSubmitEditing={() => salvarEdicao(c.id)}
-                    />
-                    <div style={{ position: "relative", minWidth: "130px", height: "36px", flex: 1 }}>
-                      <select value={editCategoria} onChange={(e) => setEditCategoria(e.target.value)}
-                        style={{ ...selectSmStyle, height: "36px" }}>
-                        {CATEGORIAS_CONVENIO.map((cat) => (
-                          <option key={cat} value={cat} style={{ color: "black" }}>{cat}</option>
-                        ))}
-                      </select>
-                      <div style={{ position: "absolute", right: "10px", top: "11px", pointerEvents: "none" }}>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-                      </div>
-                    </div>
-                  </XStack>
+              <div key={c.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 16px", borderBottom: i===filtrados.length-1 ? "none" : `1px solid ${C.border}`, background: isEd ? "rgba(16,185,129,0.05)" : "transparent", transition:"background .15s" }} onMouseEnter={e=>!isEd&&(e.currentTarget.style.background=C.hover)} onMouseLeave={e=>!isEd&&(e.currentTarget.style.background="transparent")}>
+                <Toggle id={`toggle-conv-${c.id}`} label="" desc="" value={c.ativo} onChange={()=>toggleAtivo(c.id)} />
+                {isEd ? (
+                  <div style={{ flex:1, display:"flex", gap:10, flexWrap:"wrap" }}>
+                    <input value={editNome} onChange={e=>setEditNome(e.target.value)} style={{ flex:2, minWidth:150, height:36, background:"#141414", border:`1px solid ${C.green}`, borderRadius:8, padding:"0 12px", color:C.text, fontSize:14, outline:"none" }} />
+                    <select value={editCategoria} onChange={e=>setEditCategoria(e.target.value)} style={{ flex:1, minWidth:130, height:36, background:"#141414", border:`1px solid ${C.border}`, borderRadius:8, padding:"0 12px", color:C.text, fontSize:14, outline:"none" }}>
+                      {CATEGORIAS_CONVENIO.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    </select>
+                  </div>
                 ) : (
-                  <XStack flex={1} alignItems="center" gap="$2" flexWrap="wrap">
-                    <Text color={c.ativo ? "$color12" : "$color9"} fontSize={14}
-                      fontWeight="500" flex={1}>{c.nome}</Text>
-                    <XStack paddingHorizontal="$2" paddingVertical={3} borderRadius="$10"
-                      backgroundColor="rgba(255,255,255,0.06)">
-                      <Text color="$color10" fontSize={11}>{c.categoria}</Text>
-                    </XStack>
-                    {!c.ativo && (
-                      <XStack paddingHorizontal="$2" paddingVertical={3} borderRadius="$10"
-                        backgroundColor="rgba(249,115,22,0.1)">
-                        <Text color="#f97316" fontSize={11} fontWeight="bold">Inativo</Text>
-                      </XStack>
-                    )}
-                  </XStack>
+                  <div style={{ flex:1, display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+                    <span style={{ color:c.ativo?C.text:C.muted, fontSize:14, fontWeight:600, flex:1, minWidth:120 }}>{c.nome}</span>
+                    <span style={{ color:C.dim, fontSize:11, fontWeight:600, background:"rgba(255,255,255,0.05)", padding:"3px 10px", borderRadius:999 }}>{c.categoria}</span>
+                    {!c.ativo && <span style={{ color:"#f97316", fontSize:11, fontWeight:700, background:"rgba(249,115,22,0.12)", padding:"3px 10px", borderRadius:999 }}>INATIVO</span>}
+                  </div>
                 )}
-
-                {/* Ações */}
-                <XStack gap="$1" flexShrink={0}>
-                  {isEditing ? (
+                <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                  {isEd ? (
                     <>
-                      <Button size="$2" borderRadius="$3"
-                        backgroundColor="$green9" hoverStyle={{ backgroundColor: "$green10" }}
-                        onPress={() => salvarEdicao(c.id)}
-                        id={`btn-salvar-${c.id}`}>
-                        <Text color="white" fontSize={12} fontWeight="bold">✓ Salvar</Text>
-                      </Button>
-                      <Button size="$2" borderRadius="$3"
-                        backgroundColor="$color3" hoverStyle={{ backgroundColor: "$color4" }}
-                        onPress={() => setEditandoId(null)}
-                        id={`btn-cancelar-${c.id}`}>
-                        <Text color="$color11" fontSize={12}>Cancelar</Text>
-                      </Button>
+                      <button onClick={()=>salvarEdicao(c.id)} style={{ padding:"6px 12px", background:C.green, border:"none", borderRadius:6, color:"white", fontSize:12, fontWeight:700, cursor:"pointer" }}>Salvar</button>
+                      <button onClick={()=>setEditandoId(null)} style={{ padding:"6px 12px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, color:C.muted, fontSize:12, fontWeight:600, cursor:"pointer" }}>Cancelar</button>
                     </>
                   ) : (
                     <>
-                      <Button size="$2" borderRadius="$3" borderWidth={1}
-                        borderColor="$borderColor" backgroundColor="transparent"
-                        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-                        onPress={() => iniciarEdicao(c)}
-                        id={`btn-editar-${c.id}`}>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                        </svg>
-                      </Button>
-                      <Button size="$2" borderRadius="$3" borderWidth={1}
-                        borderColor="rgba(244,63,94,0.3)" backgroundColor="rgba(244,63,94,0.06)"
-                        hoverStyle={{ backgroundColor: "rgba(244,63,94,0.15)" }}
-                        onPress={() => remover(c.id)}
-                        id={`btn-remover-${c.id}`}>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                          stroke="#f43f5e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="3 6 5 6 21 6" />
-                          <path d="M19 6l-1 14H6L5 6" />
-                          <path d="M10 11v6M14 11v6" />
-                          <path d="M9 6V4h6v2" />
-                        </svg>
-                      </Button>
+                      <button onClick={()=>iniciarEdicao(c)} style={{ width:32, height:32, borderRadius:8, background:"transparent", border:`1px solid ${C.border}`, color:C.muted, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all .15s" }} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.green;e.currentTarget.style.color=C.green}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted}}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      </button>
+                      <button onClick={()=>remover(c.id)} style={{ width:32, height:32, borderRadius:8, background:"transparent", border:`1px solid ${C.border}`, color:"#f43f5e", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all .15s" }} onMouseEnter={e=>{e.currentTarget.style.background="rgba(244,63,94,0.1)";e.currentTarget.style.borderColor="rgba(244,63,94,0.3)"}} onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor=C.border}}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                      </button>
                     </>
                   )}
-                </XStack>
-              </XStack>
+                </div>
+              </div>
             );
           })
         )}
-      </Card>
+      </HCard>
 
-      {/* Rodapé */}
-      <XStack justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="$2">
-        <Text color="$color10" fontSize={12}>
-          {listaFiltrada.length} de {lista.length} convênio{lista.length !== 1 ? "s" : ""}
-        </Text>
-        <Button size="$3" borderRadius="$4" backgroundColor={saved ? "#059669" : "$green9"}
-          hoverStyle={{ backgroundColor: "$green10" }}
-          onPress={flash} id="btn-salvar-convenios">
-          <Text color="white" fontSize={13} fontWeight="bold">
-            {saved ? "✓ Salvo!" : "Publicar alterações"}
-          </Text>
-        </Button>
-      </XStack>
-    </YStack>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:12 }}>
+        <span style={{ color:C.dim, fontSize:13 }}>Mostrando {filtrados.length} convênios</span>
+        <SaveButton id="btn-salvar-convenios" saved={saved} onClick={flash} text="Publicar alterações" />
+      </div>
+    </div>
   );
 }
 
-/* ── Page ── */
+// ── Main Page ──────────────────────────────────────────────────────────────────
 export default function ConfigPage() {
   const [aba, setAba] = useState<Aba>("dados");
 
   return (
-    <ScrollView flex={1} backgroundColor="$background" showsVerticalScrollIndicator={false}>
-      <YStack padding="$4" $gtSm={{ padding: "$6" }} gap="$5"
-        maxWidth={1100} marginHorizontal="auto" width="100%">
+    <>
+      <style>{`
+        @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+        @media(max-width:680px){ .cfg-tab-desk{display:none!important} .cfg-tab-mob{display:block!important} }
+        @media(min-width:681px){ .cfg-tab-desk{display:flex!important} .cfg-tab-mob{display:none!important} }
+      `}</style>
+      <div style={{ width:"100%", maxWidth:1200, margin:"0 auto", paddingBottom:32, display:"flex", flexDirection:"column", gap:20 }}>
 
-        {/* Cabeçalho */}
-        <YStack gap="$1">
-          <H2 color="$color12" size="$6" fontWeight="bold">Configurações</H2>
-          <Text color="$color11" fontSize={14}>Gerencie as preferências e configurações da plataforma.</Text>
-        </YStack>
+        {/* Header */}
+        <div>
+          <h2 style={{ color:C.text, fontSize:24, fontWeight:800, margin:0, letterSpacing:"-0.02em" }}>Configurações</h2>
+          <p style={{ color:C.muted, fontSize:14, margin:"4px 0 0" }}>Gerencie as preferências e configurações da plataforma.</p>
+        </div>
 
-        {/* Tabs */}
-        <XStack gap="$2" flexWrap="wrap">
-          {ABAS.map((a) => {
+        {/* Tabs Mobile */}
+        <div className="cfg-tab-mob">
+          <select value={aba} onChange={e=>setAba(e.target.value as Aba)} style={{ width:"100%", background:C.card, border:`1px solid ${C.green}`, borderRadius:10, padding:"12px 16px", color:C.green, fontSize:14, fontWeight:700, fontFamily:"inherit", outline:"none", cursor:"pointer", appearance:"none" }}>
+            {ABAS.map(a=><option key={a.id} value={a.id}>{a.icon} {a.label}</option>)}
+          </select>
+        </div>
+
+        {/* Tabs Desktop */}
+        <div className="cfg-tab-desk" style={{ gap:10, flexWrap:"wrap" }}>
+          {ABAS.map(a => {
             const isActive = aba === a.id;
             return (
-              <Button key={a.id} size="$3" borderRadius="$4" borderWidth={1}
-                borderColor={isActive ? "$green8" : "$borderColor"}
-                backgroundColor={isActive ? "rgba(16,185,129,0.1)" : "$color2"}
-                hoverStyle={{ backgroundColor: isActive ? "rgba(16,185,129,0.15)" : "$color3" }}
-                onPress={() => setAba(a.id)}
-                id={`tab-${a.id}`}
-                paddingHorizontal="$4">
-                <XStack gap="$2" alignItems="center">
-                  <Text fontSize={14}>{a.icon}</Text>
-                  <Text color={isActive ? "#10b981" : "$color11"}
-                    fontWeight={isActive ? "bold" : "400"} fontSize={14}>
-                    {a.label}
-                  </Text>
-                </XStack>
-              </Button>
+              <button key={a.id} onClick={()=>setAba(a.id)} style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 18px", borderRadius:10, border:`1px solid ${isActive?C.green:C.border}`, background:isActive?"rgba(16,185,129,0.1)":C.card, color:isActive?C.green:C.muted, fontSize:14, fontWeight:isActive?700:600, cursor:"pointer", fontFamily:"inherit", transition:"all .15s" }}
+                onMouseEnter={e=>!isActive&&((e.target as HTMLElement).style.background=C.hover)} onMouseLeave={e=>!isActive&&((e.target as HTMLElement).style.background=C.card)}>
+                <span>{a.icon}</span> {a.label}
+              </button>
             );
           })}
-        </XStack>
+        </div>
 
-        <Separator borderColor="$borderColor" />
+        <div style={{ height:1, background:C.border, width:"100%" }} />
 
-        {/* Conteúdo */}
-        {aba === "dados"        && <AbaDados />}
-        {aba === "notificacoes" && <AbaNotificacoes />}
-        {aba === "seguranca"    && <AbaSeguranca />}
-        {aba === "convenios"    && <AbaConvenios />}
+        {/* Content */}
+        <div style={{ minHeight:400 }}>
+          {aba === "dados"        && <AbaDados />}
+          {aba === "notificacoes" && <AbaNotificacoes />}
+          {aba === "seguranca"    && <AbaSeguranca />}
+          {aba === "convenios"    && <AbaConvenios />}
+        </div>
 
-      </YStack>
-    </ScrollView>
+      </div>
+    </>
   );
 }

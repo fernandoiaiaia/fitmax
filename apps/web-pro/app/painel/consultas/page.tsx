@@ -3,84 +3,58 @@
 
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Card,
-  Avatar,
-  Text,
-  H1,
-  H2,
-  XStack,
-  YStack,
-  Circle,
-  Button,
-  Separator,
-  ScrollView,
-} from "tamagui";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type ConsultaStatus = "agendada" | "pendente" | "a_confirmar" | "em_andamento";
 
 interface Consulta {
-  id: number;
-  horario: string;
-  nome: string;
-  especialidade: string;
-  modalidade: "Presencial" | "Online";
-  data: string;
-  dataISO: string;
-  avatar: string;
-  status: ConsultaStatus;
+  id: number; horario: string; nome: string; especialidade: string;
+  modalidade: "Presencial" | "Online"; data: string; dataISO: string;
+  avatar: string; status: ConsultaStatus;
 }
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
 const consultaEmAndamento = {
-  nome: "Guilherme Augusto",
-  especialidade: "Cardiologia",
-  horario: "11:00 — 11:50",
-  avatar: "https://picsum.photos/200/200?random=30",
+  nome: "Guilherme Augusto", especialidade: "Cardiologia",
+  horario: "11:00 — 11:50", avatar: "https://picsum.photos/200/200?random=30",
 };
 
 const consultas: Consulta[] = [
-  { id: 1, horario: "09:00", nome: "Fernanda Lima",      especialidade: "Cardiologia", modalidade: "Presencial", data: "Hoje, 23/04",    dataISO: "2026-04-23", avatar: "https://picsum.photos/200/200?random=41", status: "agendada" },
-  { id: 2, horario: "11:00", nome: "Guilherme Augusto",  especialidade: "Cardiologia", modalidade: "Presencial", data: "Hoje, 23/04",    dataISO: "2026-04-23", avatar: "https://picsum.photos/200/200?random=30", status: "em_andamento" },
-  { id: 3, horario: "13:00", nome: "Mariana Ferreira",   especialidade: "Cardiologia", modalidade: "Online",     data: "Hoje, 23/04",    dataISO: "2026-04-23", avatar: "https://picsum.photos/200/200?random=31", status: "pendente" },
-  { id: 4, horario: "15:30", nome: "Ricardo Nunes",      especialidade: "Check-up",    modalidade: "Presencial", data: "Hoje, 23/04",    dataISO: "2026-04-23", avatar: "https://picsum.photos/200/200?random=45", status: "a_confirmar" },
-  { id: 5, horario: "09:00", nome: "Lucas Mendes",       especialidade: "Check-up",    modalidade: "Presencial", data: "Amanhã, 24/04",  dataISO: "2026-04-24", avatar: "https://picsum.photos/200/200?random=32", status: "agendada" },
+  { id:1, horario:"09:00", nome:"Fernanda Lima",     especialidade:"Cardiologia", modalidade:"Presencial", data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=41", status:"agendada" },
+  { id:2, horario:"11:00", nome:"Guilherme Augusto", especialidade:"Cardiologia", modalidade:"Presencial", data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=30", status:"em_andamento" },
+  { id:3, horario:"13:00", nome:"Mariana Ferreira",  especialidade:"Cardiologia", modalidade:"Online",     data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=31", status:"pendente" },
+  { id:4, horario:"15:30", nome:"Ricardo Nunes",     especialidade:"Check-up",    modalidade:"Presencial", data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=45", status:"a_confirmar" },
+  { id:5, horario:"09:00", nome:"Lucas Mendes",      especialidade:"Check-up",    modalidade:"Presencial", data:"Amanhã, 24/04", dataISO:"2026-04-24", avatar:"https://picsum.photos/200/200?random=32", status:"agendada" },
 ];
 
-// ─── Status Config ─────────────────────────────────────────────────────────
-
-const statusConfig: Record<ConsultaStatus, { label: string; bg: string; color: string; dotColor: string }> = {
-  agendada:     { label: "AGENDADA",     bg: "rgba(16,185,129,0.12)",  color: "#10b981", dotColor: "#10b981" },
-  pendente:     { label: "PENDENTE",     bg: "rgba(234,179,8,0.12)",   color: "#facc15", dotColor: "#facc15" },
-  a_confirmar:  { label: "A CONFIRMAR",  bg: "rgba(161,161,170,0.1)",  color: "#a1a1aa", dotColor: "#a1a1aa" },
-  em_andamento: { label: "EM ANDAMENTO", bg: "rgba(96,165,250,0.12)",  color: "#60a5fa", dotColor: "#60a5fa" },
+const statusConfig: Record<ConsultaStatus, { label: string; bg: string; color: string }> = {
+  agendada:     { label:"AGENDADA",     bg:"rgba(16,185,129,0.12)",  color:"#10b981" },
+  pendente:     { label:"PENDENTE",     bg:"rgba(234,179,8,0.12)",   color:"#facc15" },
+  a_confirmar:  { label:"A CONFIRMAR",  bg:"rgba(161,161,170,0.1)",  color:"#a1a1aa" },
+  em_andamento: { label:"EM ANDAMENTO", bg:"rgba(96,165,250,0.12)",  color:"#60a5fa" },
 };
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
 const CalendarIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
 );
 const ClockIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
 );
 const TrendingIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
 );
 const MoneyIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
-);
-const FilterIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="16" y2="12" /><line x1="12" y1="18" x2="12" y2="18" /></svg>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
 );
 const ChevronDown = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
 );
 
-// ─── useOutsideClick helper ───────────────────────────────────────────────────
+// ─── useOutsideClick ──────────────────────────────────────────────────────────
 
 function useOutsideClick(ref: React.RefObject<HTMLElement>, cb: () => void) {
   useEffect(() => {
@@ -92,31 +66,9 @@ function useOutsideClick(ref: React.RefObject<HTMLElement>, cb: () => void) {
   }, [ref, cb]);
 }
 
-// ─── CSS ─────────────────────────────────────────────────────────────────────
+// ─── ConsultaRow ──────────────────────────────────────────────────────────────
 
-const PRO_CARD_STYLES = `
-  @keyframes proFadeUp {
-    from { opacity: 0; transform: translateY(8px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  .pro-cons-card-wrap {
-    cursor: pointer;
-    animation: proFadeUp 0.28s ease both;
-    transition: transform 0.15s;
-  }
-  .pro-cons-card-wrap:hover { transform: translateY(-1px); }
-  .pro-cons-arrow-icon {
-    color: #3f3f46;
-    transition: color 0.15s, transform 0.15s;
-    flex-shrink: 0;
-  }
-  .pro-cons-card-wrap:hover .pro-cons-arrow-icon {
-    color: #10b981;
-    transform: translateX(3px);
-  }
-`;
-
-// ─── Row de consulta ─────────────────────────────────────────────────────────
+const C = { bg:"#111111", card:"#141414", card2:"#1a1a1a", border:"rgba(255,255,255,0.07)" };
 
 function ConsultaRow({ c }: { c: Consulta }) {
   const router = useRouter();
@@ -124,78 +76,52 @@ function ConsultaRow({ c }: { c: Consulta }) {
 
   function handleClick() {
     const params = new URLSearchParams({
-      id:           String(c.id),
-      nome:         c.nome,
-      especialidade: c.especialidade,
-      data:         c.data,
-      horario:      c.horario,
-      modalidade:   c.modalidade,
-      status:       c.status,
-      avatar:       c.avatar,
+      id: String(c.id), nome: c.nome, especialidade: c.especialidade,
+      data: c.data, horario: c.horario, modalidade: c.modalidade,
+      status: c.status, avatar: c.avatar,
     });
     router.push(`/painel/consultas/agendar?${params.toString()}`);
   }
 
   return (
     <div className="pro-cons-card-wrap" onClick={handleClick}>
-      <Card
-        borderWidth={1}
-        animation="quick"
-        backgroundColor="$color2"
-        borderColor="$borderColor"
-        borderRadius="$4"
-        paddingHorizontal="$4"
-        paddingVertical="$3"
-        hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"12px 16px", transition:"background .15s, border-color .15s" }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = C.card2; (e.currentTarget as HTMLElement).style.borderColor = "rgba(16,185,129,0.45)"; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = C.card;  (e.currentTarget as HTMLElement).style.borderColor = C.border; }}
       >
-        <XStack alignItems="center" gap="$3" flexWrap="wrap">
+        <div className="pro-cons-row" style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
           {/* Horário */}
-          <YStack alignItems="center" width={52} flexShrink={0}>
-            <Text color="$color11" fontSize={13} fontWeight="bold">{c.horario}</Text>
-          </YStack>
-          <Separator vertical height={36} borderColor="$borderColor" />
+          <div style={{ width:52, flexShrink:0, textAlign:"center" }}>
+            <span style={{ color:"#a1a1aa", fontSize:13, fontWeight:"bold" }}>{c.horario}</span>
+          </div>
+          {/* Divisor */}
+          <div className="pro-cons-row-separator" style={{ width:1, height:36, background:C.border, flexShrink:0 }} />
           {/* Avatar */}
-          <Avatar circular size="$4" backgroundColor="$color4" flexShrink={0}>
-            <Avatar.Image src={c.avatar} />
-            <Avatar.Fallback alignItems="center" justifyContent="center">
-              <Text color="$color12" fontSize={14} fontWeight="bold">{c.nome[0]}</Text>
-            </Avatar.Fallback>
-          </Avatar>
+          <img src={c.avatar} alt={c.nome} style={{ width:40, height:40, borderRadius:"50%", objectFit:"cover", flexShrink:0 }} />
           {/* Info */}
-          <YStack flex={1} gap="$1" minWidth={140}>
-            <Text color="$color12" fontSize={14} fontWeight="bold" numberOfLines={1}>{c.nome}</Text>
-            <XStack alignItems="center" gap="$2">
-              <Text color="$color11" fontSize={12}>{c.especialidade}</Text>
-              <Circle size={3} backgroundColor="$color9" />
-              <Text color="$color11" fontSize={12}>{c.modalidade}</Text>
-            </XStack>
-            <XStack alignItems="center" gap="$1" marginTop={2}>
-              <span style={{ color: "#71717a" }}><ClockIcon /></span>
-              <Text color="$color10" fontSize={11}>{c.data}</Text>
-            </XStack>
-          </YStack>
-
-          {/* Badge status + seta */}
-          <XStack alignItems="center" gap="$2" flexShrink={0}>
-            <XStack
-              paddingHorizontal="$3"
-              paddingVertical="$1"
-              borderRadius="$10"
-              borderWidth={1}
-              alignItems="center"
-              justifyContent="center"
-              style={{ background: cfg.bg, borderColor: cfg.color + "44" }}
-            >
-              <Text fontSize={10} fontWeight="bold" style={{ color: cfg.color }}>{cfg.label}</Text>
-            </XStack>
+          <div className="pro-cons-row-info" style={{ flex:1, display:"flex", flexDirection:"column", gap:3, minWidth:140 }}>
+            <span style={{ color:"#fafafa", fontSize:14, fontWeight:"bold", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.nome}</span>
+            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+              <span style={{ color:"#a1a1aa", fontSize:12 }}>{c.especialidade}</span>
+              <span style={{ width:3, height:3, borderRadius:"50%", background:"#52525b", flexShrink:0 }} />
+              <span style={{ color:"#a1a1aa", fontSize:12 }}>{c.modalidade}</span>
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:2 }}>
+              <span style={{ color:"#71717a" }}><ClockIcon /></span>
+              <span style={{ color:"#71717a", fontSize:11 }}>{c.data}</span>
+            </div>
+          </div>
+          {/* Badge + seta */}
+          <div className="pro-cons-card-actions" style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
+            <span style={{ background:cfg.bg, border:`1px solid ${cfg.color}44`, color:cfg.color, fontSize:10, fontWeight:"bold", padding:"3px 10px", borderRadius:999 }}>{cfg.label}</span>
             <span className="pro-cons-arrow-icon">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
+                <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
               </svg>
             </span>
-          </XStack>
-        </XStack>
-      </Card>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -204,19 +130,12 @@ function ConsultaRow({ c }: { c: Consulta }) {
 
 export default function ConsultasPage() {
   const router = useRouter();
-
-  // ── Date range filter
   const [dateFrom, setDateFrom] = useState("2026-04-22");
   const [dateTo,   setDateTo]   = useState("2026-05-22");
   const [showDatePicker, setShowDatePicker] = useState(false);
   const dateRef = useRef<HTMLDivElement>(null);
   useOutsideClick(dateRef, useCallback(() => setShowDatePicker(false), []));
 
-  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
-  const headerMenuRef = useRef<HTMLDivElement>(null);
-  useOutsideClick(headerMenuRef, useCallback(() => setHeaderMenuOpen(false), []));
-
-  // ── Apply filters (sem filtro de status)
   const filtered = consultas.filter((c) => {
     if (c.status === "em_andamento") return false;
     if (dateFrom && c.dataISO < dateFrom) return false;
@@ -224,241 +143,191 @@ export default function ConsultasPage() {
     return true;
   });
 
-  // ── Date label helper
-  const fmtDate = (iso: string) => {
-    const [y, m, d] = iso.split("-");
-    return `${d}/${m}/${y}`;
-  };
-
-  const dropdownStyle: React.CSSProperties = {
-    position: "absolute",
-    top: "calc(100% + 8px)",
-    right: 0,
-    zIndex: 100,
-    background: "var(--color2, #1a1a1a)",
-    border: "1px solid var(--borderColor, #333)",
-    borderRadius: 12,
-    padding: 16,
-    minWidth: 240,
-    boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-  };
+  const fmtDate = (iso: string) => { const [y,m,d] = iso.split("-"); return `${d}/${m}/${y}`; };
 
   const inputStyle: React.CSSProperties = {
-    background: "var(--color3, #222)",
-    border: "1px solid var(--borderColor, #333)",
-    borderRadius: 8,
-    color: "var(--color12, #fff)",
-    padding: "6px 10px",
-    fontSize: 13,
-    width: "100%",
-    outline: "none",
-    colorScheme: "dark",
+    background:"#222", border:`1px solid ${C.border}`, borderRadius:8,
+    color:"#fafafa", padding:"6px 10px", fontSize:13, width:"100%",
+    outline:"none", colorScheme:"dark",
+  };
+  const labelStyle: React.CSSProperties = {
+    color:"#a1a1aa", fontSize:11, fontWeight:600, letterSpacing:0.5,
+    textTransform:"uppercase", marginBottom:4, display:"block",
   };
 
-  const labelStyle: React.CSSProperties = {
-    color: "var(--color11, #a1a1aa)",
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-    marginBottom: 4,
-    display: "block",
-  };
+  const dayItems = [
+    { icon:"📅", label:"Total de Consultas", value:"12",  color:"#fafafa" },
+    { icon:"✅", label:"Confirmadas",         value:"9",   color:"#10b981" },
+    { icon:"⏳", label:"Pendentes",           value:"3",   color:"#facc15" },
+    { icon:"⏱",  label:"Tempo Médio",         value:"48m", color:"#60a5fa" },
+  ];
 
   return (
     <>
-      <style>{PRO_CARD_STYLES}</style>
-      <ScrollView flex={1} backgroundColor="$background" showsVerticalScrollIndicator={false}>
-      <YStack padding="$4" $gtSm={{ padding: "$6" }} gap="$5" maxWidth={1200} margin="auto" width="100%">
+      <style>{`
+        @keyframes proFadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        .pro-cons-card-wrap { cursor:pointer; animation:proFadeUp .28s ease both; transition:transform .15s; }
+        .pro-cons-card-wrap:hover { transform:translateY(-1px); }
+        .pro-cons-arrow-icon { color:#3f3f46; transition:color .15s,transform .15s; flex-shrink:0; }
+        .pro-cons-card-wrap:hover .pro-cons-arrow-icon { color:#10b981; transform:translateX(3px); }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+        .live-dot { animation:pulse 2s infinite; }
+        .btn-date {
+          display:flex; align-items:center; gap:8px;
+          background:#141414; border:1px solid rgba(255,255,255,0.07);
+          border-radius:8px; padding:8px 14px; color:#a1a1aa;
+          font-size:12px; cursor:pointer; transition:all .15s; font-family:inherit;
+        }
+        .btn-date:hover { background:#1a1a1a; border-color:rgba(16,185,129,0.5); }
+        .btn-nova {
+          display:flex; align-items:center; gap:6px;
+          background:#10b981; border:none; border-radius:8px;
+          padding:8px 18px; color:#fff; font-size:13px;
+          font-weight:bold; cursor:pointer; transition:background .15s; font-family:inherit;
+        }
+        .btn-nova:hover { background:#059669; }
+        .summary-card { background:#141414; border:1px solid rgba(255,255,255,0.07); border-radius:14px; padding:1rem 1.25rem; }
+        .summary-card--blue { background:rgba(96,165,250,0.05); border-color:rgba(96,165,250,0.25); overflow:hidden; cursor:pointer; transition:background .15s, border-color .15s; }
+        .summary-card--blue:hover { background:rgba(96,165,250,0.08); border-color:#60a5fa; }
+        .summary-card--day { cursor:pointer; transition:background .15s, border-color .15s; }
+        .summary-card--day:hover { background:#1a1a1a; border-color:rgba(16,185,129,0.4); }
+        @media (max-width: 600px) {
+          .pro-page-header-actions, .pro-page-header-actions > div { width: 100%; }
+          .btn-date { width: 100%; justify-content: center; }
+          .date-popup { left: 0 !important; right: 0 !important; width: 100% !important; min-width: 0 !important; box-sizing: border-box; }
+        }
+      `}</style>
 
-        {/* ── Cabeçalho ── */}
-        <XStack className="pro-page-header" flexWrap="wrap" justifyContent="space-between" alignItems="center" gap="$4">
-          <YStack>
-            <H1 color="$color12" size="$7" fontWeight="bold">Consultas</H1>
-            <Text color="$color11" fontSize={14}>Gerencie seus agendamentos e acompanhe o status de cada consulta.</Text>
-          </YStack>
+      <div style={{ flex:1, overflowY:"auto" }}>
+        <div style={{ padding:"1.5rem 2rem", maxWidth:1200, margin:"0 auto", display:"flex", flexDirection:"column", gap:24, width:"100%" }}>
 
-          {/* Filtro de período + botão Nova Consulta */}
-          <XStack gap="$3" flexWrap="wrap" alignItems="center">
-            <div ref={dateRef} style={{ position: "relative" }}>
-              <Button
-                size="$3"
-                backgroundColor="$color2"
-                borderWidth={1}
-                borderColor={showDatePicker ? "$green8" : "$borderColor"}
-                hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-                paddingHorizontal="$3"
-                gap="$2"
-                onPress={() => setShowDatePicker(v => !v)}
-              >
-                <span style={{ color: "#a1a1aa" }}><CalendarIcon /></span>
-                <Text color="$color11" fontSize={12}>{fmtDate(dateFrom)} — {fmtDate(dateTo)}</Text>
-                <span style={{ color: "#a1a1aa" }}><ChevronDown /></span>
-              </Button>
-
-              {showDatePicker && (
-                <div style={dropdownStyle}>
-                  <div style={{ marginBottom: 12 }}>
-                    <label style={labelStyle}>Data inicial</label>
-                    <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={inputStyle} />
+          {/* ── Cabeçalho ── */}
+          <div className="pro-page-header" style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:16 }}>
+            <div>
+              <h1 style={{ color:"#fafafa", fontSize:28, fontWeight:"bold", margin:0 }}>Consultas</h1>
+              <p style={{ color:"#a1a1aa", fontSize:14, margin:0, marginTop:4 }}>Gerencie seus agendamentos e acompanhe o status de cada consulta.</p>
+            </div>
+            <div className="pro-page-header-actions" style={{ display:"flex", gap:12, flexWrap:"wrap", alignItems:"center" }}>
+              {/* Filtro de data */}
+              <div ref={dateRef} style={{ position:"relative" }}>
+                <button className="btn-date" onClick={() => setShowDatePicker(v => !v)}>
+                  <span style={{ color:"#a1a1aa" }}><CalendarIcon /></span>
+                  <span>{fmtDate(dateFrom)} — {fmtDate(dateTo)}</span>
+                  <span style={{ color:"#a1a1aa" }}><ChevronDown /></span>
+                </button>
+                {showDatePicker && (
+                  <div className="date-popup" style={{ position:"absolute", top:"calc(100% + 8px)", right:0, zIndex:100, background:"#1a1a1a", border:`1px solid ${C.border}`, borderRadius:12, padding:16, minWidth:240, boxShadow:"0 8px 32px rgba(0,0,0,0.4)" }}>
+                    <div style={{ marginBottom:12 }}>
+                      <label style={labelStyle}>Data inicial</label>
+                      <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={inputStyle} />
+                    </div>
+                    <div style={{ marginBottom:16 }}>
+                      <label style={labelStyle}>Data final</label>
+                      <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={inputStyle} />
+                    </div>
+                    <div style={{ display:"flex", gap:8 }}>
+                      <button onClick={() => { setDateFrom("2026-04-22"); setDateTo("2026-05-22"); }} style={{ flex:1, padding:"6px 0", borderRadius:8, fontSize:12, fontWeight:600, background:"transparent", border:`1px solid ${C.border}`, color:"#a1a1aa", cursor:"pointer" }}>Resetar</button>
+                      <button onClick={() => setShowDatePicker(false)} style={{ flex:1, padding:"6px 0", borderRadius:8, fontSize:12, fontWeight:600, background:"#10b981", border:"none", color:"#fff", cursor:"pointer" }}>Aplicar</button>
+                    </div>
                   </div>
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={labelStyle}>Data final</label>
-                    <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={inputStyle} />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Cards de Resumo ── */}
+          <div className="pro-stat-grid" style={{ display:"flex", flexWrap:"wrap", gap:16 }}>
+
+            <div style={{ flex:1, minWidth:280, display:"flex", flexDirection:"column", gap:16 }}>
+              {/* Resumo do Período */}
+              <div className="summary-card">
+                <p style={{ color:"#71717a", fontSize:11, fontWeight:"bold", letterSpacing:1, textTransform:"uppercase", margin:"0 0 12px" }}>Resumo do Período</p>
+                <div className="pro-resumo-inner" style={{ display:"flex", gap:16 }}>
+                  <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8 }}>
+                    <div style={{ width:36, height:36, borderRadius:"50%", background:"rgba(16,185,129,0.12)", display:"flex", alignItems:"center", justifyContent:"center" }}><TrendingIcon /></div>
+                    <span style={{ color:"#a1a1aa", fontSize:12 }}>Agendamentos</span>
+                    <span style={{ color:"#fafafa", fontSize:22, fontWeight:"bold" }}>142</span>
+                    <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                      <span style={{ width:6, height:6, borderRadius:"50%", background:"#10b981", flexShrink:0 }} />
+                      <span style={{ color:"#10b981", fontSize:11 }}>+12% vs mês anterior</span>
+                    </div>
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      onClick={() => { setDateFrom("2026-04-22"); setDateTo("2026-05-22"); }}
-                      style={{ flex: 1, padding: "6px 0", borderRadius: 8, fontSize: 12, fontWeight: 600,
-                        background: "transparent", border: "1px solid var(--borderColor, #333)",
-                        color: "var(--color11, #a1a1aa)", cursor: "pointer" }}
-                    >Resetar</button>
-                    <button
-                      onClick={() => setShowDatePicker(false)}
-                      style={{ flex: 1, padding: "6px 0", borderRadius: 8, fontSize: 12, fontWeight: 600,
-                        background: "#10b981", border: "none", color: "#fff", cursor: "pointer" }}
-                    >Aplicar</button>
+                  <div className="pro-resumo-sep" style={{ width:1, background:C.border, alignSelf:"stretch" }} />
+                  <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8 }}>
+                    <div style={{ width:36, height:36, borderRadius:"50%", background:"rgba(16,185,129,0.12)", display:"flex", alignItems:"center", justifyContent:"center" }}><MoneyIcon /></div>
+                    <span style={{ color:"#a1a1aa", fontSize:12 }}>Valor Gerado</span>
+                    <span style={{ color:"#fafafa", fontSize:22, fontWeight:"bold" }}>R$8.400</span>
+                    <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                      <span style={{ width:6, height:6, borderRadius:"50%", background:"#10b981", flexShrink:0 }} />
+                      <span style={{ color:"#10b981", fontSize:11 }}>+8% vs mês anterior</span>
+                    </div>
                   </div>
                 </div>
-              )}
+              </div>
+
+              {/* Em Andamento */}
+              <div className="summary-card summary-card--blue" style={{ padding:0 }}>
+                <div style={{ height:3, background:"#60a5fa" }} />
+                <div style={{ padding:"1rem 1.25rem", display:"flex", flexDirection:"column", gap:12 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                    <span style={{ color:"#71717a", fontSize:11, fontWeight:"bold", letterSpacing:1, textTransform:"uppercase" }}>Em Andamento</span>
+                    <div style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 10px", borderRadius:999, background:"rgba(96,165,250,0.15)" }}>
+                      <span className="live-dot" style={{ width:6, height:6, borderRadius:"50%", background:"#60a5fa", boxShadow:"0 0 6px #60a5fa", display:"inline-block" }} />
+                      <span style={{ color:"#60a5fa", fontSize:10, fontWeight:"bold" }}>Ao vivo</span>
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", gap:12, alignItems:"center" }}>
+                    <img src={consultaEmAndamento.avatar} alt={consultaEmAndamento.nome} style={{ width:44, height:44, borderRadius:"50%", objectFit:"cover", border:"2px solid rgba(96,165,250,0.4)", flexShrink:0 }} />
+                    <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                      <span style={{ color:"#fafafa", fontSize:14, fontWeight:"bold" }}>{consultaEmAndamento.nome}</span>
+                      <span style={{ color:"#a1a1aa", fontSize:12 }}>{consultaEmAndamento.especialidade}</span>
+                      <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                        <span style={{ color:"#60a5fa" }}><ClockIcon /></span>
+                        <span style={{ color:"#60a5fa", fontSize:12 }}>{consultaEmAndamento.horario}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <Button
-              size="$3"
-              backgroundColor="$green9"
-              color="white"
-              hoverStyle={{ backgroundColor: "$green10" }}
-              fontWeight="bold"
-              onPress={() => router.push("/painel/consultas/agendar")}
-            >
-              + Nova Consulta
-            </Button>
-          </XStack>
-        </XStack>
+            {/* Visão Geral do Dia */}
+            <div className="summary-card summary-card--day" style={{ flex:1, minWidth:280 }}>
+              <p style={{ color:"#71717a", fontSize:11, fontWeight:"bold", letterSpacing:1, textTransform:"uppercase", margin:"0 0 12px" }}>Visão Geral do Dia</p>
+              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                {dayItems.map((item, i) => (
+                  <div key={i} id={`day-item-${i}`} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 12px", borderRadius:8, background:C.bg, border:`1px solid ${C.border}` }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <span style={{ fontSize:16 }}>{item.icon}</span>
+                      <span style={{ color:"#a1a1aa", fontSize:13 }}>{item.label}</span>
+                    </div>
+                    <span style={{ fontSize:16, fontWeight:"bold", color:item.color }}>{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
 
-        {/* ── Cards de Resumo ── */}
-        <XStack className="pro-stat-grid" flexWrap="wrap" gap="$4">
+          {/* ── Lista de Consultas ── */}
+          <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+            <div>
+              <h2 style={{ color:"#fafafa", fontSize:20, fontWeight:"bold", margin:0 }}>Próximas Consultas</h2>
+              <p style={{ color:"#a1a1aa", fontSize:12, margin:"4px 0 0" }}>{filtered.length} consultas encontradas</p>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {filtered.length === 0 ? (
+                <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:32, display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:32 }}>📭</span>
+                  <span style={{ color:"#a1a1aa", fontSize:14 }}>Nenhuma consulta encontrada no período.</span>
+                </div>
+              ) : (
+                filtered.map((c) => <ConsultaRow key={c.id} c={c} />)
+              )}
+            </div>
+          </div>
 
-          <YStack flex={1} minWidth={280} gap="$4">
-            {/* Resumo do Período */}
-            <Card borderWidth={1} backgroundColor="$color2" borderColor="$borderColor" borderRadius="$5" padding="$4">
-              <Text color="$color11" fontSize={11} fontWeight="bold" letterSpacing={1} textTransform="uppercase" marginBottom="$3">
-                Resumo do Período
-              </Text>
-              <XStack gap="$4" className="pro-resumo-inner">
-                <YStack flex={1} gap="$2">
-                  <Circle size="$3" backgroundColor="rgba(16,185,129,0.12)"><TrendingIcon /></Circle>
-                  <Text color="$color11" fontSize={12}>Agendamentos</Text>
-                  <Text color="$color12" fontSize={22} fontWeight="bold">142</Text>
-                  <XStack alignItems="center" gap="$1">
-                    <Circle size={6} backgroundColor="#10b981" />
-                    <Text color="#10b981" fontSize={11}>+12% vs mês anterior</Text>
-                  </XStack>
-                </YStack>
-                <Separator vertical borderColor="$borderColor" className="pro-resumo-sep" />
-                <YStack flex={1} gap="$2">
-                  <Circle size="$3" backgroundColor="rgba(16,185,129,0.12)"><MoneyIcon /></Circle>
-                  <Text color="$color11" fontSize={12}>Valor Gerado</Text>
-                  <Text color="$color12" fontSize={22} fontWeight="bold">R$8.400</Text>
-                  <XStack alignItems="center" gap="$1">
-                    <Circle size={6} backgroundColor="#10b981" />
-                    <Text color="#10b981" fontSize={11}>+8% vs mês anterior</Text>
-                  </XStack>
-                </YStack>
-              </XStack>
-            </Card>
-
-            {/* Em Andamento */}
-            <Card borderWidth={1}
-              backgroundColor="rgba(96,165,250,0.05)"
-              borderColor="rgba(96,165,250,0.25)"
-              borderRadius="$5"
-              overflow="hidden"
-              hoverStyle={{ backgroundColor: "rgba(96,165,250,0.08)", borderColor: "#60a5fa" }}
-              cursor="pointer"
-            >
-              <YStack height={3} backgroundColor="#60a5fa" />
-              <YStack padding="$4" gap="$3">
-                <XStack justifyContent="space-between" alignItems="center">
-                  <Text color="$color11" fontSize={11} fontWeight="bold" letterSpacing={1} textTransform="uppercase">Em Andamento</Text>
-                  <XStack alignItems="center" gap="$1" paddingHorizontal="$2" paddingVertical="$1" borderRadius="$10" backgroundColor="rgba(96,165,250,0.15)">
-                    <Circle size={6} backgroundColor="#60a5fa" style={{ boxShadow: "0 0 6px #60a5fa", animation: "pulse 2s infinite" }} />
-                    <Text color="#60a5fa" fontSize={10} fontWeight="bold">Ao vivo</Text>
-                  </XStack>
-                </XStack>
-                <XStack gap="$3" alignItems="center">
-                  <Avatar circular size="$5" backgroundColor="$color4" borderWidth={2} borderColor="rgba(96,165,250,0.4)">
-                    <Avatar.Image src={consultaEmAndamento.avatar} />
-                  </Avatar>
-                  <YStack gap="$1">
-                    <Text color="$color12" fontSize={14} fontWeight="bold">{consultaEmAndamento.nome}</Text>
-                    <Text color="$color11" fontSize={12}>{consultaEmAndamento.especialidade}</Text>
-                    <XStack alignItems="center" gap="$1" marginTop={2}>
-                      <span style={{ color: "#60a5fa" }}><ClockIcon /></span>
-                      <Text color="#60a5fa" fontSize={12}>{consultaEmAndamento.horario}</Text>
-                    </XStack>
-                  </YStack>
-                </XStack>
-              </YStack>
-            </Card>
-          </YStack>
-
-          {/* Visão Geral do Dia */}
-          <Card cursor="pointer" animation="quick" flex={1}
-            minWidth={280} borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-            borderRadius="$5" padding="$4" hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-          >
-            <Text color="$color11" fontSize={11} fontWeight="bold" letterSpacing={1} textTransform="uppercase" marginBottom="$3">
-              Visão Geral do Dia
-            </Text>
-            <YStack gap="$3">
-              {[
-                { icon: "📅", label: "Total de Consultas", value: "12",  color: "$color12" },
-                { icon: "✅", label: "Confirmadas",         value: "9",   color: "#10b981" },
-                { icon: "⏳", label: "Pendentes",           value: "3",   color: "#facc15" },
-                { icon: "⏱",  label: "Tempo Médio",         value: "48m", color: "#60a5fa" },
-              ].map((item, i) => (
-                <XStack key={i} justifyContent="space-between" alignItems="center"
-                  paddingVertical="$2" paddingHorizontal="$3" borderRadius="$3"
-                  backgroundColor="$background" borderWidth={1} borderColor="$borderColor" id={`day-item-${i}`}
-                >
-                  <XStack alignItems="center" gap="$2">
-                    <Text fontSize={16}>{item.icon}</Text>
-                    <Text color="$color11" fontSize={13}>{item.label}</Text>
-                  </XStack>
-                  <Text fontSize={16} fontWeight="bold" style={{ color: item.color as string }}>{item.value}</Text>
-                </XStack>
-              ))}
-            </YStack>
-          </Card>
-        </XStack>
-
-        {/* ── Lista de Consultas ── */}
-        <YStack gap="$4">
-          <XStack justifyContent="space-between" alignItems="center">
-            <YStack gap="$1">
-              <H2 color="$color12" size="$5" fontWeight="bold">Próximas Consultas</H2>
-              <Text color="$color11" fontSize={12}>{filtered.length} consultas encontradas</Text>
-            </YStack>
-          </XStack>
-
-          {/* Rows */}
-          <YStack gap="$2">
-            {filtered.length === 0 ? (
-              <Card borderWidth={1} backgroundColor="$color2" borderColor="$borderColor"
-                borderRadius="$5" padding="$8" alignItems="center"
-              >
-                <Text fontSize={32} marginBottom="$2">📭</Text>
-                <Text color="$color11" fontSize={14}>Nenhuma consulta encontrada no período.</Text>
-              </Card>
-            ) : (
-              filtered.map((c) => <ConsultaRow key={c.id} c={c} />)
-            )}
-          </YStack>
-        </YStack>
-
-      </YStack>
-      </ScrollView>
+        </div>
+      </div>
     </>
   );
 }

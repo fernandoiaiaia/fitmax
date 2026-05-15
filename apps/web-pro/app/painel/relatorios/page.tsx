@@ -2,19 +2,6 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
-import {
-  Card,
-  Avatar,
-  Text,
-  H2,
-  XStack,
-  YStack,
-  Circle,
-  Button,
-  Separator,
-  ScrollView,
-  Input,
-} from "tamagui";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -96,20 +83,25 @@ function formatDateBR(iso: string) {
   return `${d}/${m}/${y}`;
 }
 
+const C = { card:"#141414", card2:"#1a1a1a", border:"rgba(255,255,255,0.07)", bg:"#111111" };
+
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
 function StatCard({ icon, label, value, sub, accent = false }: { icon: React.ReactNode; label: string; value: string; sub?: string; accent?: boolean }) {
   return (
-    <Card cursor="pointer" animation="quick" flex={1} minWidth={200} borderWidth={1} backgroundColor="$color2" borderColor={accent ? "$green5" : "$borderColor"} borderRadius="$5" padding="$4" hoverStyle={{ backgroundColor: "$color3", borderColor: accent ? "$green7" : "$green5" }}>
-      <XStack alignItems="center" gap="$3" marginBottom="$2">
-        <Circle size="$3" backgroundColor={accent ? "rgba(16,185,129,0.15)" : "$color4"}>
+    <div className="stat-card" style={{ flex:1, minWidth:200, background:C.card, border:`1px solid ${accent ? "rgba(16,185,129,0.3)" : C.border}`, borderRadius:14, padding:16, cursor:"pointer", transition:"background .15s, border-color .15s" }}
+      onMouseEnter={e=>{ (e.currentTarget as HTMLElement).style.background=C.card2; (e.currentTarget as HTMLElement).style.borderColor=accent ? "rgba(16,185,129,0.45)" : "rgba(16,185,129,0.3)"; }}
+      onMouseLeave={e=>{ (e.currentTarget as HTMLElement).style.background=C.card;  (e.currentTarget as HTMLElement).style.borderColor=accent ? "rgba(16,185,129,0.3)" : C.border; }}
+    >
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:8 }}>
+        <div style={{ width:32, height:32, borderRadius:"50%", background:accent ? "rgba(16,185,129,0.15)" : C.card2, display:"flex", alignItems:"center", justifyContent:"center" }}>
           {icon}
-        </Circle>
-        <Text color="$color11" fontSize={12} fontWeight="bold" textTransform="uppercase">{label}</Text>
-      </XStack>
-      <Text color="$color12" fontSize={24} fontWeight="bold">{value}</Text>
-      {sub && <Text color="$color10" fontSize={11} marginTop="$1">{sub}</Text>}
-    </Card>
+        </div>
+        <span style={{ color:"#a1a1aa", fontSize:12, fontWeight:"bold", textTransform:"uppercase" }}>{label}</span>
+      </div>
+      <span style={{ color:"#fafafa", fontSize:24, fontWeight:"bold", display:"block" }}>{value}</span>
+      {sub && <span style={{ color:"#71717a", fontSize:11, marginTop:4, display:"block" }}>{sub}</span>}
+    </div>
   );
 }
 
@@ -169,223 +161,233 @@ export default function RelatoriosPage() {
   const totalMod   = presencial + online;
 
   return (
-    <ScrollView flex={1} backgroundColor="$background" showsVerticalScrollIndicator={false}>
-      <YStack padding="$4" $gtSm={{ padding: "$6" }} gap="$5" maxWidth={1200} marginHorizontal="auto" width="100%">
-        
-        {/* Cabeçalho */}
-        <XStack className="pro-page-header" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap="$3">
-          <YStack gap="$1">
-            <H2 color="$color12" size="$6" fontWeight="bold">Relatórios</H2>
-            <Text color="$color11" fontSize={14}>Acompanhe o desempenho financeiro e operacional do período.</Text>
-          </YStack>
-        </XStack>
-
-        {/* Filtro de Período */}
-        <XStack flexWrap="wrap" gap="$4" alignItems="center" backgroundColor="$color2" padding="$3" borderRadius="$5" borderWidth={1} borderColor="$borderColor">
-          {/* Desktop Presets */}
-          <div className="pro-filter-desktop">
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <XStack gap="$2" paddingBottom={2}>
-                {PRESETS.map((p) => {
-                  const isActive = preset === p;
-                  return (
-                    <Button key={p} size="$3" borderRadius="$10" borderWidth={1} animation="quick"
-                      borderColor={isActive ? "$green8" : "$borderColor"}
-                      backgroundColor={isActive ? "rgba(16,185,129,0.1)" : "transparent"}
-                      onPress={() => applyPreset(p)}
-                      hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}
-                      paddingHorizontal="$4">
-                      <Text fontWeight={isActive ? "bold" : "500"} color={isActive ? "#10b981" : "$color11"} fontSize={13}>{p}</Text>
-                    </Button>
-                  );
-                })}
-              </XStack>
-            </ScrollView>
-          </div>
-
-          {/* Mobile Presets */}
-          <div className="pro-filter-mobile" ref={headerMenuRef} style={{ position: "relative" }}>
-            <button className="pro-filter-dropdown-btn" onClick={() => setHeaderMenuOpen(v => !v)}>
-              Período: {preset}
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                style={{ transform: headerMenuOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
-            {headerMenuOpen && (
-              <div className="pro-filter-dropdown-menu" style={{ left: 0, right: "auto", minWidth: 160 }}>
-                 {PRESETS.map((p) => (
-                   <div key={p} className={`pro-filter-dropdown-item${preset === p ? " active" : ""}`}
-                     onClick={() => { applyPreset(p); setHeaderMenuOpen(false); }}>
-                     {preset === p && <span style={{ marginRight: 6 }}>✓</span>}{p}
-                   </div>
-                 ))}
-              </div>
-            )}
-          </div>
-
-          <Separator vertical borderColor="$borderColor" height={30} $sm={{ display: 'none' }} />
-
-          <XStack gap="$3" alignItems="center" flexWrap="wrap">
-             <XStack alignItems="center" gap="$2">
-                <Text color="$color11"><CalIcon /></Text>
-                <Text color="$color11" fontSize={12}>De</Text>
-                <Input size="$3" type="date" value={dataInicio} max={dataFim} onChange={(e) => { setDataInicio(e.target.value); setPreset("Personalizado"); }} backgroundColor="$background" borderWidth={1} borderColor="$borderColor" color="$color12" textAlign="center" />
-             </XStack>
-             <Text color="$color10">—</Text>
-             <XStack alignItems="center" gap="$2">
-                <Text color="$color11"><CalIcon /></Text>
-                <Text color="$color11" fontSize={12}>Até</Text>
-                <Input size="$3" type="date" value={dataFim} min={dataInicio} max={TODAY} onChange={(e) => { setDataFim(e.target.value); setPreset("Personalizado"); }} backgroundColor="$background" borderWidth={1} borderColor="$borderColor" color="$color12" textAlign="center" />
-             </XStack>
-          </XStack>
-        </XStack>
-
-        {/* ── Grid principal ── */}
-        <XStack gap="$5" alignItems="flex-start" flexWrap="wrap" $gtSm={{ flexWrap: "nowrap" }}>
+    <>
+      <style>{`
+        .rel-cols { display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; }
+        .rel-col-left  { flex:2; min-width:280px; display:flex; flex-direction:column; gap:24px; }
+        .rel-col-right { flex:1; min-width:260px; display:flex; flex-direction:column; gap:16px; }
+        .period-pill {
+          padding:6px 16px; border-radius:999px; border:1px solid;
+          font-size:13px; cursor:pointer; font-family:inherit; transition:all .15s;
+        }
+        .rel-input-date {
+          background:#111; border:1px solid ${C.border}; border-radius:8px;
+          color:#fafafa; text-align:center; padding:6px 10px; font-size:14px;
+          font-family:inherit; color-scheme:dark;
+        }
+        .sidebar-card {
+          background:${C.card}; border:1px solid ${C.border}; border-radius:14px;
+          padding:16px; cursor:pointer; transition:background .15s,border-color .15s;
+        }
+        .sidebar-card:hover { background:${C.card2}; border-color:rgba(16,185,129,0.45); }
+      `}</style>
+      <div style={{ flex:1, overflowY:"auto" }}>
+        <div style={{ padding:"1.5rem 2rem", maxWidth:1200, margin:"0 auto", display:"flex", flexDirection:"column", gap:20, width:"100%" }}>
           
-          {/* Coluna Esquerda */}
-          <YStack flex={2} gap="$6" minWidth={280}>
-            
-            {/* Resumo Financeiro */}
-            <YStack gap="$3">
-              <H2 color="$color12" size="$5" fontWeight="bold">Resumo Financeiro</H2>
-              <Text color="$color11" fontSize={12}>{formatDateBR(dataInicio)} — {formatDateBR(dataFim)}</Text>
-              
-              <XStack className="pro-stat-grid" flexWrap="wrap" gap="$3">
-                <StatCard icon={<TrendUpIcon />} label="Faturamento Total" value={formatCurrency(faturamento)} sub={`${realizadas.length} consultas realizadas`} accent />
-                <StatCard icon={<MoneyIcon />} label="Lucro Líquido" value={formatCurrency(lucroLiquido)} sub="72% do faturamento bruto" accent />
-                <StatCard icon={<CheckCircleIcon />} label="Ticket Médio" value={formatCurrency(ticketMedio)} sub="por consulta realizada" />
-                <StatCard icon={<XCircleIcon />} label="Taxa Cancelamento" value={`${taxaCancelamento}%`} sub={`${canceladas.length} consultas canceladas`} />
-              </XStack>
-            </YStack>
+          {/* Cabeçalho */}
+          <div className="pro-page-header" style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:12 }}>
+            <div>
+              <h2 style={{ color:"#fafafa", fontSize:22, fontWeight:"bold", margin:0 }}>Relatórios</h2>
+              <p style={{ color:"#a1a1aa", fontSize:14, margin:"4px 0 0" }}>Acompanhe o desempenho financeiro e operacional do período.</p>
+            </div>
+          </div>
 
-            {/* Operação do Dia */}
-            <YStack gap="$3">
-              <H2 color="$color12" size="$5" fontWeight="bold">Operação do Dia</H2>
-              <Text color="$color11" fontSize={12}>Hoje, {formatDateBR(TODAY)}</Text>
+          {/* Filtro de Período */}
+          <div style={{ display:"flex", flexWrap:"wrap", gap:16, alignItems:"center", background:C.card, padding:12, borderRadius:14, border:`1px solid ${C.border}` }}>
+            {/* Desktop Presets */}
+            <div className="pro-filter-desktop" style={{ display:"flex", gap:8, flexWrap:"wrap", overflowX:"auto" }}>
+              {PRESETS.map((p) => {
+                const isActive = preset === p;
+                return (
+                  <button key={p} className="period-pill" onClick={()=>applyPreset(p)} style={{ borderColor:isActive?"#10b981":C.border, background:isActive?"rgba(16,185,129,0.1)":"transparent", color:isActive?"#10b981":"#a1a1aa", fontWeight:isActive?"bold":"500", whiteSpace:"nowrap" }}>{p}</button>
+                );
+              })}
+            </div>
 
-              <XStack flexWrap="wrap" gap="$3" $sm={{ flexDirection: "column" }}>
-                <Card cursor="pointer" animation="quick" flex={1} minWidth={200} borderWidth={1} backgroundColor="rgba(16,185,129,0.05)" borderColor="rgba(16,185,129,0.3)" borderRadius="$4" padding="$4" hoverStyle={{ backgroundColor: "rgba(16,185,129,0.1)", borderColor: "#10b981" }}>
-                  <XStack alignItems="center" gap="$3" marginBottom="$2">
-                    <Circle size="$3" backgroundColor="rgba(16,185,129,0.15)">
-                      <CheckCircleIcon />
-                    </Circle>
-                    <Text color="#10b981" fontSize={13} fontWeight="bold">Realizadas</Text>
-                  </XStack>
-                  <Text color="#10b981" fontSize={24} fontWeight="bold">{hojeFeit.length}</Text>
-                  <Text color="#10b981" opacity={0.8} fontSize={11}>de {hoje.length} agendadas</Text>
-                </Card>
-
-                <Card cursor="pointer" animation="quick" flex={1} minWidth={200} borderWidth={1} backgroundColor="rgba(239,68,68,0.05)" borderColor="rgba(239,68,68,0.3)" borderRadius="$4" padding="$4" hoverStyle={{ backgroundColor: "rgba(239,68,68,0.1)", borderColor: "#ef4444" }}>
-                  <XStack alignItems="center" gap="$3" marginBottom="$2">
-                    <Circle size="$3" backgroundColor="rgba(239,68,68,0.15)">
-                      <XCircleIcon />
-                    </Circle>
-                    <Text color="#ef4444" fontSize={13} fontWeight="bold">Canceladas</Text>
-                  </XStack>
-                  <Text color="#ef4444" fontSize={24} fontWeight="bold">{hojeCanc.length}</Text>
-                  <Text color="#ef4444" opacity={0.8} fontSize={11}>taxa: {hoje.length > 0 ? Math.round((hojeCanc.length / hoje.length) * 100) : 0}%</Text>
-                </Card>
-              </XStack>
-
-              {/* Lista do Dia */}
-              {hoje.length > 0 && (
-                <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor" borderRadius="$4" overflow="hidden" marginTop="$2" hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}>
-                  {hoje.map((c, i) => (
-                    <XStack key={c.id} alignItems="center" padding="$3" borderBottomWidth={i < hoje.length - 1 ? 1 : 0} borderColor="$borderColor" flexWrap="wrap" gap="$3">
-                      <XStack width={80} gap="$2" alignItems="center">
-                         <Text color="$color11"><ClockIcon /></Text>
-                         <Text color="$color12" fontSize={13}>{c.horario}</Text>
-                      </XStack>
-                      <YStack flex={1} minWidth={150}>
-                         <XStack alignItems="center" gap="$2">
-                           <Text color="$color11"><UserIcon /></Text>
-                           <Text color="$color12" fontSize={14} fontWeight="bold">{c.paciente}</Text>
-                         </XStack>
-                         <Text color="$color11" fontSize={12} marginLeft={18}>{c.especialidade} · {c.modalidade}</Text>
-                      </YStack>
-                      <XStack alignItems="center" gap="$3" minWidth={120} justifyContent="flex-end">
-                         <Text color="$color12" fontSize={14} fontWeight="bold">{formatCurrency(c.valor)}</Text>
-                         <XStack paddingHorizontal="$2" paddingVertical="$1" borderRadius="$10" backgroundColor={c.status === "realizada" ? "rgba(16,185,129,0.12)" : "rgba(239,68,68,0.12)"}>
-                           <Text color={c.status === "realizada" ? "#10b981" : "#ef4444"} fontSize={10} fontWeight="bold">
-                             {c.status === "realizada" ? "Realizada" : "Cancelada"}
-                           </Text>
-                         </XStack>
-                      </XStack>
-                    </XStack>
+            {/* Mobile dropdown */}
+            <div className="pro-filter-mobile" ref={headerMenuRef} style={{ position:"relative" }}>
+              <button className="pro-filter-dropdown-btn" onClick={()=>setHeaderMenuOpen(v=>!v)}>
+                Período: {preset}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform:headerMenuOpen?"rotate(180deg)":"rotate(0deg)", transition:"transform .2s" }}>
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+              {headerMenuOpen && (
+                <div className="pro-filter-dropdown-menu" style={{ left:0, right:"auto", minWidth:160 }}>
+                  {PRESETS.map((p)=>(
+                    <div key={p} className={`pro-filter-dropdown-item${preset===p?" active":""}`} onClick={()=>{applyPreset(p);setHeaderMenuOpen(false);}}>
+                      {preset===p && <span style={{ marginRight:6 }}>✓</span>}{p}
+                    </div>
                   ))}
-                </Card>
+                </div>
               )}
-            </YStack>
-          </YStack>
+            </div>
 
-          {/* Coluna Direita (Sidebar) */}
-          <YStack flex={1} minWidth={260} gap="$4">
+            <div className="pro-filter-sep" style={{ width:1, height:30, background:C.border }} />
+
+            <div style={{ display:"flex", gap:12, alignItems:"center", flexWrap:"wrap" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ color:"#a1a1aa" }}><CalIcon /></span>
+                <span style={{ color:"#a1a1aa", fontSize:12 }}>De</span>
+                <input className="rel-input-date" type="date" value={dataInicio} max={dataFim} onChange={(e) => { setDataInicio(e.target.value); setPreset("Personalizado"); }} />
+              </div>
+              <span style={{ color:"#71717a" }}>—</span>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ color:"#a1a1aa" }}><CalIcon /></span>
+                <span style={{ color:"#a1a1aa", fontSize:12 }}>Até</span>
+                <input className="rel-input-date" type="date" value={dataFim} min={dataInicio} max={TODAY} onChange={(e) => { setDataFim(e.target.value); setPreset("Personalizado"); }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Grid principal */}
+          <div className="rel-cols">
             
-            {/* Especialidade */}
-            <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor" borderRadius="$5" padding="$4" hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}>
-               <Text color="$color11" fontSize={11} fontWeight="bold" letterSpacing={1} textTransform="uppercase" marginBottom="$4">Faturamento por Especialidade</Text>
-               <YStack gap="$3">
-                 {Object.entries(porEspecialidade).sort(([, a], [, b]) => b - a).map(([esp, val]) => (
-                   <YStack key={esp} gap="$1">
-                     <XStack justifyContent="space-between">
-                       <Text color="$color12" fontSize={13}>{esp}</Text>
-                       <Text color="$color12" fontSize={13} fontWeight="bold">{formatCurrency(val)}</Text>
-                     </XStack>
-                     <YStack height={6} backgroundColor="$color4" borderRadius="$10" overflow="hidden">
-                       <YStack height="100%" backgroundColor="#10b981" width={`${Math.min((val / maxEsp) * 100, 100)}%`} />
-                     </YStack>
-                   </YStack>
-                 ))}
-               </YStack>
-            </Card>
+            {/* Coluna Esquerda */}
+            <div className="rel-col-left">
+              
+              {/* Resumo Financeiro */}
+              <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+                <div>
+                  <h2 style={{ color:"#fafafa", fontSize:20, fontWeight:"bold", margin:0 }}>Resumo Financeiro</h2>
+                  <p style={{ color:"#a1a1aa", fontSize:12, margin:"4px 0 0" }}>{formatDateBR(dataInicio)} — {formatDateBR(dataFim)}</p>
+                </div>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:12 }}>
+                  <StatCard icon={<TrendUpIcon />} label="Faturamento Total" value={formatCurrency(faturamento)} sub={`${realizadas.length} consultas realizadas`} accent />
+                  <StatCard icon={<MoneyIcon />} label="Lucro Líquido" value={formatCurrency(lucroLiquido)} sub="72% do faturamento bruto" accent />
+                  <StatCard icon={<CheckCircleIcon />} label="Ticket Médio" value={formatCurrency(ticketMedio)} sub="por consulta realizada" />
+                  <StatCard icon={<XCircleIcon />} label="Taxa Cancelamento" value={`${taxaCancelamento}%`} sub={`${canceladas.length} consultas canceladas`} />
+                </div>
+              </div>
 
-            {/* Modalidade */}
-            <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor" borderRadius="$5" padding="$4" hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}>
-               <Text color="$color11" fontSize={11} fontWeight="bold" letterSpacing={1} textTransform="uppercase" marginBottom="$4">Modalidade de Atendimento</Text>
-               <XStack justifyContent="space-between" marginBottom="$3">
-                  <YStack>
-                    <XStack alignItems="center" gap="$2"><Circle size={8} backgroundColor="#10b981" /><Text color="$color11" fontSize={12}>Presencial</Text></XStack>
-                    <Text color="$color12" fontSize={18} fontWeight="bold">{presencial}</Text>
-                    <Text color="$color10" fontSize={11}>{totalMod > 0 ? Math.round((presencial / totalMod) * 100) : 0}%</Text>
-                  </YStack>
-                  <YStack>
-                    <XStack alignItems="center" gap="$2"><Circle size={8} backgroundColor="#60a5fa" /><Text color="$color11" fontSize={12}>Online</Text></XStack>
-                    <Text color="$color12" fontSize={18} fontWeight="bold">{online}</Text>
-                    <Text color="$color10" fontSize={11}>{totalMod > 0 ? Math.round((online / totalMod) * 100) : 0}%</Text>
-                  </YStack>
-               </XStack>
-               <XStack height={8} borderRadius="$10" overflow="hidden" width="100%">
-                 <YStack height="100%" backgroundColor="#10b981" width={`${totalMod > 0 ? (presencial / totalMod) * 100 : 50}%`} />
-                 <YStack height="100%" backgroundColor="#60a5fa" width={`${totalMod > 0 ? (online / totalMod) * 100 : 50}%`} />
-               </XStack>
-            </Card>
+              {/* Operação do Dia */}
+              <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+                <div>
+                  <h2 style={{ color:"#fafafa", fontSize:20, fontWeight:"bold", margin:0 }}>Operação do Dia</h2>
+                  <p style={{ color:"#a1a1aa", fontSize:12, margin:"4px 0 0" }}>Hoje, {formatDateBR(TODAY)}</p>
+                </div>
 
-            {/* Resumo */}
-            <Card cursor="pointer" animation="quick" borderWidth={1} backgroundColor="$color2" borderColor="$borderColor" borderRadius="$5" padding="$4" hoverStyle={{ backgroundColor: "$color3", borderColor: "$green8" }}>
-               <Text color="$color11" fontSize={11} fontWeight="bold" letterSpacing={1} textTransform="uppercase" marginBottom="$3">Período Selecionado</Text>
-               <YStack gap="$2">
-                 {[
-                   { label: "Consultas no período", value: String(filtered.length), color: "$color12" },
-                   { label: "Realizadas", value: String(realizadas.length), color: "#10b981" },
-                   { label: "Canceladas", value: String(canceladas.length), color: "#f87171" },
-                   { label: "Faturamento bruto", value: formatCurrency(faturamento), color: "#10b981" },
-                   { label: "Lucro líquido", value: formatCurrency(lucroLiquido), color: "#10b981" },
-                 ].map((item, i) => (
-                   <XStack key={i} justifyContent="space-between" alignItems="center" paddingVertical="$2" borderBottomWidth={i < 4 ? 1 : 0} borderColor="$borderColor">
-                     <Text color="$color11" fontSize={13}>{item.label}</Text>
-                     <Text color={item.color as any} fontSize={13} fontWeight="bold">{item.value}</Text>
-                   </XStack>
-                 ))}
-               </YStack>
-            </Card>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:12 }}>
+                  <div style={{ flex:1, minWidth:200, background:"rgba(16,185,129,0.05)", border:"1px solid rgba(16,185,129,0.3)", borderRadius:14, padding:16, cursor:"pointer", transition:"all .15s" }}
+                    onMouseEnter={e=>{ (e.currentTarget as HTMLElement).style.background="rgba(16,185,129,0.1)"; (e.currentTarget as HTMLElement).style.borderColor="#10b981"; }}
+                    onMouseLeave={e=>{ (e.currentTarget as HTMLElement).style.background="rgba(16,185,129,0.05)"; (e.currentTarget as HTMLElement).style.borderColor="rgba(16,185,129,0.3)"; }}
+                  >
+                    <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:8 }}>
+                      <div style={{ width:32, height:32, borderRadius:"50%", background:"rgba(16,185,129,0.15)", display:"flex", alignItems:"center", justifyContent:"center" }}><CheckCircleIcon /></div>
+                      <span style={{ color:"#10b981", fontSize:13, fontWeight:"bold" }}>Realizadas</span>
+                    </div>
+                    <span style={{ color:"#10b981", fontSize:24, fontWeight:"bold", display:"block" }}>{hojeFeit.length}</span>
+                    <span style={{ color:"rgba(16,185,129,0.8)", fontSize:11 }}>de {hoje.length} agendadas</span>
+                  </div>
 
-          </YStack>
+                  <div style={{ flex:1, minWidth:200, background:"rgba(239,68,68,0.05)", border:"1px solid rgba(239,68,68,0.3)", borderRadius:14, padding:16, cursor:"pointer", transition:"all .15s" }}
+                    onMouseEnter={e=>{ (e.currentTarget as HTMLElement).style.background="rgba(239,68,68,0.1)"; (e.currentTarget as HTMLElement).style.borderColor="#ef4444"; }}
+                    onMouseLeave={e=>{ (e.currentTarget as HTMLElement).style.background="rgba(239,68,68,0.05)"; (e.currentTarget as HTMLElement).style.borderColor="rgba(239,68,68,0.3)"; }}
+                  >
+                    <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:8 }}>
+                      <div style={{ width:32, height:32, borderRadius:"50%", background:"rgba(239,68,68,0.15)", display:"flex", alignItems:"center", justifyContent:"center" }}><XCircleIcon /></div>
+                      <span style={{ color:"#ef4444", fontSize:13, fontWeight:"bold" }}>Canceladas</span>
+                    </div>
+                    <span style={{ color:"#ef4444", fontSize:24, fontWeight:"bold", display:"block" }}>{hojeCanc.length}</span>
+                    <span style={{ color:"rgba(239,68,68,0.8)", fontSize:11 }}>taxa: {hoje.length > 0 ? Math.round((hojeCanc.length / hoje.length) * 100) : 0}%</span>
+                  </div>
+                </div>
 
-        </XStack>
-      </YStack>
-    </ScrollView>
+                {/* Lista do Dia */}
+                {hoje.length > 0 && (
+                  <div className="sidebar-card" style={{ marginTop:8, padding:0, display:"flex", flexDirection:"column" }}>
+                    {hoje.map((c, i) => (
+                      <div key={c.id} style={{ display:"flex", alignItems:"center", flexWrap:"wrap", gap:12, padding:12, borderBottom:i<hoje.length-1?`1px solid ${C.border}`:"none" }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8, width:80 }}>
+                           <span style={{ color:"#a1a1aa" }}><ClockIcon /></span>
+                           <span style={{ color:"#fafafa", fontSize:13 }}>{c.horario}</span>
+                        </div>
+                        <div style={{ flex:1, minWidth:150, display:"flex", flexDirection:"column" }}>
+                           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                             <span style={{ color:"#a1a1aa" }}><UserIcon /></span>
+                             <span style={{ color:"#fafafa", fontSize:14, fontWeight:"bold" }}>{c.paciente}</span>
+                           </div>
+                           <span style={{ color:"#a1a1aa", fontSize:12, marginLeft:21 }}>{c.especialidade} · {c.modalidade}</span>
+                        </div>
+                        <div style={{ display:"flex", alignItems:"center", gap:12, minWidth:120, justifyContent:"flex-end" }}>
+                           <span style={{ color:"#fafafa", fontSize:14, fontWeight:"bold" }}>{formatCurrency(c.valor)}</span>
+                           <span style={{ background:c.status==="realizada"?"rgba(16,185,129,0.12)":"rgba(239,68,68,0.12)", color:c.status==="realizada"?"#10b981":"#ef4444", fontSize:10, fontWeight:"bold", padding:"2px 8px", borderRadius:999 }}>
+                             {c.status === "realizada" ? "Realizada" : "Cancelada"}
+                           </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Coluna Direita (Sidebar) */}
+            <div className="rel-col-right">
+              
+              {/* Especialidade */}
+              <div className="sidebar-card">
+                 <p style={{ color:"#a1a1aa", fontSize:11, fontWeight:"bold", letterSpacing:1, textTransform:"uppercase", margin:"0 0 16px" }}>Faturamento por Especialidade</p>
+                 <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+                   {Object.entries(porEspecialidade).sort(([, a], [, b]) => b - a).map(([esp, val]) => (
+                     <div key={esp} style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                       <div style={{ display:"flex", justifyContent:"space-between" }}>
+                         <span style={{ color:"#fafafa", fontSize:13 }}>{esp}</span>
+                         <span style={{ color:"#fafafa", fontSize:13, fontWeight:"bold" }}>{formatCurrency(val)}</span>
+                       </div>
+                       <div style={{ height:6, background:C.card2, borderRadius:999, overflow:"hidden" }}>
+                         <div style={{ height:"100%", background:"#10b981", width:`${Math.min((val / maxEsp) * 100, 100)}%` }} />
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+              </div>
+
+              {/* Modalidade */}
+              <div className="sidebar-card">
+                 <p style={{ color:"#a1a1aa", fontSize:11, fontWeight:"bold", letterSpacing:1, textTransform:"uppercase", margin:"0 0 16px" }}>Modalidade de Atendimento</p>
+                 <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
+                    <div style={{ display:"flex", flexDirection:"column" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}><span style={{ width:8, height:8, borderRadius:"50%", background:"#10b981" }} /><span style={{ color:"#a1a1aa", fontSize:12 }}>Presencial</span></div>
+                      <span style={{ color:"#fafafa", fontSize:18, fontWeight:"bold" }}>{presencial}</span>
+                      <span style={{ color:"#71717a", fontSize:11 }}>{totalMod > 0 ? Math.round((presencial / totalMod) * 100) : 0}%</span>
+                    </div>
+                    <div style={{ display:"flex", flexDirection:"column" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}><span style={{ width:8, height:8, borderRadius:"50%", background:"#60a5fa" }} /><span style={{ color:"#a1a1aa", fontSize:12 }}>Online</span></div>
+                      <span style={{ color:"#fafafa", fontSize:18, fontWeight:"bold" }}>{online}</span>
+                      <span style={{ color:"#71717a", fontSize:11 }}>{totalMod > 0 ? Math.round((online / totalMod) * 100) : 0}%</span>
+                    </div>
+                 </div>
+                 <div style={{ display:"flex", height:8, borderRadius:999, overflow:"hidden", width:"100%" }}>
+                   <div style={{ height:"100%", background:"#10b981", width:`${totalMod > 0 ? (presencial / totalMod) * 100 : 50}%` }} />
+                   <div style={{ height:"100%", background:"#60a5fa", width:`${totalMod > 0 ? (online / totalMod) * 100 : 50}%` }} />
+                 </div>
+              </div>
+
+              {/* Resumo */}
+              <div className="sidebar-card">
+                 <p style={{ color:"#a1a1aa", fontSize:11, fontWeight:"bold", letterSpacing:1, textTransform:"uppercase", margin:"0 0 12px" }}>Período Selecionado</p>
+                 <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                   {[
+                     { label: "Consultas no período", value: String(filtered.length), color: "#fafafa" },
+                     { label: "Realizadas", value: String(realizadas.length), color: "#10b981" },
+                     { label: "Canceladas", value: String(canceladas.length), color: "#f87171" },
+                     { label: "Faturamento bruto", value: formatCurrency(faturamento), color: "#10b981" },
+                     { label: "Lucro líquido", value: formatCurrency(lucroLiquido), color: "#10b981" },
+                   ].map((item, i) => (
+                     <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:i<4?`1px solid ${C.border}`:"none" }}>
+                       <span style={{ color:"#a1a1aa", fontSize:13 }}>{item.label}</span>
+                       <span style={{ color:item.color, fontSize:13, fontWeight:"bold" }}>{item.value}</span>
+                     </div>
+                   ))}
+                 </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
