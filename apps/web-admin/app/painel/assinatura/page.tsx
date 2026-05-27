@@ -1,6 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import {
+  fetchAssinaturas,
+  criarPlano,
+  togglePlano,
+  excluirPlano,
+  type PlanoItem,
+  type PlanoPeriodo,
+} from "../../../lib/assinaturas-api";
 
 // ── Paleta ─────────────────────────────────────────────────────────────────────
 const C = {
@@ -9,19 +17,34 @@ const C = {
   green: "#10b981",
 };
 
-// ── Tipos ──────────────────────────────────────────────────────────────────────
+// ── Mapeamento API → UI ──────────────────────────────────────────────────────
+// A API usa enum em MAIÚSCULO (MENSAL); a UI usa capitalizado (Mensal)
 type Periodo = "Mensal" | "Trimestral" | "Semestral" | "Anual";
 interface Plano {
-  id: number; nome: string; tipo: Periodo;
+  id: string; nome: string; tipo: Periodo;
   valor: number; consultas: number; taxa: number; ativo: boolean;
 }
 
-const planosIniciais: Plano[] = [
-  { id:1, nome:"Plano Básico",       tipo:"Mensal",     valor:140, consultas:30, taxa:6, ativo:true  },
-  { id:2, nome:"Plano Plus",         tipo:"Semestral",  valor:320, consultas:35, taxa:6, ativo:true  },
-  { id:3, nome:"Plano Standard",     tipo:"Anual",      valor:80,  consultas:10, taxa:6, ativo:false },
-  { id:4, nome:"Plano Profissional", tipo:"Trimestral", valor:260, consultas:20, taxa:6, ativo:true  },
-];
+const API_PERIODO_MAP: Record<PlanoPeriodo, Periodo> = {
+  MENSAL: "Mensal", TRIMESTRAL: "Trimestral",
+  SEMESTRAL: "Semestral", ANUAL: "Anual",
+};
+const UI_PERIODO_MAP: Record<Periodo, PlanoPeriodo> = {
+  Mensal: "MENSAL", Trimestral: "TRIMESTRAL",
+  Semestral: "SEMESTRAL", Anual: "ANUAL",
+};
+
+function fromApi(p: PlanoItem): Plano {
+  return {
+    id: p.id,
+    nome: p.nome,
+    tipo: API_PERIODO_MAP[p.tipo],
+    valor: p.valor,
+    consultas: p.consultas,
+    taxa: p.taxa,
+    ativo: p.ativo,
+  };
+}
 
 const periodoCor: Record<Periodo, string> = {
   Mensal:      "#10b981",
@@ -42,6 +65,7 @@ const PAGE_CSS = `
   @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
   @keyframes fadeIn { from{opacity:0} to{opacity:1} }
   @keyframes scaleIn { from{opacity:0;transform:scale(0.96)} to{opacity:1;transform:scale(1)} }
+  @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
   .asgn-card { border-radius:12px; transition:border-color .18s, background .18s, transform .18s, box-shadow .18s; animation:fadeUp .3s ease both; }
   .asgn-card:hover { border-color:#10b981!important; background:#1e1e1e!important; transform:translateY(-1px); box-shadow:0 4px 20px rgba(16,185,129,0.08); }
   .asgn-input { background:#141414; border:1px solid #262626; border-radius:10px; height:42px; padding:0 12px; color:#fafafa; font-size:14px; font-family:inherit; outline:none; width:100%; transition:border-color .2s; }
@@ -73,17 +97,28 @@ function Toggle({ value, onChange, color = C.green }: { value: boolean; onChange
 }
 
 // ── Modal: Cadastrar Plano ────────────────────────────────────────────────────
-function ModalCadastro({ onClose, onSave }: { onClose: () => void; onSave: (p: Omit<Plano,"id">) => void }) {
+function ModalCadastro({ onClose, onSave }: { onClose: () => void; onSave: (p: Omit<Plano,"id">) => Promise<void> }) {
   const [nome, setNome] = useState("");
   const [tipo, setTipo] = useState<Periodo>("Mensal");
   const [valor, setValor] = useState("");
   const [consultas, setConsultas] = useState("");
   const [taxa, setTaxa] = useState("6");
+  const [saving, setSaving] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
 
-  const save = () => {
+  const save = async () => {
     if (!nome || !valor || !consultas) return;
-    onSave({ nome, tipo, valor:Number(valor), consultas:Number(consultas), taxa:Number(taxa), ativo:true });
-    onClose();
+    setSaving(true);
+    setModalError(null);
+    try {
+      await onSave({ nome, tipo, valor:Number(valor), consultas:Number(consultas), taxa:Number(taxa), ativo:true });
+      onClose(); // só fecha se tiver sucesso
+    } catch (err: any) { // eslint-disable-line
+      const msg = err?.response?.data?.error ?? "Erro ao criar plano. Tente novamente.";
+      setModalError(msg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -136,10 +171,21 @@ function ModalCadastro({ onClose, onSave }: { onClose: () => void; onSave: (p: O
             </div>
           </div>
 
+          {modalError && (
+            <div style={{ background:"rgba(244,63,94,0.08)", border:"1px solid rgba(244,63,94,0.3)", borderRadius:8, padding:"8px 12px", color:"#f43f5e", fontSize:12, display:"flex", alignItems:"center", gap:8 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              {modalError}
+            </div>
+          )}
           <div style={{ height:1, background:C.border, margin:"4px 0" }} />
           <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
-            <button className="asgn-btn-outline" onClick={onClose}>Cancelar</button>
-            <button className="asgn-btn-green" onClick={save} style={{ opacity: !nome||!valor||!consultas ? 0.5 : 1 }}>Confirmar</button>
+            <button className="asgn-btn-outline" onClick={onClose} disabled={saving}>Cancelar</button>
+            <button className="asgn-btn-green" onClick={save}
+              disabled={saving || !nome || !valor || !consultas}
+              style={{ opacity: saving || !nome||!valor||!consultas ? 0.6 : 1, display:"flex", alignItems:"center", gap:6 }}>
+              {saving && <svg style={{ animation:"spin 0.8s linear infinite" }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>}
+              {saving ? "Salvando..." : "Confirmar"}
+            </button>
           </div>
         </div>
       </div>
@@ -168,17 +214,83 @@ function ModalDelete({ plano, onClose, onConfirm }: { plano: Plano; onClose: () 
 
 // ── Main ───────────────────────────────────────────────────────────────────────
 export default function AssinaturaPage() {
-  const [planos, setPlanos] = useState<Plano[]>(planosIniciais);
-  const [showModal, setShowModal]   = useState(false);
+  const [planos,      setPlanos]      = useState<Plano[]>([]);
+  const [stats,       setStats]       = useState({ total: 0, ativos: 0, inativos: 0, receitaPotencial: 0 });
+  const [loading,     setLoading]     = useState(true);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [showModal,   setShowModal]   = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Plano | null>(null);
 
-  const toggle = (id: number) => setPlanos(p => p.map(x => x.id === id ? { ...x, ativo: !x.ativo } : x));
-  const addPlano = (p: Omit<Plano,"id">) => setPlanos(prev => [...prev, { id: Date.now(), ...p }]);
-  const delPlano = (id: number) => { setPlanos(p => p.filter(x => x.id !== id)); setDeleteTarget(null); };
+  // ── Carrega dados da API ────────────────────────────────────────────────────
+  const reload = () => {
+    setLoading(true);
+    fetchAssinaturas()
+      .then(r => { setPlanos(r.planos.map(fromApi)); setStats(r.stats); })
+      .catch(() => setActionError("Erro ao carregar planos. Verifique a API."))
+      .finally(() => setLoading(false));
+  };
 
-  const ativos   = planos.filter(p => p.ativo).length;
-  const inativos = planos.filter(p => !p.ativo).length;
-  const receitaMensal = planos.filter(p => p.ativo).reduce((a, p) => a + p.valor, 0);
+  useEffect(() => { reload(); }, []);
+
+  // ── Ações com persistência real ─────────────────────────────────────────────
+  const toggle = async (id: string) => {
+    try {
+      const updated = await togglePlano(id);
+      setPlanos(p => p.map(x => x.id === id ? fromApi(updated) : x));
+      setStats(s => {
+        const wasAtivo = planos.find(x => x.id === id)?.ativo ?? false;
+        const delta = wasAtivo ? -1 : 1;
+        return {
+          ...s,
+          ativos:            s.ativos + delta,
+          inativos:          s.inativos - delta,
+          receitaPotencial:  wasAtivo
+            ? s.receitaPotencial - (planos.find(x => x.id === id)?.valor ?? 0)
+            : s.receitaPotencial + (updated.valor),
+        };
+      });
+    } catch { setActionError("Erro ao alterar status do plano."); }
+  };
+
+  const addPlano = async (p: Omit<Plano, "id">) => {
+    setActionError(null);
+    // Lança o erro para o modal tratar inline (não usa try/catch aqui)
+    const novo = await criarPlano({
+      nome:      p.nome,
+      tipo:      UI_PERIODO_MAP[p.tipo],
+      valor:     p.valor,
+      consultas: p.consultas,
+      taxa:      p.taxa,
+    });
+    setPlanos(prev => [...prev, fromApi(novo)]);
+    setStats(s => ({
+      ...s,
+      total:            s.total + 1,
+      ativos:           s.ativos + 1,
+      receitaPotencial: s.receitaPotencial + novo.valor,
+    }));
+  };
+
+  const delPlano = async (id: string) => {
+    try {
+      await excluirPlano(id);
+      const plano = planos.find(x => x.id === id);
+      setPlanos(p => p.filter(x => x.id !== id));
+      setStats(s => ({
+        ...s,
+        total:            s.total - 1,
+        ativos:           plano?.ativo ? s.ativos - 1 : s.ativos,
+        inativos:         !plano?.ativo ? s.inativos - 1 : s.inativos,
+        receitaPotencial: plano?.ativo ? s.receitaPotencial - (plano.valor) : s.receitaPotencial,
+      }));
+      setDeleteTarget(null);
+    } catch { setActionError("Erro ao excluir plano."); }
+  };
+
+  // Stats vêm da API — aliases para o template abaixo
+  const ativos        = stats.ativos;
+  const inativos      = stats.inativos;
+  const receitaMensal = stats.receitaPotencial;
 
   return (
     <>
@@ -205,10 +317,10 @@ export default function AssinaturaPage() {
         {/* Stats */}
         <div className="asgn-stat-grid" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
           {[
-            { label:"Total de Planos",  value:String(planos.length),    color:C.text,    icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> },
-            { label:"Planos Ativos",    value:String(ativos),           color:"#10b981", icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg> },
-            { label:"Planos Inativos",  value:String(inativos),         color:"#a1a1aa", icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg> },
-            { label:"Receita Potencial",value:`R$ ${receitaMensal}/mês`,color:"#facc15", icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
+            { label:"Total de Planos",  value:String(stats.total),         color:C.text,    icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> },
+            { label:"Planos Ativos",    value:String(ativos),               color:"#10b981", icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg> },
+            { label:"Planos Inativos",  value:String(inativos),             color:"#a1a1aa", icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg> },
+            { label:"Receita Potencial",value:`R$ ${receitaMensal.toFixed(2).replace('.',',')}/mês`,color:"#facc15", icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
           ].map((s,i) => (
             <div key={i} className="asgn-card" style={{ background:C.card, border:`1px solid ${C.border}`, borderTop:`3px solid ${s.color}`, padding:16, animationDelay:`${i*0.05}s` }}>
               <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
@@ -222,9 +334,33 @@ export default function AssinaturaPage() {
           ))}
         </div>
 
+        {/* Error banner */}
+        {actionError && (
+          <div style={{ background:"rgba(244,63,94,0.08)", border:"1px solid rgba(244,63,94,0.3)", borderRadius:10, padding:"10px 16px", color:"#f43f5e", fontSize:13, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <span>{actionError}</span>
+            <button onClick={() => setActionError(null)} style={{ background:"none", border:"none", color:"#f43f5e", cursor:"pointer", fontSize:18, lineHeight:1 }}>×</button>
+          </div>
+        )}
+
         {/* Planos list */}
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          {planos.map((plano, idx) => {
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="asgn-card" style={{ border:`1px solid ${C.border}`, background:C.card, padding:"16px 18px", display:"flex", alignItems:"center", gap:16, animationDelay:`${i*0.06}s` }}>
+                <div style={{ width:44, height:44, borderRadius:12, background:"#222" }} />
+                <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8 }}>
+                  <div style={{ height:13, borderRadius:4, background:"#222", width:"35%" }} />
+                  <div style={{ height:10, borderRadius:4, background:"#1e1e1e", width:"55%" }} />
+                </div>
+                <div style={{ width:80, height:36, borderRadius:8, background:"#222" }} />
+              </div>
+            ))
+          ) : planos.length === 0 ? (
+            <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:40, display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
+              <span style={{ fontSize:32 }}>📋</span>
+              <span style={{ color:C.muted, fontSize:14 }}>Nenhum plano cadastrado. Crie o primeiro plano acima.</span>
+            </div>
+          ) : planos.map((plano, idx) => {
             const cor = periodoCor[plano.tipo];
             const features = planoFeatures[plano.tipo];
             return (

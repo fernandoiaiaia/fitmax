@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const menuItems = [
   { label: "Painel",        href: "/painel",            icon: "grid" },
@@ -31,6 +31,16 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const pathname = usePathname();
+  const router   = useRouter();
+
+  const handleLogout = () => {
+    // Limpa qualquer dado de sessão armazenado localmente
+    try { localStorage.clear(); } catch { /* noop */ }
+    try { sessionStorage.clear(); } catch { /* noop */ }
+    setSidebarOpen(false);
+    // replace() remove o painel do histórico — o usuário não volta com o botão "voltar"
+    router.replace('/');
+  };
 
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden", backgroundColor: "#111" }}>
@@ -168,7 +178,10 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
               })}
 
               {/* Logout */}
-              <Link href="/" onClick={() => setSidebarOpen(false)} style={{ textDecoration: "none", display: "flex" }}>
+              <button
+                onClick={handleLogout}
+                style={{ textDecoration: "none", display: "flex", background: "none", border: "none", padding: 0, width: "100%", cursor: "pointer" }}
+              >
                 <div style={{
                   display: "flex", width: "100%",
                   justifyContent: desktopCollapsed ? "center" : "flex-start",
@@ -190,7 +203,7 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
                     <span style={{ color: "white", fontSize: 14, fontWeight: "bold" }}>Sair</span>
                   )}
                 </div>
-              </Link>
+              </button>
             </div>
 
           </div>

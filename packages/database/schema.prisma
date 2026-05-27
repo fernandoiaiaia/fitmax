@@ -1,31 +1,205 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum ConsultaStatus {
+  PENDENTE
+  PAGO
+  ESTORNO
+}
+
+enum ConsultaTipo {
+  PRESENCIAL
+  ONLINE
+}
+
+enum PublicacaoStatus {
+  ATIVA
+  DENUNCIADA
+  BANIDA
+}
+
+enum PlanoPeriodo {
+  MENSAL
+  TRIMESTRAL
+  SEMESTRAL
+  ANUAL
+}
+
+enum UserStatus {
+  ATIVO
+  INATIVO
+  BANIDO
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
 model Admin {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
+  id              String       @id @default(uuid())
+  email           String       @unique
+  password        String
+  name            String?      // nome completo do admin
+  phone           String?      // telefone
+  username        String?      @unique // @handle
+  avatarUrl       String?      // URL da foto de perfil
+  createdAt       DateTime     @default(now())
+  repasses        Repasse[]
+  moderacoes      Publicacao[] @relation("PublicacaoModerador")
+  clientesBanidos Client[]     @relation("ClientBanidor")
+  profsBanidos    Professional[] @relation("ProfessionalBanidor")
+  planosCreados   Plano[]      @relation("PlanoCriador")
+  notifPrefs      AdminNotifPrefs?
+  convenios       Convenio[]   @relation("ConvenioCriador")
 }
 
 model Professional {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  password  String
-  createdAt DateTime @default(now())
+  id                   String       @id @default(uuid())
+  email                String       @unique
+  name                 String
+  password             String
+  avatarUrl            String?
+  especialidade        String?
+  registroProfissional String?      // ex: "CRM 54.321 · SP" ou "CREF 77.001 · GO"
+  cpf                  String?      @unique
+  status               UserStatus   @default(ATIVO)
+  plano                String?      // ex: "Pro Anual", "Pro Mensal"
+  banidoPorId          String?      // admin que baniu (OWASP A09)
+  banidoEm             DateTime?
+  motivoBan            String?
+  createdAt            DateTime     @default(now())
+  consultas            Consulta[]
+  publicacoes          Publicacao[]
+  banidoPor            Admin?       @relation("ProfessionalBanidor", fields: [banidoPorId], references: [id])
 }
 
 model Client {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  password  String
-  createdAt DateTime @default(now())
+  id          String     @id @default(uuid())
+  email       String     @unique
+  name        String
+  password    String
+  avatarUrl   String?
+  cpf         String?    @unique
+  status      UserStatus @default(ATIVO)
+  plano       String?    // ex: "Premium", "Básico"
+  banidoPorId String?    // admin que baniu (OWASP A09)
+  banidoEm    DateTime?
+  motivoBan   String?
+  createdAt   DateTime   @default(now())
+  consultas   Consulta[]
+  denuncias   Denuncia[]
+  banidoPor   Admin?     @relation("ClientBanidor", fields: [banidoPorId], references: [id])
+}
+
+model Consulta {
+  id             String         @id @default(uuid())
+  profissionalId String
+  clienteId      String
+  especialidade  String
+  tipo           ConsultaTipo
+  dataHora       DateTime
+  valorCentavos  Int            // valor em centavos — evita erros de float (OWASP A02)
+  taxaPlataforma Int            @default(10) // percentual retido pela plataforma
+  status         ConsultaStatus @default(PENDENTE)
+  repasseEm      DateTime?      // data/hora em que o repasse foi processado
+  estornoMotivo  String?        // motivo do estorno, se aplicável
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  profissional Professional @relation(fields: [profissionalId], references: [id])
+  cliente      Client       @relation(fields: [clienteId], references: [id])
+  repasses     Repasse[]
+}
+
+model Repasse {
+  id            String   @id @default(uuid())
+  consultaId    String
+  adminId       String
+  valorCentavos Int      // valor repassado ao profissional em centavos
+  processadoEm  DateTime @default(now())
+
+  consulta Consulta @relation(fields: [consultaId], references: [id])
+  admin    Admin    @relation(fields: [adminId], references: [id])
+}
+
+model Publicacao {
+  id             String           @id @default(uuid())
+  profissionalId String
+  topico         String
+  caption        String           // texto do post
+  imagemUrl      String
+  aspectRatio    Float            @default(1.0)   // largura/altura da imagem
+  likes          Int              @default(0)
+  comentarios    Int              @default(0)
+  status         PublicacaoStatus @default(ATIVA)
+  motivoBan      String?          // motivo informado pelo admin ao banir
+  moderadoPorId  String?          // qual admin moderou (OWASP A09 — auditoria)
+  moderadoEm     DateTime?        // quando foi moderado
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  profissional Professional @relation(fields: [profissionalId], references: [id])
+  moderadoPor  Admin?       @relation("PublicacaoModerador", fields: [moderadoPorId], references: [id])
+  denuncias    Denuncia[]
+}
+
+model Denuncia {
+  id           String   @id @default(uuid())
+  publicacaoId String
+  clienteId    String?  // quem denunciou (null = anônimo)
+  motivo       String   // "spam", "conteúdo impróprio", etc.
+  createdAt    DateTime @default(now())
+
+  publicacao Publicacao @relation(fields: [publicacaoId], references: [id])
+  cliente    Client?    @relation(fields: [clienteId], references: [id])
+}
+
+model Plano {
+  id            String       @id @default(uuid())
+  nome          String
+  tipo          PlanoPeriodo
+  valorCentavos Int          // valor em centavos — evita erros de ponto flutuante (OWASP A02)
+  consultas     Int          // quantidade de consultas incluídas no plano
+  taxa          Int          // percentual retido pela plataforma (ex: 6 = 6%)
+  ativo         Boolean      @default(true)
+  criadoPorId   String       // OWASP A09 — rastreabilidade: qual admin criou
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  criadoPor Admin @relation("PlanoCriador", fields: [criadoPorId], references: [id])
+}
+
+/// Preferências de notificação do admin — relação 1:1 com Admin
+model AdminNotifPrefs {
+  adminId            String   @id
+  novaConsulta       Boolean  @default(true)
+  cancelamento       Boolean  @default(true)
+  novoUsuario        Boolean  @default(true)
+  assinaturaVencendo Boolean  @default(true)
+  relatorioSemanal   Boolean  @default(false)
+  canalEmail         Boolean  @default(true)
+  canalWhatsapp      Boolean  @default(false)
+  canalPush          Boolean  @default(true)
+  updatedAt          DateTime @updatedAt
+
+  admin Admin @relation(fields: [adminId], references: [id])
+}
+
+/// Convênios de saúde aceitos pela plataforma
+model Convenio {
+  id          String   @id @default(uuid())
+  nome        String   @unique
+  categoria   String   // Nacional | Regional | Empresarial | Odontológico | Outro
+  ativo       Boolean  @default(true)
+  criadoPorId String   // OWASP A09 — rastreabilidade
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  criadoPor Admin @relation("ConvenioCriador", fields: [criadoPorId], references: [id])
 }

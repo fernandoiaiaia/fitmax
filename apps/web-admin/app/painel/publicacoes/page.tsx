@@ -1,6 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  fetchPublicacoes, fetchContadores, banirPublicacao, aprovarPublicacao,
+  toRelativeTime,
+  type PublicacaoItem, type Contadores,
+} from "../../../lib/publicacoes-api";
 
 // ── Paleta (web-client style) ─────────────────────────────────────────────────
 const C = {
@@ -10,21 +15,11 @@ const C = {
 };
 
 // ── Status config ─────────────────────────────────────────────────────────────
-const statusConfig = {
-  ativa:      { label: "ATIVA",      bg: "rgba(16,185,129,0.12)",  color: "#10b981" },
-  banida:     { label: "BANIDA",     bg: "rgba(244,63,94,0.12)",   color: "#f43f5e" },
-  denunciada: { label: "DENUNCIADA", bg: "rgba(250,204,21,0.12)",  color: "#facc15" },
+const statusConfig: Record<string, { label: string; bg: string; color: string }> = {
+  ATIVA:      { label: "ATIVA",      bg: "rgba(16,185,129,0.12)",  color: "#10b981" },
+  BANIDA:     { label: "BANIDA",     bg: "rgba(244,63,94,0.12)",   color: "#f43f5e" },
+  DENUNCIADA: { label: "DENUNCIADA", bg: "rgba(250,204,21,0.12)",  color: "#facc15" },
 };
-
-// ── Dados mock ────────────────────────────────────────────────────────────────
-const publicacoes = [
-  { id:1,  prof:"Dra. Beatriz Oliveira",  crm:"CRM 84.521 · SP",  role:"Dermatologista",         topico:"Dermatologia",         avatar:"https://picsum.photos/id/64/200/200",    imagem:"https://picsum.photos/600/520?random=110", aspectRatio:0.87, likes:312, comentarios:24, status:"ativa",      data:"Há 2 horas",  caption:"Cuidar da pele no verão é essencial. Aplique protetor solar FPS 50+ a cada 2 horas, evite exposição direta entre 10h e 16h e mantenha-se hidratada." },
-  { id:2,  prof:"Dr. Rafael Costa",       crm:"CRM 54.321 · SP",  role:"Cardiologista",          topico:"Cardiologia",          avatar:"https://picsum.photos/200/200?random=21", imagem:"https://picsum.photos/600/400?random=210", aspectRatio:1.5,  likes:198, comentarios:11, status:"ativa",      data:"Há 5 horas",  caption:"A saúde cardiovascular começa na alimentação. Reduza o sódio, aumente o potássio e pratique exercícios aeróbicos regularmente." },
-  { id:3,  prof:"Personal Studio FitCore",crm:"CREF 28.450 · RJ", role:"Personal Trainer",       topico:"Fitness",              avatar:"https://picsum.photos/200/200?random=24", imagem:"https://picsum.photos/600/700?random=310", aspectRatio:0.86, likes:534, comentarios:47, status:"denunciada", data:"Há 8 horas",  caption:"Fortalecimento do core e correção postural. Pacotes mensais com desconto especial para novos alunos!" },
-  { id:4,  prof:"Dra. Ana Souza",         crm:"CRN 12.344 · MG",  role:"Nutricionista",          topico:"Nutrição",             avatar:"https://picsum.photos/200/200?random=23", imagem:"https://picsum.photos/600/450?random=410", aspectRatio:1.33, likes:87,  comentarios:8,  status:"ativa",      data:"Ontem",       caption:"Plano alimentar personalizado para atletas de alto rendimento. Agendamentos disponíveis para o mês de maio." },
-  { id:5,  prof:"Marcelo Strong",         crm:"CREF 77.001 · GO", role:"Fisiculturista PRO",     topico:"Musculação",           avatar:"https://picsum.photos/200/200?random=52", imagem:"https://picsum.photos/600/600?random=510", aspectRatio:1.0,  likes:1240,comentarios:89, status:"banida",     data:"Há 2 dias",   caption:"Desconto ABSURDO de 60% na minha mentoria anual! Não perca! Oferta por tempo limitado." },
-  { id:6,  prof:"Dra. Juliana Mendes",    crm:"CRP 45.678 · SP",  role:"Psicóloga",              topico:"Saúde Mental",         avatar:"https://picsum.photos/200/200?random=23", imagem:"https://picsum.photos/600/800?random=610", aspectRatio:0.75, likes:420, comentarios:36, status:"ativa",      data:"Há 3 dias",   caption:"Saúde mental é prioridade. Agende sua sessão e dê o primeiro passo para o seu equilíbrio emocional." },
-];
 
 const FILTERS = ["Todas", "Ativas", "Denunciadas", "Banidas"];
 
@@ -49,35 +44,67 @@ const PAGE_CSS = `
 
 export default function PublicacoesAdminPage() {
   const [activeFilter, setActiveFilter] = useState("Todas");
-  const [search, setSearch] = useState("");
-  const [statuses, setStatuses] = useState<Record<number, string>>(
-    Object.fromEntries(publicacoes.map(p => [p.id, p.status]))
-  );
+  const [search,         setSearch]         = useState("");
+  const [debouncedSearch,setDebouncedSearch] = useState("");
+  const [publicacoes,    setPublicacoes]    = useState<PublicacaoItem[]>([]);
+  const [contadores,     setContadores]     = useState<Contadores>({ ATIVA: 0, DENUNCIADA: 0, BANIDA: 0, total: 0 });
+  const [loading,        setLoading]        = useState(true);
+  const [loadingAcao,    setLoadingAcao]    = useState<string | null>(null); // id da pub sendo moderada
+  const [error,          setError]          = useState<string | null>(null);
+  // ref para cancelar debounce
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const filtered = useMemo(() => {
-    return publicacoes.filter(p => {
-      const st = statuses[p.id];
-      if (activeFilter === "Ativas"      && st !== "ativa")      return false;
-      if (activeFilter === "Denunciadas" && st !== "denunciada") return false;
-      if (activeFilter === "Banidas"     && st !== "banida")     return false;
-      if (search) {
-        const q = search.toLowerCase();
-        if (![p.prof, p.crm, p.topico, p.caption].some(s => s.toLowerCase().includes(q))) return false;
-      }
-      return true;
-    });
-  }, [search, activeFilter, statuses]);
+  // Debounce busca: 300ms
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [search]);
+
+  // Mapa de aba → status da API
+  const filterToStatus: Record<string, 'ATIVA' | 'DENUNCIADA' | 'BANIDA' | undefined> = {
+    Todas: undefined, Ativas: 'ATIVA', Denunciadas: 'DENUNCIADA', Banidas: 'BANIDA',
+  };
+
+  const loadData = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const status = filterToStatus[activeFilter];
+      const [res, cnt] = await Promise.all([
+        fetchPublicacoes({ search: debouncedSearch, status, limit: 50 }),
+        fetchContadores(),
+      ]);
+      setPublicacoes(res.data);
+      setContadores(cnt);
+    } catch {
+      setError("Não foi possível carregar as publicações. Verifique sua conexão.");
+    } finally {
+      setLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, activeFilter]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const handleBanir = async (id: string) => {
+    setLoadingAcao(id);
+    try { await banirPublicacao(id); await loadData(); }
+    catch { setError("Erro ao banir publicação."); }
+    finally { setLoadingAcao(null); }
+  };
+
+  const handleAprovar = async (id: string) => {
+    setLoadingAcao(id);
+    try { await aprovarPublicacao(id); await loadData(); }
+    catch { setError("Erro ao aprovar publicação."); }
+    finally { setLoadingAcao(null); }
+  };
+
+  const filtered = publicacoes; // filtro é server-side
 
   // Masonry: 3 colunas
-  const columns: (typeof filtered)[] = [[], [], []];
+  const columns: PublicacaoItem[][] = [[], [], []];
   filtered.forEach((p, i) => columns[i % 3].push(p));
-
-  const ban     = (id: number) => setStatuses(s => ({ ...s, [id]: "banida" }));
-  const approve = (id: number) => setStatuses(s => ({ ...s, [id]: "ativa" }));
-
-  const countAtiva      = publicacoes.filter(p => statuses[p.id] === "ativa").length;
-  const countDenunciada = publicacoes.filter(p => statuses[p.id] === "denunciada").length;
-  const countBanida     = publicacoes.filter(p => statuses[p.id] === "banida").length;
 
   return (
     <>
@@ -93,9 +120,9 @@ export default function PublicacoesAdminPage() {
           {/* Summary pills */}
           <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
             {[
-              { label:`${countAtiva} ativas`,       color:"#10b981", bg:"rgba(16,185,129,0.1)"  },
-              { label:`${countDenunciada} denunciadas`, color:"#facc15", bg:"rgba(250,204,21,0.1)"  },
-              { label:`${countBanida} banidas`,      color:"#f43f5e", bg:"rgba(244,63,94,0.1)"   },
+              { label:`${contadores.ATIVA} ativas`,       color:"#10b981", bg:"rgba(16,185,129,0.1)"  },
+              { label:`${contadores.DENUNCIADA} denunciadas`, color:"#facc15", bg:"rgba(250,204,21,0.1)"  },
+              { label:`${contadores.BANIDA} banidas`,      color:"#f43f5e", bg:"rgba(244,63,94,0.1)"   },
             ].map((item, i) => (
               <div key={i} style={{ display:"flex", alignItems:"center", gap:6, background:item.bg, borderRadius:999, padding:"4px 12px" }}>
                 <div style={{ width:6, height:6, borderRadius:"50%", background:item.color }} />
@@ -134,7 +161,7 @@ export default function PublicacoesAdminPage() {
             );
           })}
           <span style={{ color:C.muted, fontSize:13, alignSelf:"center", marginLeft:"auto" }}>
-            {filtered.length} publicaç{filtered.length !== 1 ? "ões" : "ão"}
+            {loading ? "Carregando..." : `${contadores.total} publicaç${contadores.total !== 1 ? "ões" : "ão"}`}
           </span>
         </div>
 
@@ -145,12 +172,39 @@ export default function PublicacoesAdminPage() {
             {FILTERS.map(f => <option key={f} value={f} style={{ background:"#111" }}>{f}</option>)}
           </select>
           <span style={{ color:C.muted, fontSize:13, whiteSpace:"nowrap", flexShrink:0 }}>
-            {filtered.length} publicaç{filtered.length !== 1 ? "ões" : "ão"}
+            {loading ? "..." : `${contadores.total} publicaç${contadores.total !== 1 ? "ões" : "ão"}`}
           </span>
         </div>
 
         {/* Masonry */}
-        {filtered.length === 0 ? (
+        {error ? (
+          <div style={{ background:"rgba(244,63,94,0.08)", border:"1px solid rgba(244,63,94,0.3)", borderRadius:12, padding:20, color:"#f43f5e", fontSize:13, textAlign:"center" }}>
+            {error}
+          </div>
+        ) : loading ? (
+          <div className="pub-masonry" style={{ display:"flex", gap:14, alignItems:"flex-start" }}>
+            {[0,1,2].map(col => (
+              <div key={col} style={{ flex:1, display:"flex", flexDirection:"column", gap:14, minWidth:260 }}>
+                {[0,1].map(i => (
+                  <div key={i} style={{ background:"#1a1a1a", border:"1px solid #27272a", borderRadius:14, overflow:"hidden" }}>
+                    <div style={{ padding:"12px 12px 8px", display:"flex", gap:10, alignItems:"center" }}>
+                      <div style={{ width:38, height:38, borderRadius:"50%", background:"#222" }} />
+                      <div style={{ flex:1, display:"flex", flexDirection:"column", gap:6 }}>
+                        <div style={{ height:12, borderRadius:4, background:"#222", width:"60%" }} />
+                        <div style={{ height:10, borderRadius:4, background:"#1e1e1e", width:"40%" }} />
+                      </div>
+                    </div>
+                    <div style={{ width:"100%", height: col === 1 ? 200 : 160, background:"#222" }} />
+                    <div style={{ padding:12, display:"flex", flexDirection:"column", gap:8 }}>
+                      <div style={{ height:10, borderRadius:4, background:"#222", width:"80%" }} />
+                      <div style={{ height:10, borderRadius:4, background:"#1e1e1e", width:"60%" }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <div style={{ display:"flex", flexDirection:"column", alignItems:"center", padding:"80px 0", gap:12 }}>
             <span style={{ fontSize:40 }}>🔍</span>
             <span style={{ color:C.muted, fontSize:15 }}>Nenhuma publicação encontrada.</span>
@@ -161,9 +215,10 @@ export default function PublicacoesAdminPage() {
             {columns.map((col, colIdx) => (
               <div key={colIdx} style={{ flex:1, display:"flex", flexDirection:"column", gap:14, minWidth:260 }}>
                 {col.map(pub => {
-                  const sc = statusConfig[statuses[pub.id] as keyof typeof statusConfig] || statusConfig.ativa;
-                  const isBanida = statuses[pub.id] === "banida";
-                  const isDenunciada = statuses[pub.id] === "denunciada";
+                  const sc = statusConfig[pub.status] ?? statusConfig['ATIVA'];
+                  const isBanida     = pub.status === "BANIDA";
+                  const isDenunciada = pub.status === "DENUNCIADA";
+                  const isActing     = loadingAcao === pub.id;
                   return (
                     <div key={pub.id} className="pub-card" style={{ border:`1px solid ${isDenunciada ? "rgba(250,204,21,0.3)" : isBanida ? "rgba(244,63,94,0.25)" : C.border}`, background: isBanida ? "rgba(244,63,94,0.03)" : C.card, opacity: isBanida ? 0.7 : 1 }}>
 
@@ -171,7 +226,7 @@ export default function PublicacoesAdminPage() {
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 12px 8px" }}>
                         <div style={{ display:"flex", gap:10, alignItems:"center", flex:1, minWidth:0 }}>
                           <div style={{ position:"relative", flexShrink:0 }}>
-                            <img src={pub.avatar} alt="" style={{ width:38, height:38, borderRadius:"50%", objectFit:"cover", border:`2px solid ${sc.color}44` }} />
+                            <img src={pub.profissional.avatarUrl ?? `https://picsum.photos/200/200?random=${pub.id}`} alt="" style={{ width:38, height:38, borderRadius:"50%", objectFit:"cover", border:`2px solid ${sc.color}44` }} />
                             {isDenunciada && (
                               <div style={{ position:"absolute", bottom:-2, right:-2, width:14, height:14, borderRadius:"50%", background:"#facc15", border:`2px solid ${C.card}`, display:"flex", alignItems:"center", justifyContent:"center" }}>
                                 <span style={{ fontSize:7, lineHeight:1 }}>!</span>
@@ -180,13 +235,13 @@ export default function PublicacoesAdminPage() {
                           </div>
                           <div style={{ minWidth:0 }}>
                             <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                              <span style={{ color:C.text, fontSize:13, fontWeight:700, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{pub.prof}</span>
+                              <span style={{ color:C.text, fontSize:13, fontWeight:700, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{pub.profissional.name}</span>
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="#10b981"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
                             </div>
                             <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-                              <span style={{ color:C.muted, fontSize:10 }}>{pub.role}</span>
+                              <span style={{ color:C.muted, fontSize:10 }}>{pub.profissional.especialidade}</span>
                               <span style={{ color:C.dim, fontSize:10 }}>·</span>
-                              <span style={{ color:C.dim, fontSize:10 }}>{pub.data}</span>
+                              <span style={{ color:C.dim, fontSize:10 }}>{toRelativeTime(pub.createdAt)}</span>
                             </div>
                           </div>
                         </div>
@@ -198,7 +253,7 @@ export default function PublicacoesAdminPage() {
 
                       {/* Image */}
                       <div style={{ width:"100%", aspectRatio:pub.aspectRatio, background:C.hover, overflow:"hidden" }}>
-                        <img src={pub.imagem} alt="" style={{ width:"100%", height:"100%", objectFit:"cover", filter: isBanida ? "grayscale(60%)" : "none", transition:"transform .3s" }}
+                        <img src={pub.imagemUrl} alt="" style={{ width:"100%", height:"100%", objectFit:"cover", filter: isBanida ? "grayscale(60%)" : "none", transition:"transform .3s" }}
                           onMouseEnter={e => (e.currentTarget as HTMLElement).style.transform = "scale(1.03)"}
                           onMouseLeave={e => (e.currentTarget as HTMLElement).style.transform = "scale(1)"}
                         />
@@ -223,7 +278,7 @@ export default function PublicacoesAdminPage() {
 
                         {/* Caption */}
                         <p style={{ color:C.muted, fontSize:12, margin:0, lineHeight:1.5 }}>
-                          <strong style={{ color:C.text }}>{pub.prof.split(" ")[0]} </strong>
+                          <strong style={{ color:C.text }}>{pub.profissional.name.split(" ")[0]} </strong>
                           {pub.caption.length > 90 ? pub.caption.slice(0, 90) + "..." : pub.caption}
                         </p>
 
@@ -233,19 +288,19 @@ export default function PublicacoesAdminPage() {
                         {/* Admin actions */}
                         <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                           {(isBanida || isDenunciada) && (
-                            <button onClick={() => approve(pub.id)} className="pub-action-btn approve">
+                            <button onClick={() => handleAprovar(pub.id)} className="pub-action-btn approve" disabled={isActing}>
                               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                              {isBanida ? "Restaurar" : "Aprovar"}
+                              {isActing ? "..." : isBanida ? "Restaurar" : "Aprovar"}
                             </button>
                           )}
                           {!isBanida && (
-                            <button onClick={() => ban(pub.id)} className="pub-action-btn ban">
+                            <button onClick={() => handleBanir(pub.id)} className="pub-action-btn ban" disabled={isActing}>
                               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                              Banir
+                              {isActing ? "..." : "Banir"}
                             </button>
                           )}
                           <div style={{ display:"flex", alignItems:"center", gap:4, marginLeft:"auto", color:C.dim, fontSize:11 }}>
-                            <span>{pub.crm}</span>
+                            <span>{pub.profissional.registroProfissional}</span>
                           </div>
                         </div>
                       </div>

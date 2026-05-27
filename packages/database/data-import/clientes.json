@@ -1,0 +1,11 @@
+[
+  {
+    "email": "maria@exemplo.com",
+    "name": "Maria Oliveira",
+    "avatarUrl": "",
+    "cpf": "098.765.432-11",
+    "status": "ATIVO",
+    "plano": "Premium",
+    "password": "SenhaSegura123"
+  }
+]

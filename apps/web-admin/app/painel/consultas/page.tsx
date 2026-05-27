@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { fetchConsultas, fetchKpis, processarRepasse, type ConsultaItem, type KpisResponse } from "../../../lib/consultas-api";
 
 // ── Paleta (alinhada ao web-client) ─────────────────────────────────────────
 const C = {
@@ -11,19 +12,25 @@ const C = {
 
 // ── Status ────────────────────────────────────────────────────────────────────
 const statusConfig: Record<string, { label: string; bg: string; color: string }> = {
-  pago:     { label: "PAGO",     bg: "rgba(16,185,129,0.12)",  color: "#10b981" },
-  pendente: { label: "PENDENTE", bg: "rgba(234,179,8,0.12)",   color: "#facc15" },
-  estorno:  { label: "ESTORNO",  bg: "rgba(244,63,94,0.12)",   color: "#f43f5e" },
+  PAGO:     { label: "PAGO",     bg: "rgba(16,185,129,0.12)",  color: "#10b981" },
+  PENDENTE: { label: "PENDENTE", bg: "rgba(234,179,8,0.12)",   color: "#facc15" },
+  ESTORNO:  { label: "ESTORNO",  bg: "rgba(244,63,94,0.12)",   color: "#f43f5e" },
 };
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
-const consultas = [
-  { id:1, prof:"Dr. Rafael Costa",    paciente:"Amanda Silva",   tipo:"Presencial", especialidade:"Cardiologia", valor:"R$ 350,00", repasse:"R$ 315,00", status:"pago",     dataISO:"2026-04-22", data:"Hoje, 22/04",   horario:"09:00", avatar:"https://picsum.photos/200/200?random=21" },
-  { id:2, prof:"Dra. Juliana Mendes", paciente:"Marcos Nogueira",tipo:"Online",     especialidade:"Psicologia",  valor:"R$ 200,00", repasse:"R$ 180,00", status:"pendente",  dataISO:"2026-04-22", data:"Hoje, 22/04",   horario:"11:00", avatar:"https://picsum.photos/200/200?random=23" },
-  { id:3, prof:"Dr. Carlos Eduardo",  paciente:"Renata Faria",   tipo:"Presencial", especialidade:"Ortopedia",   valor:"R$ 400,00", repasse:"R$ 360,00", status:"estorno",   dataISO:"2026-04-23", data:"Amanhã, 23/04", horario:"14:30", avatar:"https://picsum.photos/200/200?random=50" },
-  { id:4, prof:"Dra. Simone Alves",   paciente:"Tiago Gomes",    tipo:"Online",     especialidade:"Nutrição",    valor:"R$ 250,00", repasse:"R$ 225,00", status:"pago",      dataISO:"2026-04-24", data:"24/04",         horario:"09:00", avatar:"https://picsum.photos/200/200?random=60" },
-  { id:5, prof:"Dr. Rafael Costa",    paciente:"Luiza Moreira",  tipo:"Presencial", especialidade:"Cardiologia", valor:"R$ 350,00", repasse:"R$ 315,00", status:"pendente",  dataISO:"2026-05-10", data:"10/05",         horario:"16:00", avatar:"https://picsum.photos/200/200?random=52" },
-];
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function toDataISO(iso: string) { return iso.substring(0, 10); }
+function toHorario(iso: string) {
+  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+}
+function toDataLabel(iso: string) {
+  const d = new Date(iso); const hoje = new Date();
+  const diff = Math.round((d.setHours(0,0,0,0) - hoje.setHours(0,0,0,0)) / 86400000);
+  const fmt = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  if (diff === 0) return `Hoje`;
+  if (diff === 1) return `Amanhã`;
+  if (diff === -1) return `Ontem`;
+  return fmt;
+}
 
 // ── CSS inline ────────────────────────────────────────────────────────────────
 const PAGE_CSS = `
@@ -72,47 +79,87 @@ function useOutsideClick(ref: React.RefObject<HTMLElement | null>, cb: () => voi
 }
 
 export default function ConsultasAdminPage() {
-  const [selected, setSelected] = useState<number[]>([]);
-  const [search, setSearch] = useState("");
-  const [dateFrom, setDateFrom] = useState("2026-04-22");
-  const [dateTo,   setDateTo]   = useState("2026-05-22");
-  const [showPicker, setShowPicker] = useState(false);
+  const today = new Date();
+  const thirtyAgo = new Date(today); thirtyAgo.setDate(today.getDate() - 30);
+  const isoDate = (d: Date) => d.toISOString().substring(0, 10);
+
+  const [selected,       setSelected]       = useState<string[]>([]);
+  const [search,         setSearch]         = useState("");
+  const [debouncedSearch,setDebouncedSearch] = useState("");
+  const [dateFrom,       setDateFrom]       = useState(isoDate(thirtyAgo));
+  const [dateTo,         setDateTo]         = useState(isoDate(today));
+  const [showPicker,     setShowPicker]     = useState(false);
+  const [consultas,      setConsultas]      = useState<ConsultaItem[]>([]);
+  const [kpis,           setKpis]           = useState<KpisResponse | null>(null);
+  const [loading,        setLoading]        = useState(true);
+  const [loadingRepasse, setLoadingRepasse] = useState(false);
+  const [error,          setError]          = useState<string | null>(null);
+  const [total,          setTotal]          = useState(0);
   const pickerRef = useRef<HTMLDivElement>(null);
   useOutsideClick(pickerRef, () => setShowPicker(false));
 
-  const filtered = consultas.filter(c => {
-    if (dateFrom && c.dataISO < dateFrom) return false;
-    if (dateTo   && c.dataISO > dateTo)   return false;
-    const q = search.toLowerCase();
-    return !q || c.prof.toLowerCase().includes(q) || c.paciente.toLowerCase().includes(q) || c.especialidade.toLowerCase().includes(q);
-  });
+  // Debounce da busca: 300ms
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  const toggle = (id: number) => setSelected(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+  const loadData = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const [res, kpisRes] = await Promise.all([
+        fetchConsultas({ search: debouncedSearch, dateFrom, dateTo, limit: 50 }),
+        fetchKpis(dateFrom, dateTo),
+      ]);
+      setConsultas(res.data);
+      setTotal(res.meta.total);
+      setKpis(kpisRes);
+      setSelected([]);
+    } catch {
+      setError("Não foi possível carregar as consultas. Verifique sua conexão.");
+    } finally {
+      setLoading(false);
+    }
+  }, [debouncedSearch, dateFrom, dateTo]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const handleRepasse = async () => {
+    if (selected.length === 0 || loadingRepasse) return;
+    setLoadingRepasse(true);
+    try {
+      await processarRepasse(selected);
+      await loadData();
+    } catch {
+      setError("Erro ao processar repasse. Tente novamente.");
+    } finally {
+      setLoadingRepasse(false);
+    }
+  };
+
+  const toggle = (id: string) => setSelected(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
   const fmtDate = (iso: string) => { const [y,m,d] = iso.split("-"); return `${d}/${m}/${y}`; };
-
-  const totalRepassado  = consultas.filter(c => c.status === "pago").reduce((a, c) => a + parseFloat(c.repasse.replace(/[^\d,]/g,"").replace(",",".")), 0);
-  const totalPendente   = consultas.filter(c => c.status === "pendente").reduce((a, c) => a + parseFloat(c.repasse.replace(/[^\d,]/g,"").replace(",",".")), 0);
-  const totalEstorno    = consultas.filter(c => c.status === "estorno").reduce((a, c) => a + parseFloat(c.valor.replace(/[^\d,]/g,"").replace(",",".")), 0);
-  const totalGeral      = consultas.reduce((a, c) => a + parseFloat(c.valor.replace(/[^\d,]/g,"").replace(",",".")), 0);
-
-  const fmt = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+  const fmt = (v: string) => `R$ ${parseFloat(v).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+  const filtered = consultas; // filtro é server-side
 
   // ── PDF export ────────────────────────────────────────────────────────────
   const exportPDF = () => {
     const now = new Date().toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
     const rows = filtered.map(c => {
       const sc = statusConfig[c.status];
+      const dataLabel = toDataLabel(c.dataHora) + ", " + toHorario(c.dataHora);
+      const tipoLabel = c.tipo === 'ONLINE' ? 'Online' : 'Presencial';
       return `
         <tr style="border-bottom:1px solid #e5e7eb">
-          <td style="padding:8px 10px;font-size:12px;color:#111">${c.data} · ${c.horario}</td>
-          <td style="padding:8px 10px;font-size:12px;font-weight:600;color:#111">${c.prof}</td>
-          <td style="padding:8px 10px;font-size:12px;color:#374151">${c.paciente}</td>
+          <td style="padding:8px 10px;font-size:12px;color:#111">${dataLabel}</td>
+          <td style="padding:8px 10px;font-size:12px;font-weight:600;color:#111">${c.profissional.name}</td>
+          <td style="padding:8px 10px;font-size:12px;color:#374151">${c.cliente.name}</td>
           <td style="padding:8px 10px;font-size:12px;color:#374151">${c.especialidade}</td>
           <td style="padding:8px 10px;font-size:11px">
-            <span style="background:${c.tipo==="Online"?"#eff6ff":"#fffbeb"};color:${c.tipo==="Online"?"#2563eb":"#d97706"};padding:2px 8px;border-radius:99px;font-weight:700">${c.tipo}</span>
+            <span style="background:${tipoLabel==="Online"?"#eff6ff":"#fffbeb"};color:${tipoLabel==="Online"?"#2563eb":"#d97706"};padding:2px 8px;border-radius:99px;font-weight:700">${tipoLabel}</span>
           </td>
-          <td style="padding:8px 10px;font-size:12px;font-weight:700;color:#111;text-align:right">${c.valor}</td>
-          <td style="padding:8px 10px;font-size:12px;font-weight:700;color:#059669;text-align:right">${c.repasse}</td>
+          <td style="padding:8px 10px;font-size:12px;font-weight:700;color:#111;text-align:right">${fmt(c.valorReais)}</td>
+          <td style="padding:8px 10px;font-size:12px;font-weight:700;color:#059669;text-align:right">${fmt(c.repasseReais)}</td>
           <td style="padding:8px 10px;font-size:11px;text-align:center">
             <span style="background:${sc.bg};color:${sc.color};padding:2px 10px;border-radius:99px;font-weight:700;font-size:10px">${sc.label}</span>
           </td>
@@ -156,10 +203,10 @@ export default function ConsultasAdminPage() {
         <tbody>${rows}</tbody>
       </table>
       <div class="totals">
-        <div class="tot"><div class="tot-label">Total Repassado</div><div class="tot-val" style="color:#10b981">${fmt(totalRepassado)}</div></div>
-        <div class="tot"><div class="tot-label">Pendentes</div><div class="tot-val" style="color:#d97706">${fmt(totalPendente)}</div></div>
-        <div class="tot"><div class="tot-label">Estornos</div><div class="tot-val" style="color:#ef4444">${fmt(totalEstorno)}</div></div>
-        <div class="tot"><div class="tot-label">Total Movimentado</div><div class="tot-val" style="color:#111">${fmt(totalGeral)}</div></div>
+        <div class="tot"><div class="tot-label">Total Repassado</div><div class="tot-val" style="color:#10b981">${kpis ? fmt(kpis.totalRepassadoReais) : '-'}</div></div>
+        <div class="tot"><div class="tot-label">Pendentes</div><div class="tot-val" style="color:#d97706">${kpis ? fmt(kpis.totalPendenteReais) : '-'}</div></div>
+        <div class="tot"><div class="tot-label">Estornos</div><div class="tot-val" style="color:#ef4444">${kpis ? fmt(kpis.totalEstornoReais) : '-'}</div></div>
+        <div class="tot"><div class="tot-label">Total Movimentado</div><div class="tot-val" style="color:#111">${kpis ? fmt(kpis.totalMovimentadoReais) : '-'}</div></div>
       </div>
       <div class="footer"><span>FitMax Admin © ${new Date().getFullYear()}</span><span>${filtered.length} registro${filtered.length!==1?"s":""} exportados</span></div>
       </body></html>`;
@@ -173,10 +220,10 @@ export default function ConsultasAdminPage() {
   };
 
   const stats = [
-    { label: "Total Repassado",       value: fmt(totalRepassado), color: "#10b981", accent: "rgba(16,185,129,0.35)",  icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> },
-    { label: "Repasses Pendentes",    value: fmt(totalPendente),  color: "#facc15", accent: "rgba(250,204,21,0.35)",  icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#facc15" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
-    { label: "Estornos Solicitados",  value: fmt(totalEstorno),   color: "#f43f5e", accent: "rgba(244,63,94,0.35)",   icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> },
-    { label: "Total Movimentado",     value: fmt(totalGeral),     color: "#a1a1aa", accent: "rgba(161,161,170,0.25)", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
+    { label: "Total Repassado",       value: kpis ? fmt(kpis.totalRepassadoReais)   : "--", color: "#10b981", accent: "rgba(16,185,129,0.35)",  icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> },
+    { label: "Repasses Pendentes",    value: kpis ? fmt(kpis.totalPendenteReais)    : "--", color: "#facc15", accent: "rgba(250,204,21,0.35)",  icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#facc15" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
+    { label: "Estornos Solicitados",  value: kpis ? fmt(kpis.totalEstornoReais)     : "--", color: "#f43f5e", accent: "rgba(244,63,94,0.35)",   icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> },
+    { label: "Total Movimentado",     value: kpis ? fmt(kpis.totalMovimentadoReais) : "--", color: "#a1a1aa", accent: "rgba(161,161,170,0.25)", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
   ];
 
   return (
@@ -197,10 +244,11 @@ export default function ConsultasAdminPage() {
           </div>
           <button
             className="adm-banner-btn"
-            disabled={selected.length === 0}
+            onClick={handleRepasse}
+            disabled={selected.length === 0 || loadingRepasse}
             style={{ opacity: selected.length === 0 ? 0.5 : 1, cursor: selected.length === 0 ? "not-allowed" : "pointer" }}
           >
-            Repassar {selected.length > 0 ? `(${selected.length})` : "Selecionados"}
+            {loadingRepasse ? "Processando..." : `Repassar ${selected.length > 0 ? `(${selected.length})` : "Selecionados"}`}
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </button>
         </div>
@@ -235,7 +283,7 @@ export default function ConsultasAdminPage() {
                     <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ background:"#222", border:`1px solid ${C.border}`, borderRadius:8, color:"#fff", padding:"6px 10px", fontSize:13, width:"100%", outline:"none", colorScheme:"dark", fontFamily:"inherit" }} />
                   </div>
                   <div style={{ display:"flex", gap:8 }}>
-                    <button onClick={() => { setDateFrom("2026-04-22"); setDateTo("2026-05-22"); }} style={{ flex:1, padding:"6px 0", borderRadius:8, fontSize:12, fontWeight:600, background:"transparent", border:`1px solid ${C.border}`, color:C.muted, cursor:"pointer", fontFamily:"inherit" }}>Resetar</button>
+                    <button onClick={() => { const t = new Date(); const a = new Date(t); a.setDate(t.getDate()-30); setDateFrom(a.toISOString().substring(0,10)); setDateTo(t.toISOString().substring(0,10)); }} style={{ flex:1, padding:"6px 0", borderRadius:8, fontSize:12, fontWeight:600, background:"transparent", border:`1px solid ${C.border}`, color:C.muted, cursor:"pointer", fontFamily:"inherit" }}>Resetar</button>
                     <button onClick={() => setShowPicker(false)} style={{ flex:1, padding:"6px 0", borderRadius:8, fontSize:12, fontWeight:600, background:C.green, border:"none", color:"#fff", cursor:"pointer", fontFamily:"inherit" }}>Aplicar</button>
                   </div>
                 </div>
@@ -271,7 +319,7 @@ export default function ConsultasAdminPage() {
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
             <div>
               <h3 style={{ color:C.text, fontSize:16, fontWeight:700, margin:0 }}>Lista de Consultas</h3>
-              <span style={{ color:C.muted, fontSize:12 }}>{filtered.length} consulta{filtered.length !== 1 ? "s" : ""} encontrada{filtered.length !== 1 ? "s" : ""}</span>
+              <span style={{ color:C.muted, fontSize:12 }}>{loading ? "Carregando..." : `${total} consulta${total !== 1 ? "s" : ""} encontrada${total !== 1 ? "s" : ""}`}</span>
             </div>
             {selected.length > 0 && (
               <span style={{ color:C.green, fontSize:12, fontWeight:600 }}>{selected.length} selecionada{selected.length !== 1 ? "s" : ""}</span>
@@ -279,7 +327,26 @@ export default function ConsultasAdminPage() {
           </div>
 
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {filtered.length === 0 ? (
+            {error ? (
+              <div style={{ background:"rgba(244,63,94,0.08)", border:"1px solid rgba(244,63,94,0.3)", borderRadius:12, padding:20, color:"#f43f5e", fontSize:13, textAlign:"center" }}>
+                {error}
+              </div>
+            ) : loading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"14px 16px", display:"flex", alignItems:"center", gap:12 }}>
+                  <div style={{ width:18, height:18, borderRadius:"50%", background:"#222" }} />
+                  <div style={{ width:42, height:32, borderRadius:6, background:"#222" }} />
+                  <div style={{ width:1, height:32, background:C.border }} />
+                  <div style={{ width:36, height:36, borderRadius:"50%", background:"#222" }} />
+                  <div style={{ flex:2, display:"flex", flexDirection:"column", gap:6 }}>
+                    <div style={{ height:12, borderRadius:4, background:"#222", width:"60%" }} />
+                    <div style={{ height:10, borderRadius:4, background:"#1e1e1e", width:"40%" }} />
+                  </div>
+                  <div style={{ flex:1, height:14, borderRadius:4, background:"#222" }} />
+                  <div style={{ width:70, height:24, borderRadius:99, background:"#222" }} />
+                </div>
+              ))
+            ) : filtered.length === 0 ? (
               <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:40, display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
                 <span style={{ fontSize:32 }}>📭</span>
                 <span style={{ color:C.muted, fontSize:14 }}>Nenhuma consulta encontrada para este filtro.</span>
@@ -298,21 +365,21 @@ export default function ConsultasAdminPage() {
 
                     {/* Horário */}
                     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", width:42, flexShrink:0 }}>
-                      <span style={{ color:C.muted, fontSize:11, fontWeight:700 }}>{c.horario}</span>
-                      <span style={{ color:C.dim, fontSize:10 }}>{c.data.split(",")[0] || c.data}</span>
+                      <span style={{ color:C.muted, fontSize:11, fontWeight:700 }}>{toHorario(c.dataHora)}</span>
+                      <span style={{ color:C.dim, fontSize:10 }}>{toDataLabel(c.dataHora)}</span>
                     </div>
 
                     <div style={{ width:1, height:32, background:C.border, flexShrink:0 }} />
 
                     {/* Avatar */}
-                    <img src={c.avatar} alt="" style={{ width:36, height:36, borderRadius:"50%", objectFit:"cover", flexShrink:0, border:`2px solid ${sel ? C.green : "transparent"}`, transition:"border-color .15s" }} />
+                    <img src={c.profissional.avatarUrl ?? `https://picsum.photos/200/200?random=${c.id}`} alt="" style={{ width:36, height:36, borderRadius:"50%", objectFit:"cover", flexShrink:0, border:`2px solid ${sel ? C.green : "transparent"}`, transition:"border-color .15s" }} />
 
                     {/* Info */}
                     <div style={{ flex:2, minWidth:0 }}>
-                      <p style={{ color:C.text, fontSize:13, fontWeight:700, margin:0, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{c.prof}</p>
-                      <p style={{ color:C.muted, fontSize:11, margin:"2px 0 0" }}>Paciente: {c.paciente}</p>
+                      <p style={{ color:C.text, fontSize:13, fontWeight:700, margin:0, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{c.profissional.name}</p>
+                      <p style={{ color:C.muted, fontSize:11, margin:"2px 0 0" }}>Paciente: {c.cliente.name}</p>
                       <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:3 }}>
-                        <span style={{ color: c.tipo === "Online" ? "#60a5fa" : "#f59e0b", fontSize:10, fontWeight:600 }}>{c.tipo}</span>
+                        <span style={{ color: c.tipo === "ONLINE" ? "#60a5fa" : "#f59e0b", fontSize:10, fontWeight:600 }}>{c.tipo === "ONLINE" ? "Online" : "Presencial"}</span>
                         <span style={{ color:C.dim, fontSize:10 }}>·</span>
                         <span style={{ color:C.dim, fontSize:10 }}>{c.especialidade}</span>
                       </div>
@@ -321,19 +388,19 @@ export default function ConsultasAdminPage() {
                     {/* Valor */}
                     <div className="adm-cons-meta" style={{ flex:1, minWidth:100 }}>
                       <p style={{ color:C.muted, fontSize:10, margin:0 }}>Consulta</p>
-                      <p style={{ color:C.text, fontSize:14, fontWeight:700, margin:"2px 0 0" }}>{c.valor}</p>
+                      <p style={{ color:C.text, fontSize:14, fontWeight:700, margin:"2px 0 0" }}>{fmt(c.valorReais)}</p>
                     </div>
 
                     {/* Repasse */}
                     <div className="adm-cons-meta" style={{ flex:1, minWidth:100 }}>
-                      <p style={{ color:C.muted, fontSize:10, margin:0 }}>Repasse (−10%)</p>
-                      <p style={{ color:C.green, fontSize:14, fontWeight:700, margin:"2px 0 0" }}>{c.repasse}</p>
+                      <p style={{ color:C.muted, fontSize:10, margin:0 }}>Repasse (−{c.taxaPlataforma}%)</p>
+                      <p style={{ color:C.green, fontSize:14, fontWeight:700, margin:"2px 0 0" }}>{fmt(c.repasseReais)}</p>
                     </div>
 
                     {/* Badge */}
                     <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                       <div style={{ background:sc.bg, borderRadius:999, padding:"3px 10px", border:`1px solid ${sc.color}44`, display:"flex", alignItems:"center", gap:5 }}>
-                        <div style={{ width:5, height:5, borderRadius:"50%", background:sc.color, animation: c.status === "pendente" ? "dotPulse 1.5s ease-in-out infinite" : "none" }} />
+                        <div style={{ width:5, height:5, borderRadius:"50%", background:sc.color, animation: c.status === "PENDENTE" ? "dotPulse 1.5s ease-in-out infinite" : "none" }} />
                         <span style={{ color:sc.color, fontSize:9, fontWeight:700, letterSpacing:1 }}>{sc.label}</span>
                       </div>
                     </div>

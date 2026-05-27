@@ -1,0 +1,13 @@
+[
+  {
+    "email": "dr.joao@exemplo.com",
+    "name": "Dr. João Silva",
+    "especialidade": "Cardiologia",
+    "avatarUrl": "",
+    "registroProfissional": "CRM 12.345 - SP",
+    "cpf": "123.456.789-00",
+    "status": "ATIVO",
+    "plano": "Pro Anual",
+    "password": "SenhaSegura123"
+  }
+]

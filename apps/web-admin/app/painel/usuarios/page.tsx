@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  fetchUsuarios, fetchResumo, fetchRecentes,
+  toggleStatus, banirUsuario, restaurarUsuario,
+  formatDate,
+  type UsuarioItem, type Resumo, type RecenteItem, type UserTipo,
+} from "../../../lib/usuarios-api";
+
 
 // ── Paleta ────────────────────────────────────────────────────────────────────
 const C = {
@@ -10,37 +17,13 @@ const C = {
 };
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
-type Status = "ativo" | "inativo" | "banido";
-type Tipo   = "pro-personal" | "pro-terapia" | "pro-nutricao" | "cliente";
-
-interface Usuario {
-  id: number; nome: string; email: string; cpf: string;
-  tipo: Tipo; status: Status; cadastro: string; avatar?: string; plano?: string;
-}
-
-// ── Dados mock ─────────────────────────────────────────────────────────────────
-const usuarios: Usuario[] = [
-  { id:1, nome:"Amanda Silva",        email:"amanda@email.com",   cpf:"012.345.678-90", tipo:"cliente",      status:"ativo",   cadastro:"12/01/2025", avatar:"https://picsum.photos/id/26/200/200",    plano:"Premium" },
-  { id:2, nome:"Dr. Rafael Costa",    email:"rafael@fitmax.com",  cpf:"123.456.789-01", tipo:"pro-personal", status:"ativo",   cadastro:"03/03/2025", avatar:"https://picsum.photos/id/1025/200/200",  plano:"Pro Anual" },
-  { id:3, nome:"Dra. Juliana Mendes", email:"juliana@email.com",  cpf:"234.567.890-12", tipo:"pro-terapia",  status:"inativo", cadastro:"19/02/2025", avatar:"https://picsum.photos/id/64/200/200" },
-  { id:4, nome:"Marcos Nogueira",     email:"marcos@email.com",   cpf:"345.678.901-23", tipo:"cliente",      status:"ativo",   cadastro:"07/04/2025", avatar:"https://picsum.photos/id/1012/200/200",  plano:"Básico" },
-  { id:5, nome:"Dra. Kaylane Pereira",email:"kaylane@email.com",  cpf:"456.789.012-34", tipo:"pro-nutricao", status:"banido",  cadastro:"25/01/2025", avatar:"https://picsum.photos/id/91/200/200" },
-  { id:6, nome:"Luiza Moreira",       email:"luiza@email.com",    cpf:"567.890.123-45", tipo:"cliente",      status:"inativo", cadastro:"14/03/2025" },
-  { id:7, nome:"Bruno Silva",         email:"bruno@email.com",    cpf:"678.901.234-56", tipo:"pro-personal", status:"ativo",   cadastro:"20/03/2025", avatar:"https://picsum.photos/200/200?random=25", plano:"Pro Mensal" },
-  { id:8, nome:"Renata Faria",        email:"renata@email.com",   cpf:"789.012.345-67", tipo:"cliente",      status:"ativo",   cadastro:"01/04/2025", avatar:"https://picsum.photos/200/200?random=50", plano:"Premium" },
-];
+type UserStatus = 'ATIVO' | 'INATIVO' | 'BANIDO';
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const statusCfg = {
-  ativo:   { label:"ATIVO",   bg:"rgba(16,185,129,0.12)",  color:"#10b981" },
-  inativo: { label:"INATIVO", bg:"rgba(161,161,170,0.1)",  color:"#a1a1aa" },
-  banido:  { label:"BANIDO",  bg:"rgba(244,63,94,0.12)",   color:"#f43f5e" },
-};
-const tipoCfg: Record<Tipo, { label: string; color: string }> = {
-  "pro-personal": { label:"Personal Trainer", color:"#10b981" },
-  "pro-terapia":  { label:"Terapia",          color:"#a78bfa" },
-  "pro-nutricao": { label:"Nutrição",         color:"#60a5fa" },
-  "cliente":      { label:"Cliente",          color:"#a1a1aa" },
+const statusCfg: Record<UserStatus, { label: string; bg: string; color: string }> = {
+  ATIVO:   { label:"ATIVO",   bg:"rgba(16,185,129,0.12)",  color:"#10b981" },
+  INATIVO: { label:"INATIVO", bg:"rgba(161,161,170,0.1)",  color:"#a1a1aa" },
+  BANIDO:  { label:"BANIDO",  bg:"rgba(244,63,94,0.12)",   color:"#f43f5e" },
 };
 const FILTERS = ["Todos", "Ativos", "Inativos", "Banidos"];
 const TIPOS   = ["Todos os tipos", "Clientes", "Profissionais"];
@@ -65,40 +48,80 @@ const PAGE_CSS = `
 `;
 
 export default function UsuariosAdminPage() {
-  const [search,       setSearch]       = useState("");
-  const [filterStatus, setFilterStatus] = useState("Todos");
-  const [filterTipo,   setFilterTipo]   = useState("Todos os tipos");
-  const [statuses, setStatuses] = useState<Record<number, Status>>(
-    Object.fromEntries(usuarios.map(u => [u.id, u.status]))
-  );
+  const [search,        setSearch]        = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [filterStatus,  setFilterStatus]  = useState("Todos");
+  const [filterTipo,    setFilterTipo]    = useState("Todos os tipos");
+  const [usuarios,      setUsuarios]      = useState<UsuarioItem[]>([]);
+  const [resumo,        setResumo]        = useState<Resumo>({ total: 0, ativos: 0, inativos: 0, banidos: 0, profissionaisPro: 0 });
+  const [recentes,      setRecentes]      = useState<RecenteItem[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [loadingAcao,   setLoadingAcao]   = useState<string | null>(null);
+  const [error,         setError]         = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const filtered = useMemo(() => {
-    return usuarios.filter(u => {
-      const st = statuses[u.id];
-      if (filterStatus === "Ativos"   && st !== "ativo")   return false;
-      if (filterStatus === "Inativos" && st !== "inativo") return false;
-      if (filterStatus === "Banidos"  && st !== "banido")  return false;
-      if (filterTipo === "Clientes"      && u.tipo !== "cliente")                                                              return false;
-      if (filterTipo === "Profissionais" && u.tipo === "cliente")                                                              return false;
-      if (search) {
-        const q = search.toLowerCase();
-        if (![u.nome, u.email, u.cpf].some(s => s.toLowerCase().includes(q))) return false;
-      }
-      return true;
-    });
-  }, [search, filterStatus, filterTipo, statuses]);
+  // Debounce 300ms
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [search]);
 
-  const ban     = (id: number) => setStatuses(s => ({ ...s, [id]: "banido" }));
-  const unban   = (id: number) => setStatuses(s => ({ ...s, [id]: "ativo" }));
-  const toggleActive = (id: number) => setStatuses(s => ({ ...s, [id]: s[id] === "ativo" ? "inativo" : "ativo" }));
+  // Mapa de aba → valor da API
+  const filterToStatus: Record<string, 'ATIVO' | 'INATIVO' | 'BANIDO' | undefined> = {
+    Todos: undefined, Ativos: 'ATIVO', Inativos: 'INATIVO', Banidos: 'BANIDO',
+  };
+  const filterToTipo: Record<string, UserTipo | undefined> = {
+    'Todos os tipos': undefined, 'Clientes': 'cliente', 'Profissionais': 'profissional',
+  };
 
-  const total    = usuarios.length;
-  const ativos   = Object.values(statuses).filter(s => s === "ativo").length;
-  const inativos = Object.values(statuses).filter(s => s === "inativo").length;
-  const banidos  = Object.values(statuses).filter(s => s === "banido").length;
-  const pros     = usuarios.filter(u => u.tipo !== "cliente").length;
+  const loadData = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const status = filterToStatus[filterStatus];
+      const tipo   = filterToTipo[filterTipo];
+      const [res, res2, res3] = await Promise.all([
+        fetchUsuarios({ search: debouncedSearch, status, tipo, limit: 50 }),
+        fetchResumo(),
+        fetchRecentes(6),
+      ]);
+      setUsuarios(res.data);
+      setResumo(res2);
+      setRecentes(res3);
+    } catch {
+      setError("Não foi possível carregar os usuários. Verifique sua conexão.");
+    } finally {
+      setLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, filterStatus, filterTipo]);
 
-  const timeline = [...usuarios].sort((a,b) => b.id - a.id).slice(0, 6);
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const handleToggle = async (u: UsuarioItem) => {
+    setLoadingAcao(u.id);
+    const novoStatus = u.status === 'ATIVO' ? 'INATIVO' : 'ATIVO';
+    try { await toggleStatus(u.id, u.tipo, novoStatus); await loadData(); }
+    catch { setError("Erro ao alterar status."); }
+    finally { setLoadingAcao(null); }
+  };
+
+  const handleBanir = async (u: UsuarioItem) => {
+    setLoadingAcao(u.id);
+    try { await banirUsuario(u.id, u.tipo); await loadData(); }
+    catch { setError("Erro ao banir usuário."); }
+    finally { setLoadingAcao(null); }
+  };
+
+  const handleRestaurar = async (u: UsuarioItem) => {
+    setLoadingAcao(u.id);
+    try { await restaurarUsuario(u.id, u.tipo); await loadData(); }
+    catch { setError("Erro ao restaurar usuário."); }
+    finally { setLoadingAcao(null); }
+  };
+
+  const filtered = usuarios; // filtro é server-side
+  const total    = resumo.total;
 
   return (
     <>
@@ -113,9 +136,9 @@ export default function UsuariosAdminPage() {
           </div>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
             {[
-              { v:ativos,   color:"#10b981", label:"ativos" },
-              { v:inativos, color:"#a1a1aa", label:"inativos" },
-              { v:banidos,  color:"#f43f5e", label:"banidos" },
+              { v:resumo.ativos,   color:"#10b981", label:"ativos" },
+              { v:resumo.inativos, color:"#a1a1aa", label:"inativos" },
+              { v:resumo.banidos,  color:"#f43f5e", label:"banidos" },
             ].map((item, i) => (
               <div key={i} style={{ display:"flex", alignItems:"center", gap:6, background:`rgba(${item.color === "#10b981" ? "16,185,129" : item.color === "#f43f5e" ? "244,63,94" : "161,161,170"},0.1)`, borderRadius:999, padding:"4px 12px" }}>
                 <div style={{ width:6, height:6, borderRadius:"50%", background:item.color }} />
@@ -160,7 +183,7 @@ export default function UsuariosAdminPage() {
             );
           })}
           <span style={{ color:C.dim, fontSize:13, marginLeft:"auto" }}>
-            <strong style={{ color:C.text }}>{filtered.length}</strong> de {total} usuários
+            <strong style={{ color:C.text }}>{loading ? "..." : filtered.length}</strong> de {total} usuários
           </span>
         </div>
 
@@ -177,7 +200,7 @@ export default function UsuariosAdminPage() {
             </select>
           </div>
           <span style={{ color:C.dim, fontSize:13 }}>
-            <strong style={{ color:C.text }}>{filtered.length}</strong> de {total} usuários
+            <strong style={{ color:C.text }}>{loading ? "..." : filtered.length}</strong> de {total} usuários
           </span>
         </div>
 
@@ -186,25 +209,39 @@ export default function UsuariosAdminPage() {
 
           {/* Lista */}
           <div style={{ flex:2, display:"flex", flexDirection:"column", gap:10, minWidth:0 }}>
-            {filtered.length === 0 ? (
+            {error ? (
+              <div style={{ background:"rgba(244,63,94,0.08)", border:"1px solid rgba(244,63,94,0.3)", borderRadius:12, padding:20, color:"#f43f5e", fontSize:13, textAlign:"center" }}>{error}</div>
+            ) : loading ? (
+              [0,1,2,3].map(i => (
+                <div key={i} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"12px 14px", display:"flex", alignItems:"center", gap:12 }}>
+                  <div style={{ width:42, height:42, borderRadius:"50%", background:"#222", flexShrink:0 }} />
+                  <div style={{ flex:1, display:"flex", flexDirection:"column", gap:6 }}>
+                    <div style={{ height:12, borderRadius:4, background:"#222", width:"40%" }} />
+                    <div style={{ height:10, borderRadius:4, background:"#1a1a1a", width:"60%" }} />
+                  </div>
+                  <div style={{ width:60, height:20, borderRadius:999, background:"#222" }} />
+                </div>
+              ))
+            ) : filtered.length === 0 ? (
               <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:48, display:"flex", flexDirection:"column", alignItems:"center", gap:10 }}>
                 <span style={{ fontSize:36 }}>👥</span>
                 <span style={{ color:C.muted, fontSize:14 }}>Nenhum usuário encontrado.</span>
               </div>
             ) : filtered.map((u, idx) => {
-              const st = statuses[u.id];
-              const sc = statusCfg[st];
-              const tc = tipoCfg[u.tipo];
-              const isPro = u.tipo !== "cliente";
-              const isBanido = st === "banido";
+              const sc = statusCfg[u.status] ?? statusCfg['ATIVO'];
+              const isPro     = u.tipo === 'profissional';
+              const isBanido  = u.status === 'BANIDO';
+              const isActing  = loadingAcao === u.id;
+              const tipoLabel = isPro ? (u.especialidade ?? 'Profissional') : 'Cliente';
+              const tipoColor = isPro ? '#10b981' : '#a1a1aa';
               return (
                 <div key={u.id} className="usr-card" style={{ border:`1px solid ${isBanido ? "rgba(244,63,94,0.25)" : C.border}`, background:C.card, animationDelay:`${idx * 0.04}s`, opacity: isBanido ? 0.75 : 1 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px" }}>
 
                     {/* Avatar */}
                     <div style={{ position:"relative", flexShrink:0 }}>
-                      {u.avatar ? (
-                        <img src={u.avatar} alt="" style={{ width:42, height:42, borderRadius:"50%", objectFit:"cover", border:`2px solid ${tc.color}44` }} />
+                      {u.avatarUrl ? (
+                        <img src={u.avatarUrl} alt="" style={{ width:42, height:42, borderRadius:"50%", objectFit:"cover", border:`2px solid ${tipoColor}44` }} />
                       ) : (
                         <div style={{ width:42, height:42, borderRadius:"50%", background:"#2a2a2a", display:"flex", alignItems:"center", justifyContent:"center", border:`2px solid ${C.border}` }}>
                           <span style={{ color:C.text, fontSize:14, fontWeight:700 }}>{initials(u.nome)}</span>
@@ -218,23 +255,23 @@ export default function UsuariosAdminPage() {
                       <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
                         <span style={{ color:C.text, fontSize:13, fontWeight:700, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{u.nome}</span>
                         {isPro && (
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill={tc.color}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill={tipoColor}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
                         )}
                       </div>
                       <p style={{ color:C.dim, fontSize:11, margin:"2px 0 0", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{u.email}</p>
                       <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3 }}>
-                        <span style={{ color:tc.color, fontSize:10, fontWeight:700, background:`${tc.color}18`, borderRadius:999, padding:"1px 8px" }}>
-                          {isPro ? `Pro · ${tc.label}` : tc.label}
+                        <span style={{ color:tipoColor, fontSize:10, fontWeight:700, background:`${tipoColor}18`, borderRadius:999, padding:"1px 8px" }}>
+                          {isPro ? `Pro · ${tipoLabel}` : tipoLabel}
                         </span>
                         {u.plano && <span style={{ color:C.dim, fontSize:10 }}>· {u.plano}</span>}
                       </div>
                     </div>
 
-                    {/* CPF (some mobile) */}
+                    {/* CPF */}
                     <div className="usr-meta" style={{ minWidth:130 }}>
                       <p style={{ color:C.dim, fontSize:10, margin:0 }}>CPF</p>
-                      <p style={{ color:C.muted, fontSize:12, fontFamily:"monospace", margin:"2px 0 0" }}>{u.cpf}</p>
-                      <p style={{ color:C.dim, fontSize:10, margin:"2px 0 0" }}>Cadastro: {u.cadastro}</p>
+                      <p style={{ color:C.muted, fontSize:12, fontFamily:"monospace", margin:"2px 0 0" }}>{u.cpf ?? '–'}</p>
+                      <p style={{ color:C.dim, fontSize:10, margin:"2px 0 0" }}>Cadastro: {formatDate(u.createdAt)}</p>
                     </div>
 
                     {/* Status badge */}
@@ -244,35 +281,32 @@ export default function UsuariosAdminPage() {
 
                     {/* Ações */}
                     <div style={{ display:"flex", gap:6, flexShrink:0 }}>
-                      {/* Toggle ativo */}
                       {!isBanido && (
-                        <button title={st === "ativo" ? "Desativar" : "Ativar"} onClick={e => { e.stopPropagation(); toggleActive(u.id); }} className="usr-action"
-                          style={{ color: st === "ativo" ? C.green : C.dim }}
+                        <button title={u.status === 'ATIVO' ? 'Desativar' : 'Ativar'} disabled={isActing} onClick={e => { e.stopPropagation(); handleToggle(u); }} className="usr-action"
+                          style={{ color: u.status === 'ATIVO' ? C.green : C.dim }}
                           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = C.green; (e.currentTarget as HTMLElement).style.color = C.green; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.border; (e.currentTarget as HTMLElement).style.color = st === "ativo" ? C.green : C.dim; }}>
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.border; (e.currentTarget as HTMLElement).style.color = u.status === 'ATIVO' ? C.green : C.dim; }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            {st === "ativo"
+                            {u.status === 'ATIVO'
                               ? <><rect x="1" y="5" width="22" height="14" rx="7"/><circle cx="16" cy="12" r="3" fill="currentColor" stroke="none"/></>
                               : <><rect x="1" y="5" width="22" height="14" rx="7"/><circle cx="8" cy="12" r="3" fill="currentColor" stroke="none"/></>
                             }
                           </svg>
                         </button>
                       )}
-                      {/* Docs */}
                       <button title="Ver documentos" onClick={e => e.stopPropagation()} className="usr-action" style={{ color:C.dim }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "#60a5fa"; (e.currentTarget as HTMLElement).style.color = "#60a5fa"; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.border; (e.currentTarget as HTMLElement).style.color = C.dim; }}>
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
                       </button>
-                      {/* Ban / Restaurar */}
                       {isBanido ? (
-                        <button title="Restaurar acesso" onClick={e => { e.stopPropagation(); unban(u.id); }} className="usr-action" style={{ color:C.green }}
+                        <button title="Restaurar acesso" disabled={isActing} onClick={e => { e.stopPropagation(); handleRestaurar(u); }} className="usr-action" style={{ color:C.green }}
                           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = C.green; (e.currentTarget as HTMLElement).style.background = "rgba(16,185,129,0.1)"; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.border; (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                         </button>
                       ) : (
-                        <button title="Banir usuário" onClick={e => { e.stopPropagation(); ban(u.id); }} className="usr-action" style={{ color:C.dim }}
+                        <button title="Banir usuário" disabled={isActing} onClick={e => { e.stopPropagation(); handleBanir(u); }} className="usr-action" style={{ color:C.dim }}
                           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "#f43f5e"; (e.currentTarget as HTMLElement).style.color = "#f43f5e"; (e.currentTarget as HTMLElement).style.background = "rgba(244,63,94,0.08)"; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.border; (e.currentTarget as HTMLElement).style.color = C.dim; (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
@@ -294,10 +328,10 @@ export default function UsuariosAdminPage() {
               <div style={{ padding:16, display:"flex", flexDirection:"column", gap:0 }}>
                 <span style={{ color:C.muted, fontSize:11, fontWeight:700, letterSpacing:1, textTransform:"uppercase", display:"block", marginBottom:12 }}>Resumo Geral</span>
                 {[
-                  { label:"Total de usuários",  value:String(total),  color:C.text },
-                  { label:"Usuários ativos",     value:String(ativos), color:C.green },
-                  { label:"Profissionais PRO",   value:String(pros),   color:"#a78bfa" },
-                  { label:"Usuários banidos",    value:String(banidos),color:"#f43f5e" },
+                  { label:"Total de usuários",  value:String(resumo.total),            color:C.text },
+                  { label:"Usuários ativos",     value:String(resumo.ativos),           color:C.green },
+                  { label:"Profissionais PRO",   value:String(resumo.profissionaisPro), color:"#a78bfa" },
+                  { label:"Usuários banidos",    value:String(resumo.banidos),          color:"#f43f5e" },
                 ].map((item, i, arr) => (
                   <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingTop:12, paddingBottom:12, borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : "none" }}>
                     <span style={{ color:C.muted, fontSize:13 }}>{item.label}</span>
@@ -313,9 +347,10 @@ export default function UsuariosAdminPage() {
               <div style={{ padding:16, display:"flex", flexDirection:"column", gap:14 }}>
                 <span style={{ color:C.muted, fontSize:11, fontWeight:700, letterSpacing:1, textTransform:"uppercase" }}>Últimos Cadastros</span>
                 <div>
-                  {timeline.map((u, idx) => {
-                    const tc = tipoCfg[u.tipo];
-                    const isLast = idx === timeline.length - 1;
+                  {recentes.map((u, idx) => {
+                    const rColor = u.tipo === 'profissional' ? '#10b981' : '#a1a1aa';
+                    const rLabel = u.tipo === 'profissional' ? (u.especialidade ?? 'Profissional') : 'Cliente';
+                    const isLast = idx === recentes.length - 1;
                     return (
                       <div key={u.id} style={{ display:"flex", gap:10, alignItems:"flex-start" }}>
                         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", width:16, flexShrink:0, marginTop:3 }}>
@@ -323,9 +358,9 @@ export default function UsuariosAdminPage() {
                           {!isLast && <div style={{ width:2, flex:1, minHeight:28, background:C.border, marginTop:-1 }} />}
                         </div>
                         <div style={{ flex:1, paddingBottom: isLast ? 0 : 12 }}>
-                          <span style={{ color:C.dim, fontSize:10, display:"block" }}>{u.cadastro}</span>
+                          <span style={{ color:C.dim, fontSize:10, display:"block" }}>{formatDate(u.createdAt)}</span>
                           <span style={{ color:C.text, fontSize:12, fontWeight:600, display:"block" }}>{u.nome}</span>
-                          <span style={{ color:tc.color, fontSize:10 }}>{tc.label}</span>
+                          <span style={{ color:rColor, fontSize:10 }}>{rLabel}</span>
                         </div>
                       </div>
                     );

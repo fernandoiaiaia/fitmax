@@ -1,6 +1,15 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
+
+import { AxiosError } from "axios";
+import {
+  fetchPerfil, updatePerfil, uploadAvatar,
+  fetchNotifPrefs, updateNotifPrefs,
+  alterarSenha,
+  fetchConvenios, criarConvenio, editarConvenio, toggleConvenio, excluirConvenio,
+} from "../../../lib/configuracoes-api";
+import type { ConvenioItem } from "../../../lib/configuracoes-api";
 
 // ── Paleta ─────────────────────────────────────────────────────────────────────
 const C = {
@@ -9,7 +18,7 @@ const C = {
   green: "#10b981",
 };
 
-// ── Types e Mock Data ──────────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────────
 type Aba = "dados" | "notificacoes" | "seguranca" | "convenios";
 
 const ABAS: { id: Aba; label: string; icon: string }[] = [
@@ -21,20 +30,11 @@ const ABAS: { id: Aba; label: string; icon: string }[] = [
 
 const CATEGORIAS_CONVENIO = ["Nacional", "Regional", "Empresarial", "Odontológico", "Outro"];
 
-type Convenio = { id: number; nome: string; categoria: string; ativo: boolean };
-
-const CONVENIOS_INICIAIS: Convenio[] = [
-  { id:1, nome:"Unimed",                 categoria:"Nacional",    ativo:true  },
-  { id:2, nome:"Bradesco Saúde",         categoria:"Nacional",    ativo:true  },
-  { id:3, nome:"SulAmérica",             categoria:"Nacional",    ativo:true  },
-  { id:4, nome:"Amil",                   categoria:"Nacional",    ativo:true  },
-  { id:5, nome:"Notre Dame Intermédica", categoria:"Nacional",    ativo:true  },
-  { id:6, nome:"Porto Seguro Saúde",     categoria:"Nacional",    ativo:true  },
-  { id:7, nome:"Hapvida",                categoria:"Regional",    ativo:true  },
-  { id:8, nome:"Prevent Senior",         categoria:"Regional",    ativo:true  },
-  { id:9, nome:"Golden Cross",           categoria:"Regional",    ativo:false },
-  { id:10,nome:"Cassi",                  categoria:"Empresarial", ativo:true  },
-];
+/** Extrai mensagem de erro de respostas da API */
+function apiErr(err: unknown, fallback = "Erro inesperado. Tente novamente."): string {
+  if (err instanceof AxiosError) return err.response?.data?.error ?? fallback;
+  return fallback;
+}
 
 // ── Shared UI ──────────────────────────────────────────────────────────────────
 function HCard({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
@@ -91,49 +91,106 @@ function SaveButton({ id, saved, onClick, text = "Salvar alterações" }: { id: 
 
 // ── Aba: Dados do Admin ──
 function AbaDados() {
-  const avatarRef = useRef<HTMLInputElement>(null);
-  const [nome,  setNome]  = useState("Admin FitMax");
-  const [tel,   setTel]   = useState("(11) 99000-0000");
-  const [email, setEmail] = useState("admin@fitmax.com");
-  const [user,  setUser]  = useState("@admin");
-  const [saved, setSaved] = useState(false);
+  const [nome,      setNome]      = useState("");
+  const [tel,       setTel]       = useState("");
+  const [email,     setEmail]     = useState("");
+  const [user,      setUser]      = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [loading,   setLoading]   = useState(true);
+  const [saving,    setSaving]    = useState(false);
+  const [saved,     setSaved]     = useState(false);
+  const [error,     setError]     = useState<string | null>(null);
 
-  function handleSave() { setSaved(true); setTimeout(() => setSaved(false), 2500); }
+  useEffect(() => {
+    fetchPerfil()
+      .then(p => {
+        setNome(p.name ?? "");
+        setEmail(p.email);
+        setTel(p.phone ?? "");
+        setUser(p.username ?? "");
+        setAvatarUrl(p.avatarUrl);
+      })
+      .catch(() => setError("Não foi possível carregar o perfil."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSave() {
+    setError(null); setSaving(true);
+    try {
+      const updated = await updatePerfil({ name: nome, phone: tel, username: user });
+      setNome(updated.name ?? ""); setTel(updated.phone ?? ""); setUser(updated.username ?? "");
+      setSaved(true); setTimeout(() => setSaved(false), 2500);
+    } catch (err) { setError(apiErr(err)); }
+    finally { setSaving(false); }
+  }
+
+  async function handleAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    try {
+      const result = await uploadAvatar(file);
+      // avatarUrl vem como "/uploads/avatars/uuid.ext" — relativo via proxy Next.js
+      setAvatarUrl(result.avatarUrl);
+    } catch (err) { setError(apiErr(err, "Erro ao enviar foto.")); }
+  }
+
+  // O path "/uploads/..." é servido pelo proxy do Next.js que redireciona para o Express
+  const avatarSrc = avatarUrl ?? "https://picsum.photos/200/200?random=40";
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16, animation:"fadeIn .3s ease" }}>
-      <HCard style={{ padding:20 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:20, flexWrap:"wrap" }}>
-          <div style={{ position:"relative" }}>
-            <img src="https://picsum.photos/200/200?random=40" style={{ width:80, height:80, borderRadius:"50%", objectFit:"cover", border:`2px solid ${C.green}` }} alt="" />
-            <button onClick={() => avatarRef.current?.click()} style={{ position:"absolute", bottom:0, right:0, background:C.green, border:`2px solid ${C.card}`, borderRadius:"50%", width:30, height:30, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            </button>
-            <input ref={avatarRef} type="file" accept="image/*" style={{ display:"none" }} />
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-            <span style={{ color:C.text, fontSize:20, fontWeight:700 }}>{nome}</span>
-            <span style={{ color:C.muted, fontSize:13 }}>{email}</span>
-            <span style={{ color:C.green, fontSize:11, fontWeight:700, background:"rgba(16,185,129,0.12)", padding:"3px 12px", borderRadius:999, alignSelf:"flex-start", marginTop:6 }}>Administrador · Nível 5 🔐</span>
-          </div>
-        </div>
-      </HCard>
+      {loading ? (
+        <div style={{ padding:40, textAlign:"center", color:C.muted }}>Carregando...</div>
+      ) : (
+        <>
+          <HCard style={{ padding:20 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:20, flexWrap:"wrap" }}>
+              <div style={{ position:"relative" }}>
+                <img src={avatarSrc} style={{ width:80, height:80, borderRadius:"50%", objectFit:"cover", border:`2px solid ${C.green}` }} alt="Avatar do admin" />
+                {/* label abre o file picker nativamente sem JS — mais robusto que ref.click() */}
+                <label
+                  htmlFor="avatar-upload-input"
+                  title="Clique para trocar a foto"
+                  style={{ position:"absolute", bottom:0, right:0, background:C.green, border:`2px solid ${C.card}`, borderRadius:"50%", width:30, height:30, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </label>
+                <input
+                  id="avatar-upload-input"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  style={{ display:"none" }}
+                  onChange={handleAvatar}
+                />
 
-      <HCard style={{ padding:20, display:"flex", flexDirection:"column", gap:20 }}>
-        <SectionTitle>Dados Pessoais</SectionTitle>
-        <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
-          <InputField id="input-nome"  label="Nome completo" value={nome}  onChange={setNome} />
-          <InputField id="input-email" label="E-mail"        value={email} onChange={setEmail} type="email" />
-        </div>
-        <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
-          <InputField id="input-tel"  label="Telefone"        value={tel}  onChange={setTel}  type="tel" />
-          <InputField id="input-user" label="Nome de usuário" value={user} onChange={setUser} />
-        </div>
-      </HCard>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                <span style={{ color:C.text, fontSize:20, fontWeight:700 }}>{nome || email}</span>
+                <span style={{ color:C.muted, fontSize:13 }}>{email}</span>
+                <span style={{ color:C.green, fontSize:11, fontWeight:700, background:"rgba(16,185,129,0.12)", padding:"3px 12px", borderRadius:999, alignSelf:"flex-start", marginTop:6 }}>Administrador · Nível 5 🔐</span>
+              </div>
+            </div>
+          </HCard>
 
-      <div style={{ display:"flex", justifyContent:"flex-end" }}>
-        <SaveButton id="btn-salvar-dados" saved={saved} onClick={handleSave} />
-      </div>
+          <HCard style={{ padding:20, display:"flex", flexDirection:"column", gap:20 }}>
+            <SectionTitle>Dados Pessoais</SectionTitle>
+            <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
+              <InputField id="input-nome"  label="Nome completo" value={nome}  onChange={setNome} />
+              <InputField id="input-email" label="E-mail"        value={email} onChange={() => {}} type="email" disabled />
+            </div>
+            <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
+              <InputField id="input-tel"  label="Telefone"        value={tel}  onChange={setTel}  type="tel" />
+              <InputField id="input-user" label="Nome de usuário" value={user} onChange={setUser} />
+            </div>
+            {error && <p style={{ color:"#f43f5e", fontSize:13, margin:0 }}>{error}</p>}
+          </HCard>
+
+          <div style={{ display:"flex", justifyContent:"flex-end" }}>
+            <SaveButton id="btn-salvar-dados" saved={saved} onClick={handleSave} text={saving ? "Salvando..." : "Salvar alterações"} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -143,10 +200,42 @@ function AbaNotificacoes() {
   const [notifs, setNotifs] = useState({
     novaConsulta: true, cancelamento: true, novoUsuario: true,
     assinaturaVencendo: true, relatorioSemanal: false,
-    email: true, whatsapp: false, push: true,
+    canalEmail: true, canalWhatsapp: false, canalPush: true,
   });
+  const [loading, setLoading] = useState(true);
+  const [saving,  setSaving]  = useState(false);
+  const [saved,   setSaved]   = useState(false);
+  const [error,   setError]   = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchNotifPrefs()
+      .then(p => setNotifs({
+        novaConsulta: p.novaConsulta, cancelamento: p.cancelamento,
+        novoUsuario: p.novoUsuario, assinaturaVencendo: p.assinaturaVencendo,
+        relatorioSemanal: p.relatorioSemanal,
+        canalEmail: p.canalEmail, canalWhatsapp: p.canalWhatsapp, canalPush: p.canalPush,
+      }))
+      .catch(() => setError("Não foi possível carregar as preferências."))
+      .finally(() => setLoading(false));
+  }, []);
+
   const toggle = (key: keyof typeof notifs) => setNotifs(p => ({ ...p, [key]: !p[key] }));
-  const [saved, setSaved] = useState(false);
+
+  async function handleSave() {
+    setError(null); setSaving(true);
+    try {
+      await updateNotifPrefs({
+        novaConsulta: notifs.novaConsulta, cancelamento: notifs.cancelamento,
+        novoUsuario: notifs.novoUsuario, assinaturaVencendo: notifs.assinaturaVencendo,
+        relatorioSemanal: notifs.relatorioSemanal,
+        canalEmail: notifs.canalEmail, canalWhatsapp: notifs.canalWhatsapp, canalPush: notifs.canalPush,
+      });
+      setSaved(true); setTimeout(() => setSaved(false), 2500);
+    } catch (err) { setError(apiErr(err)); }
+    finally { setSaving(false); }
+  }
+
+  if (loading) return <div style={{ padding:40, textAlign:"center", color:C.muted }}>Carregando...</div>;
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16, maxWidth:680, animation:"fadeIn .3s ease" }}>
@@ -157,21 +246,22 @@ function AbaNotificacoes() {
       </HCard>
 
       <HCard style={{ padding:"16px 20px" }}>
-        <SectionTitle>Usuários & Assinaturas</SectionTitle>
+        <SectionTitle>Usuários &amp; Assinaturas</SectionTitle>
         <Toggle id="notif-novo-usuario" label="Novo usuário cadastrado" desc="Alerta quando um novo usuário se registra" value={notifs.novoUsuario}       onChange={()=>toggle("novoUsuario")} />
-        <Toggle id="notif-assinatura"   label="Assinatura vencendo"     desc="Planos próximos do vencimento"               value={notifs.assinaturaVencendo}onChange={()=>toggle("assinaturaVencendo")} />
-        <Toggle id="notif-relatorio"    label="Relatório semanal"       desc="Resumo de métricas toda segunda-feira"       value={notifs.relatorioSemanal}  onChange={()=>toggle("relatorioSemanal")} />
+        <Toggle id="notif-assinatura"   label="Assinatura vencendo"     desc="Planos próximos do vencimento"           value={notifs.assinaturaVencendo}  onChange={()=>toggle("assinaturaVencendo")} />
+        <Toggle id="notif-relatorio"    label="Relatório semanal"       desc="Resumo de métricas toda segunda-feira"   value={notifs.relatorioSemanal}    onChange={()=>toggle("relatorioSemanal")} />
       </HCard>
 
       <HCard style={{ padding:"16px 20px" }}>
         <SectionTitle>Canais</SectionTitle>
-        <Toggle id="notif-email"    label="E-mail"   desc="Notificações por e-mail"       value={notifs.email}    onChange={()=>toggle("email")} />
-        <Toggle id="notif-whatsapp" label="WhatsApp" desc="Notificações via WhatsApp"     value={notifs.whatsapp} onChange={()=>toggle("whatsapp")} />
-        <Toggle id="notif-push"     label="Push"     desc="Notificações no navegador"     value={notifs.push}     onChange={()=>toggle("push")} />
+        <Toggle id="notif-email"    label="E-mail"   desc="Notificações por e-mail"   value={notifs.canalEmail}    onChange={()=>toggle("canalEmail")} />
+        <Toggle id="notif-whatsapp" label="WhatsApp" desc="Notificações via WhatsApp" value={notifs.canalWhatsapp} onChange={()=>toggle("canalWhatsapp")} />
+        <Toggle id="notif-push"     label="Push"     desc="Notificações no navegador" value={notifs.canalPush}     onChange={()=>toggle("canalPush")} />
       </HCard>
 
+      {error && <p style={{ color:"#f43f5e", fontSize:13, margin:0 }}>{error}</p>}
       <div style={{ display:"flex", justifyContent:"flex-end" }}>
-        <SaveButton id="btn-salvar-notificacoes" saved={saved} onClick={()=>{setSaved(true);setTimeout(()=>setSaved(false),2500);}} text="Salvar preferências" />
+        <SaveButton id="btn-salvar-notificacoes" saved={saved} onClick={handleSave} text={saving ? "Salvando..." : "Salvar preferências"} />
       </div>
     </div>
   );
@@ -182,8 +272,10 @@ function AbaSeguranca() {
   const [senhaAtual, setSenhaAtual] = useState("");
   const [novaSenha,  setNovaSenha]  = useState("");
   const [confirmar,  setConfirmar]  = useState("");
-  const [show, setShow] = useState({ atual: false, nova: false, confirmar: false });
-  const [saved, setSaved] = useState(false);
+  const [show,    setShow]    = useState({ atual: false, nova: false, confirmar: false });
+  const [saving,  setSaving]  = useState(false);
+  const [saved,   setSaved]   = useState(false);
+  const [error,   setError]   = useState<string | null>(null);
 
   let strength = 0;
   if (novaSenha.length >= 8)  strength++;
@@ -193,6 +285,16 @@ function AbaSeguranca() {
 
   const strengthColors = ["#f43f5e", "#f97316", "#facc15", "#10b981"];
   const strengthLabel  = ["Muito curta", "Fraca", "Razoável", "Forte"];
+
+  async function handleSave() {
+    setError(null); setSaving(true);
+    try {
+      await alterarSenha({ senhaAtual, novaSenha, confirmar });
+      setSaved(true); setTimeout(() => setSaved(false), 2500);
+      setSenhaAtual(""); setNovaSenha(""); setConfirmar("");
+    } catch (err) { setError(apiErr(err)); }
+    finally { setSaving(false); }
+  }
 
   function PwdInput({ id, label, field, value, onChange }: { id: string; label: string; field: "atual"|"nova"|"confirmar"; value: string; onChange: (v:string)=>void; }) {
     return (
@@ -228,9 +330,10 @@ function AbaSeguranca() {
           </div>
         )}
         <PwdInput id="input-confirmar-senha" label="Confirmar nova senha" field="confirmar" value={confirmar} onChange={setConfirmar} />
+        {error && <p style={{ color:"#f43f5e", fontSize:13, margin:0 }}>{error}</p>}
       </HCard>
       <div style={{ display:"flex", justifyContent:"flex-end" }}>
-        <SaveButton id="btn-salvar-senha" saved={saved} onClick={()=>{setSaved(true);setTimeout(()=>setSaved(false),2500);}} text="Salvar senha" />
+        <SaveButton id="btn-salvar-senha" saved={saved} onClick={handleSave} text={saving ? "Salvando..." : "Salvar senha"} />
       </div>
     </div>
   );
@@ -238,45 +341,89 @@ function AbaSeguranca() {
 
 // ── Aba: Convênios ──
 function AbaConvenios() {
-  const [lista, setLista] = useState<Convenio[]>(CONVENIOS_INICIAIS);
-  const [novoNome, setNovoNome] = useState("");
-  const [novaCategoria, setNovaCategoria] = useState(CATEGORIAS_CONVENIO[0]);
-  const [busca, setBusca] = useState("");
-  const [editandoId, setEditandoId] = useState<number|null>(null);
-  const [editNome, setEditNome] = useState("");
-  const [editCategoria, setEditCategoria] = useState("");
-  const [filtroCategoria, setFiltroCategoria] = useState("Todos");
-  const [saved, setSaved] = useState(false);
-  let nextId = lista.length ? Math.max(...lista.map(c=>c.id))+1 : 1;
+  const [lista,          setLista]          = useState<ConvenioItem[]>([]);
+  const [stats,          setStats]          = useState({ total:0, ativos:0, inativos:0 });
+  const [novoNome,       setNovoNome]       = useState("");
+  const [novaCategoria,  setNovaCategoria]  = useState(CATEGORIAS_CONVENIO[0]);
+  const [busca,          setBusca]          = useState("");
+  const [editandoId,     setEditandoId]     = useState<string|null>(null);
+  const [editNome,       setEditNome]       = useState("");
+  const [editCategoria,  setEditCategoria]  = useState("");
+  const [filtroCategoria,setFiltroCategoria]= useState("Todos");
+  const [loading,        setLoading]        = useState(true);
+  const [actionError,    setActionError]    = useState<string|null>(null);
 
-  function adicionar() {
+  function reloadFromApi() {
+    return fetchConvenios().then(r => { setLista(r.convenios); setStats(r.stats); });
+  }
+
+  useEffect(() => {
+    reloadFromApi().catch(() => setActionError("Não foi possível carregar os convênios.")).finally(() => setLoading(false));
+  }, []);
+
+  async function adicionar() {
     const t = novoNome.trim();
-    if(!t || lista.some(c=>c.nome.toLowerCase()===t.toLowerCase())) return;
-    setLista(p => [...p, { id:nextId++, nome:t, categoria:novaCategoria, ativo:true }]);
-    setNovoNome(""); flash();
+    if (!t) return;
+    setActionError(null);
+    try {
+      const novo = await criarConvenio({ nome: t, categoria: novaCategoria });
+      setLista(p => [...p, novo]);
+      setStats(s => ({ ...s, total: s.total+1, ativos: s.ativos+1 }));
+      setNovoNome("");
+    } catch (err) { setActionError(apiErr(err)); }
   }
-  function remover(id: number) { setLista(p => p.filter(c=>c.id!==id)); }
-  function toggleAtivo(id: number) { setLista(p => p.map(c=>c.id===id ? {...c, ativo:!c.ativo} : c)); }
-  function iniciarEdicao(c: Convenio) { setEditandoId(c.id); setEditNome(c.nome); setEditCategoria(c.categoria); }
-  function salvarEdicao(id: number) {
-    const t = editNome.trim();
-    if(!t) return;
-    setLista(p => p.map(c=>c.id===id ? {...c, nome:t, categoria:editCategoria} : c));
-    setEditandoId(null); flash();
-  }
-  function flash() { setSaved(true); setTimeout(()=>setSaved(false),2500); }
 
-  const filtrados = lista.filter(c => c.nome.toLowerCase().includes(busca.toLowerCase()) && (filtroCategoria==="Todos" || c.categoria===filtroCategoria));
-  const ativos = lista.filter(c=>c.ativo).length;
+  async function remover(id: string) {
+    setActionError(null);
+    try {
+      await excluirConvenio(id);
+      setLista(p => p.filter(c => c.id !== id));
+      setStats(s => {
+        const era = lista.find(c=>c.id===id);
+        return { total: s.total-1, ativos: era?.ativo ? s.ativos-1 : s.ativos, inativos: !era?.ativo ? s.inativos-1 : s.inativos };
+      });
+    } catch (err) { setActionError(apiErr(err)); }
+  }
+
+  async function toggleAtivo(id: string) {
+    setActionError(null);
+    try {
+      const updated = await toggleConvenio(id);
+      setLista(p => p.map(c => c.id===id ? updated : c));
+      setStats(s => updated.ativo
+        ? { ...s, ativos: s.ativos+1, inativos: s.inativos-1 }
+        : { ...s, ativos: s.ativos-1, inativos: s.inativos+1 });
+    } catch (err) { setActionError(apiErr(err)); }
+  }
+
+  function iniciarEdicao(c: ConvenioItem) { setEditandoId(c.id); setEditNome(c.nome); setEditCategoria(c.categoria); }
+
+  async function salvarEdicao(id: string) {
+    const t = editNome.trim();
+    if (!t) return;
+    setActionError(null);
+    try {
+      const updated = await editarConvenio(id, { nome: t, categoria: editCategoria });
+      setLista(p => p.map(c => c.id===id ? updated : c));
+      setEditandoId(null);
+    } catch (err) { setActionError(apiErr(err)); }
+  }
+
+  const filtrados = lista.filter(c =>
+    c.nome.toLowerCase().includes(busca.toLowerCase()) &&
+    (filtroCategoria==="Todos" || c.categoria===filtroCategoria)
+  );
+
+  if (loading) return <div style={{ padding:40, textAlign:"center", color:C.muted }}>Carregando...</div>;
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16, animation:"fadeIn .3s ease" }}>
       {/* Stats */}
       <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
         {[
-          { label:"Total",    v:lista.length,        cor:C.text,      bg:"rgba(255,255,255,0.05)" },
-          { label:"Ativos",   v:ativos,              cor:C.green,     bg:"rgba(16,185,129,0.12)" },
-          { label:"Inativos", v:lista.length-ativos, cor:"#f97316",   bg:"rgba(249,115,22,0.12)" },
+          { label:"Total",    v:stats.total,    cor:C.text,    bg:"rgba(255,255,255,0.05)" },
+          { label:"Ativos",   v:stats.ativos,   cor:C.green,   bg:"rgba(16,185,129,0.12)" },
+          { label:"Inativos", v:stats.inativos, cor:"#f97316", bg:"rgba(249,115,22,0.12)" },
         ].map((s,i) => (
           <div key={i} style={{ flex:1, minWidth:120, background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16, display:"flex", flexDirection:"column", gap:4 }}>
             <span style={{ color:s.cor, fontSize:28, fontWeight:800, lineHeight:1 }}>{s.v}</span>
@@ -304,6 +451,7 @@ function AbaConvenios() {
             Adicionar
           </button>
         </div>
+        {actionError && <p style={{ color:"#f43f5e", fontSize:13, margin:"8px 0 0" }}>{actionError}</p>}
       </HCard>
 
       {/* Busca e Filtro */}
@@ -366,11 +514,13 @@ function AbaConvenios() {
 
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:12 }}>
         <span style={{ color:C.dim, fontSize:13 }}>Mostrando {filtrados.length} convênios</span>
-        <SaveButton id="btn-salvar-convenios" saved={saved} onClick={flash} text="Publicar alterações" />
       </div>
     </div>
   );
 }
+
+
+
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
 export default function ConfigPage() {

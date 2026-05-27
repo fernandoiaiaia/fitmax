@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import {
+  fetchKpis, fetchGrafico, fetchOperacional, exportarPdf,
+  fmtCentavos, centavosParaGrafico,
+  type KpisData, type GraficoData, type OperacionalData,
+} from "../../../lib/relatorios-api";
+
 
 // ── Paleta ─────────────────────────────────────────────────────────────────────
 const C = {
@@ -14,53 +20,7 @@ const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov"
 const mesesCompletos = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const ANOS_DISP = ["2026","2025","2024"];
 
-const DADOS_ANO: Record<string,{fat:number[];rep:number[];kpi:{fat:string;rep:string;pend:string;est:string;receita:string;deltaFat:string;deltaRep:string}}> = {
-  "2026": { fat:[9800,11200,13400,14800,12600,0,0,0,0,0,0,0], rep:[6500,7400,8900,9800,8300,0,0,0,0,0,0,0],
-    kpi:{fat:"R$ 61.800",rep:"R$ 40.900",pend:"R$ 18.500",est:"R$ 1.400",receita:"R$ 2.600",deltaFat:"↑ 22% vs. 2025",deltaRep:"66% do faturamento"} },
-  "2025": { fat:[6200,7800,9100,5400,7200,8600,10300,11200,12800,16000,13500,12530], rep:[4100,5200,6000,3500,4800,5700,6800,7400,8500,10800,9100,8200],
-    kpi:{fat:"R$ 120.430",rep:"R$ 78.400",pend:"R$ 36.800",est:"R$ 3.200",receita:"R$ 2.230",deltaFat:"↑ 18% vs. 2024",deltaRep:"65% do faturamento"} },
-  "2024": { fat:[4100,5300,6200,4800,5600,6900,7800,8400,9200,11000,10200,9800], rep:[2700,3500,4100,3200,3700,4600,5200,5600,6100,7300,6800,6500],
-    kpi:{fat:"R$ 88.300",rep:"R$ 57.400",pend:"R$ 27.200",est:"R$ 2.100",receita:"R$ 1.600",deltaFat:"↑ 12% vs. 2023",deltaRep:"65% do faturamento"} },
-};
-
-const finCards = [
-  { label:"Faturamento Bruto", value:"R$ 120.430",  delta:"↑ 18% vs. período anterior", color:"#10b981",
-    icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> },
-  { label:"Total Repassado",   value:"R$ 78.400",   delta:"65% do faturamento",          color:"#60a5fa",
-    icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg> },
-  { label:"Pendente de Repasse",value:"R$ 36.800",  delta:"30% do faturamento",          color:"#facc15",
-    icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
-  { label:"Estornos",          value:"R$ 3.200",    delta:"2,6% do faturamento",         color:"#f43f5e",
-    icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> },
-  { label:"Receita FitMax",    value:"R$ 2.230",    delta:"Taxa média: 4,2%",            color:"#8b5cf6",
-    icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> },
-];
-
-const opsCards = [
-  {
-    label:"Usuários Ativos", accent:"#38bdf8",
-    items:[
-      { sub:"Clientes", val:232, total:272, color:"#38bdf8" },
-      { sub:"Profissionais", val:40, total:272, color:"#818cf8" },
-    ],
-  },
-  {
-    label:"Consultas (Hoje)", accent:"#10b981",
-    items:[
-      { sub:"Realizadas", val:142, total:192, color:"#10b981" },
-      { sub:"Pendentes",  val:30,  total:192, color:"#fbbf24" },
-      { sub:"Canceladas", val:20,  total:192, color:"#f87171" },
-    ],
-  },
-  {
-    label:"Publicações",     accent:"#a78bfa",
-    items:[
-      { sub:"Ativas",      val:188, total:210, color:"#a78bfa" },
-      { sub:"Denunciadas", val:14,  total:210, color:"#fbbf24" },
-      { sub:"Banidas",     val:8,   total:210, color:"#f43f5e" },
-    ],
-  },
-];
+// (mock data removido — dados vêm da API)
 
 // ── CSS ────────────────────────────────────────────────────────────────────────
 const PAGE_CSS = `
@@ -163,177 +123,79 @@ function useOutsideClick(ref: React.RefObject<HTMLElement | null>, cb:()=>void) 
 }
 
 export default function RelatoriosPage() {
-  const nowD = new Date();
-  const [ano, setAno] = useState(String(nowD.getFullYear()) in DADOS_ANO ? String(nowD.getFullYear()) : "2025");
-  const [mes, setMes] = useState("Todos"); // "Todos" ou "01".."12"
+  const nowD  = new Date();
+  const [ano, setAno] = useState(String(nowD.getFullYear()));
+  const [mes, setMes] = useState("Todos");
 
-  const dadosAno = DADOS_ANO[ano] ?? DADOS_ANO["2025"];
-  // filtrar por mês se não for "Todos"
-  const fatAtivo = mes === "Todos" ? dadosAno.fat : dadosAno.fat.map((v,i)=>parseInt(mes)-1===i?v:0);
-  const repAtivo = mes === "Todos" ? dadosAno.rep : dadosAno.rep.map((v,i)=>parseInt(mes)-1===i?v:0);
-  const periodoLabel = mes === "Todos" ? `Ano ${ano}` : `${mesesCompletos[parseInt(mes)-1]} ${ano}`;
+  const [kpis,    setKpis]    = useState<KpisData | null>(null);
+  const [grafico, setGrafico] = useState<GraficoData | null>(null);
+  const [ops,     setOps]     = useState<OperacionalData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<string | null>(null);
 
-  const kpi = dadosAno.kpi;
-  const fatNum = mes==="Todos" ? dadosAno.fat.reduce((a,v)=>a+v,0) : dadosAno.fat[parseInt(mes)-1];
-  const repNum = mes==="Todos" ? dadosAno.rep.reduce((a,v)=>a+v,0) : dadosAno.rep[parseInt(mes)-1];
-  const fmt = (v:number) => `R$ ${v.toLocaleString("pt-BR")}`;
+  const mesNum = mes === "Todos" ? undefined : parseInt(mes);
+  const periodoLabel = kpis?.periodoLabel ?? (mes === "Todos" ? `Ano ${ano}` : `${mesesCompletos[parseInt(mes)-1]} ${ano}`);
+
+  const loadData = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const [k, g, o] = await Promise.all([
+        fetchKpis(parseInt(ano), mesNum),
+        fetchGrafico(parseInt(ano), mesNum),
+        fetchOperacional(),
+      ]);
+      setKpis(k); setGrafico(g); setOps(o);
+    } catch { setError('Erro ao carregar dados.'); }
+    finally { setLoading(false); }
+  }, [ano, mesNum]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const fatAtivo     = (grafico?.faturamento ?? []).map(centavosParaGrafico);
+  const repAtivo     = (grafico?.repasses    ?? []).map(centavosParaGrafico);
+  const graficoMeses = grafico?.meses ?? [];
+
+  const repPct = kpis && kpis.faturamentoBruto > 0 ? Math.round(kpis.totalRepassado / kpis.faturamentoBruto * 100) : 0;
+  const estPct = kpis && kpis.faturamentoBruto > 0 ? ((kpis.estornos / kpis.faturamentoBruto)*100).toFixed(1) : '0';
 
   const finCards = [
-    { label:"Faturamento Bruto",  value: mes==="Todos"?kpi.fat:fmt(fatNum),  delta: mes==="Todos"?kpi.deltaFat:`Mês: ${mesesCompletos[parseInt(mes)-1]}`, color:"#10b981",
+    { label:"Faturamento Bruto",   value: kpis ? fmtCentavos(kpis.faturamentoBruto) : '—', delta: kpis?.deltaFatPct != null ? `↑ ${kpis.deltaFatPct}% vs. ano anterior` : '—', color:"#10b981",
       icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> },
-    { label:"Total Repassado",    value: mes==="Todos"?kpi.rep:fmt(repNum),  delta: kpi.deltaRep,                                                      color:"#60a5fa",
+    { label:"Total Repassado",     value: kpis ? fmtCentavos(kpis.totalRepassado) : '—',   delta: `${repPct}% do faturamento`, color:"#60a5fa",
       icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg> },
-    { label:"Pendente de Repasse",value: mes==="Todos"?kpi.pend:fmt(Math.round((fatNum-repNum)*0.8)), delta:"~30% do faturamento", color:"#facc15",
+    { label:"Pendente de Repasse", value: kpis ? fmtCentavos(kpis.pendente) : '—',         delta:"~30% do faturamento", color:"#facc15",
       icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
-    { label:"Estornos",           value: mes==="Todos"?kpi.est:fmt(Math.round(fatNum*0.026)), delta:"~2,6% do faturamento",    color:"#f43f5e",
+    { label:"Estornos",            value: kpis ? fmtCentavos(kpis.estornos) : '—',         delta:`~${estPct}% do faturamento`, color:"#f43f5e",
       icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> },
-    { label:"Receita FitMax",     value: mes==="Todos"?kpi.receita:fmt(Math.round(fatNum*0.042)), delta:"Taxa média: 4,2%",       color:"#8b5cf6",
+    { label:"Receita FitMax",      value: kpis ? fmtCentavos(kpis.receitaFitMax) : '—',   delta:`Taxa média: ${kpis?.taxaMediaPct ?? 0}%`, color:"#8b5cf6",
       icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> },
   ];
 
+  const opsCards = [
+    { label:"Usuários Ativos", accent:"#38bdf8", items:[
+        { sub:"Clientes",      val: ops?.usuarios.clientes      ?? 0, total: ops?.usuarios.total ?? 1, color:"#38bdf8" },
+        { sub:"Profissionais", val: ops?.usuarios.profissionais ?? 0, total: ops?.usuarios.total ?? 1, color:"#818cf8" },
+    ]},
+    { label:"Consultas (Total)", accent:"#10b981", items:[
+        { sub:"Realizadas", val: ops?.consultas.realizadas ?? 0, total: ops?.consultas.total ?? 1, color:"#10b981" },
+        { sub:"Pendentes",  val: ops?.consultas.pendentes  ?? 0, total: ops?.consultas.total ?? 1, color:"#fbbf24" },
+        { sub:"Canceladas", val: ops?.consultas.canceladas ?? 0, total: ops?.consultas.total ?? 1, color:"#f87171" },
+    ]},
+    { label:"Publicações", accent:"#a78bfa", items:[
+        { sub:"Ativas",      val: ops?.publicacoes.ativas      ?? 0, total: ops?.publicacoes.total ?? 1, color:"#a78bfa" },
+        { sub:"Denunciadas", val: ops?.publicacoes.denunciadas ?? 0, total: ops?.publicacoes.total ?? 1, color:"#fbbf24" },
+        { sub:"Banidas",     val: ops?.publicacoes.banidas     ?? 0, total: ops?.publicacoes.total ?? 1, color:"#f43f5e" },
+    ]},
+  ];
+
   const dropRef = useRef<HTMLDivElement>(null);
+  void dropRef;
 
-  // ── PDF export ────────────────────────────────────────────────────────────
-  const exportPDF = () => {
-    const now = new Date().toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+  const exportPDF = () => exportarPdf(parseInt(ano), mesNum);
 
-    // Faturamento por mês (barras)
-    const maxBar = Math.max(...faturamento);
-    const barRows = meses.map((m, i) => {
-      const pctFat = Math.round((faturamento[i] / maxBar) * 100);
-      const pctRep = Math.round((repasses[i]    / maxBar) * 100);
-      return `
-        <tr style="border-bottom:1px solid #f3f4f6">
-          <td style="padding:6px 10px;font-size:12px;font-weight:600;color:#111;width:36px">${m}</td>
-          <td style="padding:6px 10px;width:260px">
-            <div style="height:8px;background:#f3f4f6;border-radius:99px;overflow:hidden;margin-bottom:3px">
-              <div style="height:100%;width:${pctFat}%;background:#10b981;border-radius:99px"></div>
-            </div>
-            <div style="height:8px;background:#f3f4f6;border-radius:99px;overflow:hidden">
-              <div style="height:100%;width:${pctRep}%;background:#60a5fa;border-radius:99px"></div>
-            </div>
-          </td>
-          <td style="padding:6px 10px;font-size:12px;font-weight:700;color:#059669;text-align:right">R$ ${faturamento[i].toLocaleString("pt-BR")}</td>
-          <td style="padding:6px 10px;font-size:12px;color:#3b82f6;text-align:right">R$ ${repasses[i].toLocaleString("pt-BR")}</td>
-        </tr>`;
-    }).join("");
+  const topMeses = graficoMeses.map((m,i) => ({ m, v: fatAtivo[i] ?? 0 })).filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,4);
+  const topMax   = topMeses[0]?.v ?? 1;
 
-    // KPI cards
-    const kpiCards = finCards.map(fc => `
-      <div class="kpi">
-        <div class="kpi-label">${fc.label}</div>
-        <div class="kpi-val" style="color:${fc.color}">${fc.value}</div>
-        <div class="kpi-delta">${fc.delta}</div>
-      </div>`).join("");
-
-    // Ops
-    const opsRows = opsCards.map(op => {
-      const total = op.items.reduce((a,i)=>a+i.val,0);
-      const items = op.items.map(item => {
-        const pct = Math.round((item.val / total) * 100);
-        return `<div style="margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-            <span style="font-size:11px;color:#6b7280">${item.sub}</span>
-            <span style="font-size:11px;font-weight:700;color:#111">${item.val}</span>
-          </div>
-          <div style="height:6px;background:#f3f4f6;border-radius:99px;overflow:hidden">
-            <div style="height:100%;width:${pct}%;background:${item.color};border-radius:99px"></div>
-          </div>
-        </div>`;
-      }).join("");
-      return `<div class="ops-card"><div class="ops-title">${op.label}<span class="ops-total">${total} total</span></div>${items}</div>`;
-    }).join("");
-
-    // Top meses
-    const topMeses = [...faturamento].map((v,i)=>({v,m:meses[i]})).sort((a,b)=>b.v-a.v).slice(0,4);
-    const topRows = topMeses.map((item, i) => `
-      <tr style="border-bottom:1px solid #f3f4f6">
-        <td style="padding:6px 10px;font-size:12px;font-weight:700;color:#9ca3af;width:28px">#${i+1}</td>
-        <td style="padding:6px 10px;font-size:12px;color:#374151">${item.m}</td>
-        <td style="padding:6px 10px;font-size:12px;font-weight:800;color:#059669;text-align:right">R$ ${item.v.toLocaleString("pt-BR")}</td>
-      </tr>`).join("");
-
-    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
-      <title>FitMax – Relatório Analytics</title>
-      <style>
-        *{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:Arial,sans-serif;background:#fff;color:#111;padding:24px 32px;font-size:13px}
-        .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #10b981}
-        .logo{font-size:22px;font-weight:800;color:#111}.logo span{color:#10b981}
-        .meta{font-size:11px;color:#6b7280;text-align:right;line-height:1.6}
-        h2{font-size:16px;font-weight:700;color:#111;margin:0 0 4px}
-        h3{font-size:13px;font-weight:700;color:#374151;margin:0 0 10px;text-transform:uppercase;letter-spacing:.5px}
-        .subtitle{font-size:12px;color:#6b7280;margin-bottom:20px}
-        .section{margin-bottom:24px}
-        .kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:24px}
-        .kpi{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px}
-        .kpi-label{font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;line-height:1.4}
-        .kpi-val{font-size:16px;font-weight:800;margin-bottom:3px}
-        .kpi-delta{font-size:10px;color:#6b7280}
-        table{width:100%;border-collapse:collapse}
-        thead tr{background:#f9fafb;border-bottom:2px solid #e5e7eb}
-        thead th{padding:8px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;text-align:left}
-        thead th:last-child,thead th:nth-last-child(2){text-align:right}
-        tbody tr:nth-child(even){background:#fafafa}
-        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-        .ops-card{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin-bottom:12px}
-        .ops-title{font-size:12px;font-weight:700;color:#111;margin-bottom:12px;display:flex;justify-content:space-between}
-        .ops-total{font-size:11px;font-weight:400;color:#6b7280}
-        .footer{margin-top:24px;padding-top:12px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;display:flex;justify-content:space-between}
-        @media print{@page{size:A4;margin:15mm 14mm}}
-      </style></head><body>
-      <div class="header">
-        <div class="logo">Fit<span>Max</span> <span style="color:#6b7280;font-size:13px;font-weight:400">ADMIN</span></div>
-        <div class="meta"><strong>Relatório &amp; Analytics</strong><br>Período: ${periodo}<br>Gerado em: ${now}</div>
-      </div>
-
-      <h2>Business Intelligence</h2>
-      <p class="subtitle">Visão gerencial completa da plataforma FitMax</p>
-
-      <h3>KPIs Financeiros</h3>
-      <div class="kpi-grid">${kpiCards}</div>
-
-      <div class="two-col">
-        <div class="section">
-          <h3>Faturamento Mensal 2025</h3>
-          <table>
-            <thead><tr><th>Mês</th><th>Barras</th><th>Faturamento</th><th>Repasse</th></tr></thead>
-            <tbody>${barRows}</tbody>
-          </table>
-          <div style="display:flex;gap:16px;margin-top:8px">
-            <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:#6b7280">
-              <span style="width:10px;height:10px;background:#10b981;border-radius:50%;display:inline-block"></span>Faturamento
-            </span>
-            <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:#6b7280">
-              <span style="width:10px;height:10px;background:#60a5fa;border-radius:50%;display:inline-block"></span>Repasses
-            </span>
-          </div>
-        </div>
-        <div>
-          <div class="section">
-            <h3>Operações</h3>
-            ${opsRows}
-          </div>
-          <div class="section">
-            <h3>Top Meses</h3>
-            <table>
-              <thead><tr><th>#</th><th>Mês</th><th>Faturamento</th></tr></thead>
-              <tbody>${topRows}</tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div class="footer"><span>FitMax Admin © ${new Date().getFullYear()}</span><span>Período: ${periodoLabel}</span></div>
-      </body></html>`;
-
-    const w = window.open("", "_blank", "width=950,height=750");
-    if (!w) return;
-    w.document.write(html);
-    w.document.close();
-    w.focus();
-    setTimeout(() => { w.print(); }, 400);
-  };
 
   return (
     <>
@@ -476,16 +338,20 @@ export default function RelatoriosPage() {
                 <div style={{ width:8, height:8, borderRadius:"50%", background:"#facc15" }} />
                 <span style={{ color:C.text, fontSize:13, fontWeight:700 }}>Top Meses</span>
               </div>
-              {(()=>{ const fat=dadosAno.fat; const top=[...fat].map((v,i)=>({v,m:meses[i]})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,4); const mx=Math.max(...fat.filter(v=>v>0)); return top.map((item,i)=>(
+              {loading ? (
+                <span style={{ color:C.dim, fontSize:12 }}>Carregando...</span>
+              ) : topMeses.length === 0 ? (
+                <span style={{ color:C.dim, fontSize:12 }}>Sem dados no período</span>
+              ) : topMeses.map((item,i) => (
                 <div key={i} style={{ display:"flex", alignItems:"center", gap:10, marginBottom: i<3 ? 10 : 0 }}>
                   <span style={{ color:C.dim, fontSize:11, width:18, textAlign:"center", fontWeight:700 }}>#{i+1}</span>
                   <span style={{ color:C.muted, fontSize:12, width:28 }}>{item.m}</span>
                   <div style={{ flex:1, height:5, background:"rgba(255,255,255,0.05)", borderRadius:999, overflow:"hidden" }}>
-                    <div className="rlt-bar-fill" style={{ height:"100%", width:`${(item.v/mx)*100}%`, background:`hsl(${160-i*15},70%,${50+i*3}%)`, animationDelay:`${0.5+i*0.1}s` }} />
+                    <div className="rlt-bar-fill" style={{ height:"100%", width:`${(item.v/topMax)*100}%`, background:`hsl(${160-i*15},70%,${50+i*3}%)`, animationDelay:`${0.5+i*0.1}s` }} />
                   </div>
                   <span style={{ color:C.text, fontSize:11, fontWeight:700, flexShrink:0 }}>R${(item.v/1000).toFixed(1)}K</span>
                 </div>
-              ));})()} 
+              ))}
             </div>
           </div>
         </div>

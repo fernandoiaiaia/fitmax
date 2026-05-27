@@ -1,9 +1,10 @@
 //@ts-nocheck
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "../context/auth-context";
 
 const menuItems = [
   { label: "Consultas",     href: "/painel/consultas",    icon: "heart-pulse" },
@@ -94,6 +95,32 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
   const [sidebarOpen, setSidebarOpen]           = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const pathname = usePathname();
+  const router   = useRouter();
+  const { logout, isAuthenticated, isLoading } = useAuth();
+
+  const handleLogout = useCallback(async () => {
+    setSidebarOpen(false);
+    await logout();
+    router.push('/');
+  }, [logout, router]);
+
+  // Guard client-side: se o silentRefresh falhar, redireciona para login
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace('/');
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  // Enquanto verifica a sessão, mostra loading para evitar flash de conteúdo
+  if (isLoading) {
+    return (
+      <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', backgroundColor:'#111' }}>
+        <div style={{ color:'#10b981', fontSize:13, fontFamily:'system-ui' }}>Carregando...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) return null;
 
   return (
     <>
@@ -239,20 +266,20 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
 
             {/* Logout */}
             <div className="pro-sidebar__footer">
-              <Link
-                href="/"
-                onClick={() => setSidebarOpen(false)}
+              <button
+                onClick={handleLogout}
                 className={[
                   "pro-nav-item",
                   "pro-nav-item--signout",
                   desktopCollapsed ? "pro-nav-item--icon-only" : "",
                 ].join(" ")}
+                style={{ width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
               >
                 <span className="pro-nav-item__icon">
                   <SidebarIcon name="log-out" color="#52525b" />
                 </span>
                 {!desktopCollapsed && "Sair"}
-              </Link>
+              </button>
             </div>
 
           </div>
