@@ -2,8 +2,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { getPerfil, updatePerfil, uploadAvatar, excluirConta as excluirContaApi, getPlano, getNotifPrefs, updateNotifPrefs, alterarSenha as alterarSenhaApi } from "../../../lib/perfil-api";
-import type { PerfilCliente, PlanoInfo, NotifPrefs } from "../../../lib/perfil-api";
+import { getPerfil, updatePerfil, uploadAvatar, excluirConta as excluirContaApi, getPlano, listarPlanos, getNotifPrefs, updateNotifPrefs, alterarSenha as alterarSenhaApi, alterarPlano as alterarPlanoApi, cancelarPlano as cancelarPlanoApi } from "../../../lib/perfil-api";
+import type { PerfilCliente, PlanoInfo, PlanoDisponivel, NotifPrefs } from "../../../lib/perfil-api";
 import { useAuth } from "../../../lib/auth-context";
 
 const C = { bg:"#111111", color2:"#1a1a1a", color3:"#222222", color10:"#71717a", color11:"#a1a1aa", color12:"#fafafa", border:"#27272a" };
@@ -19,10 +19,7 @@ function HCard({ children, style }: { children: React.ReactNode; style?: React.C
 
 type Aba = "dados" | "plano" | "notificacoes" | "senha";
 
-const PLANOS = [
-  { id: "plus",    nome: "Plus",    preco: "R$ 29", periodo: "/mês",   color: "#10b981", ativo: true,  destaque: true, features: ["Consultas ilimitadas", "Histórico completo", "Avaliações e favoritos", "Suporte prioritário"] },
-  { id: "premium", nome: "Premium", preco: "R$ 59", periodo: "/mês",   color: "#a78bfa", ativo: false, features: ["Tudo do Plus", "Consulta de emergência", "Acesso antecipado", "Gerenciador familiar"] },
-];
+
 
 const ABAS: { id: Aba; label: string; icon: string }[] = [
   { id: "dados",        label: "Dados pessoais", icon: "👤" },
@@ -209,46 +206,189 @@ function AbaDados() {
 
 
 function AbaPlano() {
+  const [planoAtual,  setPlanoAtual]  = useState<PlanoInfo | null>(null);
+  const [disponiveis, setDisponiveis] = useState<PlanoDisponivel[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [salvando,    setSalvando]    = useState<string | null>(null); // planoId sendo selecionado
+  const [cancelando,  setCancelando]  = useState(false);
+  const [erro,        setErro]        = useState<string | null>(null);
+  const [sucesso,     setSucesso]     = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([getPlano(), listarPlanos()])
+      .then(([atual, lista]) => {
+        setPlanoAtual(atual);
+        setDisponiveis(lista);
+      })
+      .catch(() => setErro("Erro ao carregar planos"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSelecionar(p: PlanoDisponivel) {
+    setSalvando(p.id); setErro(null); setSucesso(null);
+    try {
+      await alterarPlanoApi(p.id);
+      setPlanoAtual(prev => prev ? { ...prev, planoAtual: p.nome, valor: p.valor, periodo: p.periodo, tipo: p.tipo, consultas: p.consultas, taxa: p.taxa } : prev);
+      setSucesso(`Plano "${p.nome}" ativado com sucesso!`);
+      setTimeout(() => setSucesso(null), 3000);
+    } catch(e: any) { setErro(e?.response?.data?.error ?? "Erro ao selecionar plano"); }
+    finally { setSalvando(null); }
+  }
+
+  async function handleCancelarPlano() {
+    if (!confirm("Cancelar sua assinatura? Você perderá o acesso aos benefícios.")) return;
+    setCancelando(true); setErro(null); setSucesso(null);
+    try {
+      await cancelarPlanoApi();
+      setPlanoAtual(prev => prev ? { ...prev, planoAtual: null, valor: null, periodo: null, tipo: null, consultas: null, taxa: null } : prev);
+      setSucesso("Assinatura cancelada.");
+      setTimeout(() => setSucesso(null), 3000);
+    } catch(e: any) { setErro(e?.response?.data?.error ?? "Erro ao cancelar assinatura"); }
+    finally { setCancelando(false); }
+  }
+
+  // Paleta de cores para cards de planos (rotaciona ciclicamente)
+  const PALETA = ["#10b981", "#a78bfa", "#3b82f6", "#f59e0b", "#f43f5e"];
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 48 }}>
+        <p style={{ color: C.color11, fontSize: 14 }}>Carregando planos...</p>
+      </div>
+    );
+  }
+
+  const nomePlanoAtual = planoAtual?.planoAtual ?? null;
+
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-      <HCard style={{ padding:16, backgroundColor:"rgba(16,185,129,0.05)", borderColor:"rgba(16,185,129,0.3)" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:12 }}>
-          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              <span style={{ color:"#10b981", fontSize:10, fontWeight:"bold", background:"rgba(16,185,129,0.15)", padding:"2px 8px", borderRadius:999 }}>ATIVO</span>
-              <span style={{ color:"#fafafa", fontSize:22, fontWeight:"bold" }}>Plus</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+      {/* Card do plano atual */}
+      <HCard style={{ padding: 16, backgroundColor: "rgba(16,185,129,0.05)", borderColor: "rgba(16,185,129,0.3)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: "#10b981", fontSize: 10, fontWeight: "bold", background: "rgba(16,185,129,0.15)", padding: "2px 8px", borderRadius: 999 }}>
+                {nomePlanoAtual ? "ATIVO" : "SEM PLANO"}
+              </span>
+              <span style={{ color: "#fafafa", fontSize: 22, fontWeight: "bold" }}>
+                {nomePlanoAtual ?? "—"}
+              </span>
             </div>
-            <span style={{ color:"#10b981", fontSize:18, fontWeight:"bold" }}>R$ 29<span style={{ color:"#a1a1aa", fontSize:13 }}>/mês</span></span>
+            {planoAtual?.valor ? (
+              <span style={{ color: "#10b981", fontSize: 18, fontWeight: "bold" }}>
+                {planoAtual.valor}
+                <span style={{ color: "#a1a1aa", fontSize: 13 }}>{planoAtual.periodo}</span>
+              </span>
+            ) : (
+              <span style={{ color: C.color11, fontSize: 14 }}>Nenhum plano contratado</span>
+            )}
+            {planoAtual?.consultas != null && (
+              <span style={{ color: C.color11, fontSize: 13 }}>
+                {planoAtual.consultas === 0 ? "Consultas ilimitadas" : `${planoAtual.consultas} consulta(s) incluída(s)`}
+              </span>
+            )}
           </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:4, alignItems:"flex-end" }}>
-            <span style={{ color:"#a1a1aa", fontSize:13 }}>Renovação em <strong style={{ color:"#fafafa" }}>21 dias</strong></span>
-            <span style={{ color:"#a1a1aa", fontSize:13 }}>Próxima cobrança: <strong style={{ color:"#fafafa" }}>17/05/2026</strong></span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+            <span style={{ color: "#a1a1aa", fontSize: 13 }}>
+              Membro desde <strong style={{ color: "#fafafa" }}>
+                {planoAtual?.membrosDesde
+                  ? new Date(planoAtual.membrosDesde).toLocaleDateString("pt-BR", { month: "short", year: "numeric" })
+                  : "—"}
+              </strong>
+            </span>
           </div>
         </div>
       </HCard>
-      <SectionTitle>Comparar planos</SectionTitle>
-      <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
-        {PLANOS.map(p=>(
-          <div key={p.id} style={{ flex:1, minWidth:200, border:`${p.destaque?2:1}px solid ${p.destaque?p.color:C.border}`, backgroundColor:p.destaque?"rgba(16,185,129,0.04)":C.color2, borderRadius:12, padding:16, display:"flex", flexDirection:"column", gap:12, overflow:"hidden", cursor:"pointer", transition:"background .15s" }}
-            onMouseEnter={e=>(e.currentTarget as HTMLElement).style.backgroundColor=C.color3}
-            onMouseLeave={e=>(e.currentTarget as HTMLElement).style.backgroundColor=p.destaque?"rgba(16,185,129,0.04)":C.color2}>
-            {p.destaque&&<span style={{ alignSelf:"flex-start", backgroundColor:p.color, color:"white", fontSize:11, fontWeight:"bold", padding:"2px 12px", borderRadius:999 }}>⭐ Popular</span>}
-            <span style={{ color:p.color, fontSize:18, fontWeight:"bold" }}>{p.nome}</span>
-            <span style={{ color:"#fafafa", fontSize:22, fontWeight:"bold" }}>{p.preco}<span style={{ color:"#a1a1aa", fontSize:13 }}>{p.periodo}</span></span>
-            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-              {p.features.map(f=>(
-                <div key={f} style={{ display:"flex", gap:8, alignItems:"center" }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span style={{ color:"#a1a1aa", fontSize:13 }}>{f}</span>
+
+      {/* Comparativo de planos */}
+      {disponiveis.length > 0 && (
+        <>
+          <SectionTitle>Planos disponíveis</SectionTitle>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            {disponiveis.map((p, idx) => {
+              const cor      = PALETA[idx % PALETA.length];
+              const isAtual  = nomePlanoAtual?.toLowerCase() === p.nome.toLowerCase();
+              return (
+                <div
+                  key={p.id}
+                  style={{
+                    flex: 1, minWidth: 200,
+                    border: `${isAtual ? 2 : 1}px solid ${isAtual ? cor : C.border}`,
+                    backgroundColor: isAtual ? `rgba(16,185,129,0.04)` : C.color2,
+                    borderRadius: 12, padding: 16,
+                    display: "flex", flexDirection: "column", gap: 12,
+                    cursor: "pointer", transition: "background .15s",
+                  }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = C.color3}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = isAtual ? "rgba(16,185,129,0.04)" : C.color2}
+                >
+                  {isAtual && (
+                    <span style={{ alignSelf: "flex-start", backgroundColor: cor, color: "white", fontSize: 11, fontWeight: "bold", padding: "2px 12px", borderRadius: 999 }}>✓ Atual</span>
+                  )}
+                  <span style={{ color: cor, fontSize: 18, fontWeight: "bold" }}>{p.nome}</span>
+                  <span style={{ color: "#fafafa", fontSize: 22, fontWeight: "bold" }}>
+                    {p.valor}
+                    <span style={{ color: "#a1a1aa", fontSize: 13 }}>{p.periodo}</span>
+                  </span>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      <span style={{ color: "#a1a1aa", fontSize: 13 }}>
+                        {p.consultas === 0 ? "Consultas ilimitadas" : `${p.consultas} consulta(s)`}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      <span style={{ color: "#a1a1aa", fontSize: 13 }}>Taxa da plataforma: {p.taxa}%</span>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      <span style={{ color: "#a1a1aa", fontSize: 13 }}>Plano {p.tipo.charAt(0) + p.tipo.slice(1).toLowerCase()}</span>
+                    </div>
+                  </div>
+                  <button
+                    id={`btn-plano-${p.id}`}
+                    disabled={isAtual || salvando === p.id}
+                    onClick={() => handleSelecionar(p)}
+                    style={{
+                      marginTop: "auto", padding: "8px 0", borderRadius: 8,
+                      border: `1px solid ${isAtual ? "transparent" : cor}`,
+                      backgroundColor: isAtual ? cor : "transparent",
+                      color: isAtual ? "white" : cor,
+                      fontSize: 13, fontWeight: "bold",
+                      cursor: isAtual || !!salvando ? "default" : "pointer",
+                      fontFamily: "inherit",
+                      opacity: isAtual ? 0.8 : salvando && salvando !== p.id ? 0.5 : 1,
+                    }}
+                  >
+                    {salvando === p.id ? "Ativando..." : isAtual ? "Plano atual" : "Selecionar"}
+                  </button>
                 </div>
-              ))}
-            </div>
-            <button id={`btn-plano-${p.id}`} style={{ marginTop:"auto", padding:"8px 0", borderRadius:8, border:`1px solid ${p.ativo?"transparent":p.color}`, backgroundColor:p.ativo?p.color:"transparent", color:p.ativo?"white":p.color, fontSize:13, fontWeight:"bold", cursor:"pointer", fontFamily:"inherit" }}>{p.ativo?"Plano atual":"Selecionar"}</button>
+              );
+            })}
           </div>
-        ))}
-      </div>
-      <div style={{ display:"flex", justifyContent:"flex-end" }}>
-        <button id="btn-cancelar-assinatura" style={{ padding:"8px 16px", borderRadius:8, backgroundColor:"rgba(244,63,94,0.1)", border:"1px solid rgba(244,63,94,0.3)", color:"#f43f5e", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>Cancelar assinatura</button>
+        </>
+      )}
+
+        {disponiveis.length === 0 && (
+        <div style={{ textAlign: "center", color: C.color11, fontSize: 14, padding: 32, border: `1px dashed ${C.border}`, borderRadius: 12 }}>
+          Nenhum plano disponível no momento. Consulte o administrador.
+        </div>
+      )}
+
+      {erro && <p style={{ color: "#f43f5e", fontSize: 13, margin: 0 }}>{erro}</p>}
+      {sucesso && <p style={{ color: "#10b981", fontSize: 13, margin: 0, fontWeight: "bold" }}>✓ {sucesso}</p>}
+
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button
+          id="btn-cancelar-assinatura"
+          disabled={cancelando || !planoAtual?.planoAtual}
+          onClick={handleCancelarPlano}
+          style={{ padding: "8px 16px", borderRadius: 8, backgroundColor: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: cancelando || !planoAtual?.planoAtual ? "#52525b" : "#f43f5e", fontSize: 13, fontWeight: 600, cursor: cancelando || !planoAtual?.planoAtual ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: !planoAtual?.planoAtual ? 0.5 : 1 }}
+        >
+          {cancelando ? "Cancelando..." : "Cancelar assinatura"}
+        </button>
       </div>
     </div>
   );

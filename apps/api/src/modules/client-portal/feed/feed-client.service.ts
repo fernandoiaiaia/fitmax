@@ -303,9 +303,15 @@ export class FeedClientService {
       ? `${input.motivo}: ${input.descricao}`
       : input.motivo;
 
-    await prisma.denuncia.create({
-      data: { publicacaoId, clienteId, motivo: motivoFinal },
-    });
+    await prisma.$transaction([
+      prisma.denuncia.create({
+        data: { publicacaoId, clienteId, motivo: motivoFinal },
+      }),
+      prisma.publicacao.update({
+        where: { id: publicacaoId },
+        data: { status: 'DENUNCIADA' },
+      })
+    ]);
 
     logger.warn({
       event:        'feed_denunciado',

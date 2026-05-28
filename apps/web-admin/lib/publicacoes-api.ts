@@ -70,13 +70,14 @@ export async function fetchPublicacoes(filters: ListFilters): Promise<Publicacoe
   if (filters.status) params.set('status', filters.status);
   params.set('page',  String(filters.page  ?? 1));
   params.set('limit', String(filters.limit ?? 50));
+  params.set('t', String(Date.now()));
 
   const { data } = await api.get<PublicacoesResponse>(`/admin/publicacoes?${params}`);
   return data;
 }
 
 export async function fetchContadores(): Promise<Contadores> {
-  const { data } = await api.get<Contadores>('/admin/publicacoes/contadores');
+  const { data } = await api.get<Contadores>(`/admin/publicacoes/contadores?t=${Date.now()}`);
   return data;
 }
 

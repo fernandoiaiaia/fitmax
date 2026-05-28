@@ -3,6 +3,47 @@ import bcrypt from 'bcryptjs';
 import { logger } from '../../../lib/logger';
 
 export class ConfigProService {
+  async listarConvenios() {
+    return prisma.convenio.findMany({
+      where: { ativo: true },
+      orderBy: { nome: 'asc' },
+      select: { id: true, nome: true, categoria: true },
+    });
+  }
+
+  async listarPlanos() {
+    const planos = await prisma.plano.findMany({
+      where: { audiencia: 'PROFISSIONAL', ativo: true },
+      orderBy: { valorCentavos: 'asc' },
+    });
+
+    return planos.map((p) => {
+      // Formata o valor em R$ (ex: R$ 89,00 -> R$ 89, R$ 89,90 -> R$ 89,90)
+      const valorStr = (p.valorCentavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      
+      let periodoStr = "/mês";
+      if (p.tipo === "TRIMESTRAL") periodoStr = "/trimestre";
+      else if (p.tipo === "SEMESTRAL") periodoStr = "/semestre";
+      else if (p.tipo === "ANUAL") periodoStr = "/ano";
+
+      // Lógica provisória para definir cor, destaque e features baseado no nome
+      const isPremium = p.nome.toLowerCase().includes('enterprise') || p.nome.toLowerCase().includes('premium');
+      
+      return {
+        id: p.id,
+        nome: p.nome,
+        preco: `R$ ${valorStr}`,
+        periodo: periodoStr,
+        color: isPremium ? "#a78bfa" : "#10b981",
+        ativo: p.ativo,
+        destaque: !isPremium,
+        features: isPremium 
+          ? ["Tudo do Pro", "Multi-profissional", "Gerenciamento de equipe", "Integração via API"]
+          : ["Consultas ilimitadas", "Agenda completa", "Feed completo", "Suporte prioritário"],
+      };
+    });
+  }
+
   async atualizarPerfil(profissionalId: string, dados: any, meta: { ip: string; userAgent: string }) {
     const prof = await prisma.professional.update({
       where: { id: profissionalId },

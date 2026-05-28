@@ -8,10 +8,7 @@ import { useRouter } from 'next/navigation';
 
 type Aba = "dados" | "plano" | "notificacoes" | "senha";
 
-const PLANOS = [
-  { id: "plus",    nome: "Pro",     preco: "R$ 89", periodo: "/mês",   color: "#10b981", ativo: true,  destaque: true, features: ["Consultas ilimitadas", "Agenda completa", "Feed completo", "Suporte prioritário"] },
-  { id: "premium", nome: "Enterprise", preco: "R$ 199", periodo: "/mês",   color: "#a78bfa", ativo: false, features: ["Tudo do Pro", "Multi-profissional", "Gerenciamento de equipe", "Integração via API"] },
-];
+// PLANOS static list removed. We will fetch from API instead.
 
 const ABAS: { id: Aba; label: string; icon: string }[] = [
   { id: "dados",        label: "Dados do profissional", icon: "👤" },
@@ -33,11 +30,8 @@ const ESTADOS_BR = [
   "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
 
-const CONVENIOS = [
-  "Unimed", "Bradesco Saúde", "SulAmérica", "Amil", "Notre Dame Intermédica",
-  "Porto Seguro Saúde", "Hapvida", "Prevent Senior", "Golden Cross", "Cassi",
-  "Mediservice", "Fusex", "Geap", "Petrobras Saúde", "Particular (Sem convênio)",
-];
+// Convenios são carregados dinamicamente da API (cadastrados pelo admin)
+
 
 const STYLES = `
 .cfg-card {
@@ -230,6 +224,13 @@ function AbaDados({ me, mutate }: { me: any; mutate: any }) {
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Convênios disponíveis (da API — cadastrados pelo admin)
+  const { data: conveniosDisp } = useSWR<{ id: string; nome: string; categoria: string }[]>(
+    '/pro/config/convenios',
+    async (url) => (await api.get(url)).data
+  );
+  const CONVENIOS_API = conveniosDisp?.map((c) => c.nome) ?? [];
+
   function toggleConvenio(nome: string) {
     setConvenios((prev) =>
       prev.includes(nome) ? prev.filter((c) => c !== nome) : [...prev, nome]
@@ -396,7 +397,10 @@ function AbaDados({ me, mutate }: { me: any; mutate: any }) {
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-          {CONVENIOS.map((c) => {
+        {CONVENIOS_API.length === 0 ? (
+          <span style={{ color: "#52525b", fontSize: 13 }}>Carregando convênios...</span>
+        ) : (
+          CONVENIOS_API.map((c) => {
             const isActive = convenios.includes(c);
             return (
               <button key={c} onClick={() => toggleConvenio(c)} id={`conv-${c.toLowerCase().replace(/[^a-z0-9]/g, "-")}`} className={`cfg-btn cfg-btn-outline ${isActive ? "active" : ""}`} style={{ borderRadius: 99, gap: 4 }}>
@@ -408,12 +412,13 @@ function AbaDados({ me, mutate }: { me: any; mutate: any }) {
                 {c}
               </button>
             );
-          })}
+          })
+        )}
         </div>
 
-        {convenios.filter((c) => !CONVENIOS.includes(c)).length > 0 && (
+        {convenios.filter((c) => !CONVENIOS_API.includes(c)).length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-            {convenios.filter((c) => !CONVENIOS.includes(c)).map((c) => (
+            {convenios.filter((c) => !CONVENIOS_API.includes(c)).map((c) => (
               <div key={c} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 12px", borderRadius: 99, border: "1px solid #10b981", background: "rgba(16,185,129,0.12)" }}>
                 <span style={{ color: "#10b981", fontSize: 13, fontWeight: "bold" }}>{c}</span>
                 <button onClick={() => toggleConvenio(c)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }} id={`remove-conv-${c.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
@@ -471,13 +476,26 @@ function AbaDados({ me, mutate }: { me: any; mutate: any }) {
 }
 
 function AbaPlano({ me, mutate }: { me: any; mutate: any }) {
-  const currentPlanId = !me?.plano ? null : me.plano.toLowerCase().includes("enterprise") ? "premium" : "plus";
-  const [selectedPlan, setSelectedPlan] = useState(currentPlanId || "plus");
-  const activePlan = currentPlanId ? PLANOS.find(p => p.id === currentPlanId) : null;
+  const { data: planosList, error: planosError } = useSWR('/pro/config/planos', async (url) => (await api.get(url)).data);
+  const PLANOS = planosList || [];
+  
+  const currentPlanObj = PLANOS.find((p: any) => p.nome === me?.plano) || PLANOS[0];
+  const currentPlanId = me?.plano ? currentPlanObj?.id : null;
+  const [selectedPlan, setSelectedPlan] = useState(currentPlanId || PLANOS[0]?.id || "plus");
+  const activePlan = currentPlanId ? PLANOS.find((p: any) => p.id === currentPlanId) : null;
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (PLANOS.length > 0 && selectedPlan === "plus" && !currentPlanId) {
+      setSelectedPlan(PLANOS[0].id);
+    }
+  }, [PLANOS, currentPlanId, selectedPlan]);
+
+  if (!planosList && !planosError) return <div style={{ color: "#a1a1aa" }}>Carregando planos...</div>;
+  if (planosError) return <div style={{ color: "#ef4444" }}>Erro ao carregar planos.</div>;
+
   async function handleSelecionarPlano(planoId: string) {
-    const planoName = PLANOS.find(p => p.id === planoId)?.nome;
+    const planoName = PLANOS.find((p: any) => p.id === planoId)?.nome;
     if (!planoName) return;
     
     setLoading(true);
@@ -550,7 +568,7 @@ function AbaPlano({ me, mutate }: { me: any; mutate: any }) {
       {/* Comparar */}
       <SectionTitle>Comparar planos</SectionTitle>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-        {PLANOS.map((p) => {
+        {PLANOS.map((p: any) => {
           const isSelected = selectedPlan === p.id;
           const isCurrentPlan = currentPlanId === p.id;
           return (
@@ -565,7 +583,7 @@ function AbaPlano({ me, mutate }: { me: any; mutate: any }) {
                 {p.preco}<span style={{ color: "#a1a1aa", fontSize: 13 }}>{p.periodo}</span>
               </span>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                {p.features.map((f) => (
+                {p.features.map((f: string) => (
                   <div key={f} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />

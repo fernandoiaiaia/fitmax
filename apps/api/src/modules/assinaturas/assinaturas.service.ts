@@ -4,11 +4,13 @@ import { AppError } from '../../middlewares/errorHandler';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type PlanoPeriodo = 'MENSAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL';
+export type PlanoPeriodo  = 'MENSAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL';
+export type PlanoAudiencia = 'CLIENTE' | 'PROFISSIONAL';
 
 export interface CriarPlanoDTO {
   nome: string;
   tipo: PlanoPeriodo;
+  audiencia: PlanoAudiencia;
   valorCentavos: number;
   consultas: number;
   taxa: number;
@@ -39,6 +41,7 @@ function formatPlano(p: {
   id: string;
   nome: string;
   tipo: string;
+  audiencia: string;
   valorCentavos: number;
   consultas: number;
   taxa: number;
@@ -48,16 +51,17 @@ function formatPlano(p: {
   updatedAt: Date;
 }) {
   return {
-    id:           p.id,
-    nome:         p.nome,
-    tipo:         p.tipo as PlanoPeriodo,
-    valor:        centavosParaReais(p.valorCentavos), // expõe em reais para o frontend
+    id:            p.id,
+    nome:          p.nome,
+    tipo:          p.tipo as PlanoPeriodo,
+    audiencia:     p.audiencia as PlanoAudiencia,
+    valor:         centavosParaReais(p.valorCentavos),
     valorCentavos: p.valorCentavos,
-    consultas:    p.consultas,
-    taxa:         p.taxa,
-    ativo:        p.ativo,
-    createdAt:    p.createdAt.toISOString(),
-    updatedAt:    p.updatedAt.toISOString(),
+    consultas:     p.consultas,
+    taxa:          p.taxa,
+    ativo:         p.ativo,
+    createdAt:     p.createdAt.toISOString(),
+    updatedAt:     p.updatedAt.toISOString(),
   };
 }
 
@@ -66,19 +70,21 @@ function formatPlano(p: {
 export class AssinaturasService {
 
   /**
-   * Lista todos os planos com estatísticas calculadas.
+   * Lista planos filtrados por audiência com estatísticas.
    * OWASP A03 — queries parametrizadas via Prisma ORM.
    */
-  async list() {
+  async list(audiencia?: PlanoAudiencia) {
+    const where = audiencia ? { audiencia: audiencia as any } : {};
+
     const planos = await prisma.plano.findMany({
+      where,
       orderBy: [{ ativo: 'desc' }, { createdAt: 'asc' }],
     });
 
     const formatted = planos.map(formatPlano);
 
-    // Estatísticas calculadas server-side
-    const total = formatted.length;
-    const ativos = formatted.filter(p => p.ativo).length;
+    const total    = formatted.length;
+    const ativos   = formatted.filter(p => p.ativo).length;
     const inativos = total - ativos;
     const receitaPotencialCentavos = formatted
       .filter(p => p.ativo)
@@ -100,21 +106,25 @@ export class AssinaturasService {
    * OWASP A09 — audit log com adminId, ip e userAgent.
    */
   async criar(dto: CriarPlanoDTO) {
-    const { nome, tipo, valorCentavos, consultas, taxa, adminId, ip, userAgent } = dto;
+    const { nome, tipo, audiencia, valorCentavos, consultas, taxa, adminId, ip, userAgent } = dto;
 
-    // Verifica duplicidade de nome (case-insensitive)
+    // Verifica duplicidade de nome por audiência (mesmo nome pode existir para audiências diferentes)
     const existente = await prisma.plano.findFirst({
-      where: { nome: { equals: nome, mode: 'insensitive' } },
+      where: {
+        nome:      { equals: nome, mode: 'insensitive' },
+        audiencia: audiencia as any,
+      },
     });
 
     if (existente) {
-      throw new AppError(`Já existe um plano com o nome "${nome}"`, 409);
+      throw new AppError(`Já existe um plano de ${audiencia === 'CLIENTE' ? 'clientes' : 'profissionais'} com o nome "${nome}"`, 409);
     }
 
     const plano = await prisma.plano.create({
       data: {
         nome,
-        tipo: tipo as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+        tipo:      tipo as any,
+        audiencia: audiencia as any,
         valorCentavos,
         consultas,
         taxa,
@@ -123,8 +133,8 @@ export class AssinaturasService {
     });
 
     logger.info(
-      { event: 'plano_criado', planoId: plano.id, nome, adminId, ip, userAgent },
-      `✅ Plano "${nome}" criado pelo admin ${adminId}`
+      { event: 'plano_criado', planoId: plano.id, nome, audiencia, adminId, ip, userAgent },
+      `✅ Plano "${nome}" (${audiencia}) criado pelo admin ${adminId}`
     );
 
     return formatPlano(plano);

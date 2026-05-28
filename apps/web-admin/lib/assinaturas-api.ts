@@ -2,12 +2,14 @@ import { api } from './api';
 
 // ─── Types (espelham o retorno da API) ────────────────────────────────────────
 
-export type PlanoPeriodo = 'MENSAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL';
+export type PlanoPeriodo   = 'MENSAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL';
+export type PlanoAudiencia = 'CLIENTE' | 'PROFISSIONAL';
 
 export interface PlanoItem {
   id: string;
   nome: string;
   tipo: PlanoPeriodo;
+  audiencia: PlanoAudiencia;
   valor: number;        // em reais (ex: 140.00)
   valorCentavos: number;
   consultas: number;
@@ -32,6 +34,7 @@ export interface AssinaturasResponse {
 export interface CriarPlanoPayload {
   nome: string;
   tipo: PlanoPeriodo;
+  audiencia: PlanoAudiencia;
   valor: number;      // em reais — a API converte para centavos
   consultas: number;
   taxa: number;
@@ -39,9 +42,10 @@ export interface CriarPlanoPayload {
 
 // ─── API calls ────────────────────────────────────────────────────────────────
 
-/** Lista todos os planos com estatísticas. */
-export async function fetchAssinaturas(): Promise<AssinaturasResponse> {
-  const { data } = await api.get<AssinaturasResponse>('/admin/assinaturas');
+/** Lista planos por audiência com estatísticas. */
+export async function fetchAssinaturas(audiencia?: PlanoAudiencia): Promise<AssinaturasResponse> {
+  const params = audiencia ? { audiencia } : {};
+  const { data } = await api.get<AssinaturasResponse>('/admin/assinaturas', { params });
   return data;
 }
 

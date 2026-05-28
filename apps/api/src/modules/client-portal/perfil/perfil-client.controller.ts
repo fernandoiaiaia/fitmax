@@ -5,6 +5,7 @@ import {
   excluirContaSchema,
   notifPrefsSchema,
   alterarSenhaSchema,
+  alterarPlanoSchema,
 } from './perfil-client.service';
 
 const service = new PerfilClientService();
@@ -131,6 +132,20 @@ export class PerfilClientController {
   };
 
   /**
+   * GET /api/client-portal/planos
+   * Lista todos os planos ativos disponíveis (rota pública — sem auth).
+   * OWASP A05 — expõe apenas campos necessários para o comparativo
+   */
+  listarPlanos = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const result = await service.listarPlanos();
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  /**
    * GET /api/client-portal/perfil/notificacoes
    * Preferências de notificação (cria defaults se primeira vez — idempotente).
    */
@@ -190,6 +205,47 @@ export class PerfilClientController {
 
       const { senhaAtual, novaSenha } = parsed.data;
       const result = await service.alterarSenha(clientId, senhaAtual, novaSenha, getMeta(req));
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  /**
+   * PATCH /api/client-portal/perfil/plano
+   * Altera o plano de assinatura.
+   * OWASP A01 — clientId do JWT
+   * OWASP A03 — planoId validado via Zod (UUID)
+   */
+  alterarPlano = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const clientId = req.user!.sub;
+
+      const parsed = alterarPlanoSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(422).json({
+          error:   'Dados inválidos',
+          details: parsed.error.flatten().fieldErrors,
+        });
+        return;
+      }
+
+      const result = await service.alterarPlano(clientId, parsed.data.planoId, getMeta(req));
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  /**
+   * DELETE /api/client-portal/perfil/plano
+   * Cancela a assinatura (plano = null).
+   * OWASP A01 — clientId do JWT
+   */
+  cancelarPlano = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const clientId = req.user!.sub;
+      const result   = await service.cancelarPlano(clientId, getMeta(req));
       res.json(result);
     } catch (err) {
       next(err);

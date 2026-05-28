@@ -6,36 +6,21 @@ import { prisma } from '../../../lib/prisma';
 import { logger } from '../../../lib/logger';
 import { AppError } from '../../../middlewares/errorHandler';
 
-// ─── Catálogo de Planos (dados estáticos do cliente) ─────────────────────────
-// O campo Client.plano armazena o nome; preço e features são mapeados aqui.
-// Quando houver uma tabela de planos para clientes, substituir por query.
+// ─── Helper: formata um Plano do banco para o shape do cliente ───────────────
 
-const CATALOGO_PLANOS: Record<string, {
-  nome: string; preco: string; periodo: string; features: string[];
-}> = {
-  Plus: {
-    nome:     'Plus',
-    preco:    'R$ 29',
-    periodo:  '/mês',
-    features: [
-      'Consultas ilimitadas',
-      'Histórico completo',
-      'Avaliações e favoritos',
-      'Suporte prioritário',
-    ],
-  },
-  Premium: {
-    nome:     'Premium',
-    preco:    'R$ 59',
-    periodo:  '/mês',
-    features: [
-      'Tudo do Plus',
-      'Consulta de emergência',
-      'Acesso antecipado',
-      'Gerenciador familiar',
-    ],
-  },
-};
+function formatarPeriodo(tipo: string): string {
+  const mapa: Record<string, string> = {
+    MENSAL:     '/mês',
+    TRIMESTRAL: '/trimestre',
+    SEMESTRAL:  '/semestre',
+    ANUAL:      '/ano',
+  };
+  return mapa[tipo] ?? '/mês';
+}
+
+function formatarValor(centavos: number): string {
+  return `R$ ${(centavos / 100).toFixed(0)}`;
+}
 
 const OBJETIVOS = [
   'Hipertrofia', 'Emagrecimento', 'Saúde Geral',
@@ -99,6 +84,11 @@ export const alterarSenhaSchema = z
     message: 'A confirmação de senha não coincide com a nova senha',
     path: ['confirmar'],
   });
+
+export const alterarPlanoSchema = z.object({
+  // OWASP A03 — planoId validado como UUID no servidor; não confiamos no nome
+  planoId: z.string().uuid('planoId deve ser um UUID válido'),
+});
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -260,6 +250,7 @@ export class PerfilClientService {
 
   /**
    * Retorna informações do plano atual do cliente.
+   * Busca o registro real na tabela Plano pelo nome armazenado em Client.plano.
    * OWASP A01 — clientId do JWT
    * OWASP A05 — select mínimo necessário
    */
@@ -271,14 +262,57 @@ export class PerfilClientService {
 
     if (!client) throw new AppError('Cliente não encontrado', 404);
 
-    const nomePlano = client.plano ?? 'Plus';
-    const catalogo  = CATALOGO_PLANOS[nomePlano] ?? CATALOGO_PLANOS['Plus'];
+    const nomePlano = client.plano ?? null;
+
+    // Busca o plano real no banco pelo nome (case-insensitive)
+    const planoDb = nomePlano
+      ? await prisma.plano.findFirst({
+          where: { nome: { equals: nomePlano, mode: 'insensitive' }, ativo: true },
+        })
+      : null;
 
     return {
-      planoAtual: nomePlano,
-      ...catalogo,
+      planoAtual:   planoDb?.nome   ?? nomePlano ?? null,
+      id:           planoDb?.id     ?? null,
+      valor:        planoDb ? formatarValor(planoDb.valorCentavos) : null,
+      valorCentavos: planoDb?.valorCentavos ?? null,
+      periodo:      planoDb ? formatarPeriodo(planoDb.tipo) : null,
+      tipo:         planoDb?.tipo   ?? null,
+      consultas:    planoDb?.consultas ?? null,
+      taxa:         planoDb?.taxa   ?? null,
       membrosDesde: client.createdAt.toISOString(),
     };
+  }
+
+  /**
+   * Lista todos os planos ativos disponíveis para o cliente.
+   * Retorna apenas planos com audiencia = CLIENTE.
+   * OWASP A05 — não expõe criadoPorId nem campos internos
+   */
+  async listarPlanos() {
+    const planos = await prisma.plano.findMany({
+      where:   { ativo: true, audiencia: 'CLIENTE' },
+      orderBy: { valorCentavos: 'asc' },
+      select: {
+        id:            true,
+        nome:          true,
+        tipo:          true,
+        valorCentavos: true,
+        consultas:     true,
+        taxa:          true,
+      },
+    });
+
+    return planos.map(p => ({
+      id:            p.id,
+      nome:          p.nome,
+      tipo:          p.tipo,
+      valor:         formatarValor(p.valorCentavos),
+      valorCentavos: p.valorCentavos,
+      periodo:       formatarPeriodo(p.tipo),
+      consultas:     p.consultas,
+      taxa:          p.taxa,
+    }));
   }
 
   /**
@@ -378,5 +412,67 @@ export class PerfilClientService {
     }, `🔑 Senha alterada: cliente ${clientId}`);
 
     return { message: 'Senha alterada com sucesso' };
+  }
+
+  /**
+   * Altera o plano de assinatura do cliente.
+   * OWASP A01 — clientId do JWT
+   * OWASP A03 — planoId validado como UUID + verificação de existência no banco
+   * OWASP A09 — audit log
+   */
+  async alterarPlano(
+    clientId: string,
+    planoId:  string,
+    meta:     { ip: string; userAgent: string },
+  ) {
+    // OWASP A03 — verifica se o plano existe, está ativo e é para CLIENTE
+    const plano = await prisma.plano.findFirst({
+      where: { id: planoId, ativo: true, audiencia: 'CLIENTE' },
+      select: { id: true, nome: true },
+    });
+
+    if (!plano) throw new AppError('Plano não encontrado ou indisponível', 404);
+
+    // OWASP A01 — WHERE id = jwt.sub
+    await prisma.client.update({
+      where: { id: clientId },
+      data:  { plano: plano.nome },
+    });
+
+    // OWASP A09 — audit log
+    logger.info({
+      event:    'plano_alterado',
+      clientId,
+      planoId,
+      planoNome: plano.nome,
+      ip:        meta.ip,
+      userAgent: meta.userAgent,
+    }, `⭐ Plano alterado para "${plano.nome}": cliente ${clientId}`);
+
+    return { sucesso: true, plano: plano.nome };
+  }
+
+  /**
+   * Cancela (remove) o plano atual do cliente (define plano = null).
+   * OWASP A01 — clientId do JWT
+   * OWASP A09 — audit log
+   */
+  async cancelarPlano(
+    clientId: string,
+    meta:     { ip: string; userAgent: string },
+  ) {
+    await prisma.client.update({
+      where: { id: clientId },
+      data:  { plano: null },
+    });
+
+    logger.info({
+      event:    'plano_cancelado',
+      clientId,
+      ip:        meta.ip,
+      userAgent: meta.userAgent,
+    }, `❌ Assinatura cancelada: cliente ${clientId}`);
+
+    return { sucesso: true, plano: null };
   }
 }

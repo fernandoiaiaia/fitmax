@@ -17,21 +17,24 @@ function getMeta(req: Request) {
 
 // ─── Schemas Zod (OWASP A03 — validação rigorosa de inputs) ──────────────────
 
-const PERIODOS = ['MENSAL', 'TRIMESTRAL', 'SEMESTRAL', 'ANUAL'] as const;
+const PERIODOS   = ['MENSAL', 'TRIMESTRAL', 'SEMESTRAL', 'ANUAL'] as const;
+const AUDIENCIAS = ['CLIENTE', 'PROFISSIONAL'] as const;
 
 /**
  * Schema para criar plano.
  * - nome: 2–100 chars, sem espaços extras
  * - tipo: enum restrito
+ * - audiencia: CLIENTE | PROFISSIONAL
  * - valor: em reais (frontend envia reais, controller converte para centavos)
  * - consultas: 1–9999
  * - taxa: 0–100 %
  */
 const criarPlanoSchema = z.object({
   nome:      z.string().min(2, 'Nome deve ter ao menos 2 caracteres').max(100).trim(),
-  tipo:      z.enum(PERIODOS, { errorMap: () => ({ message: `tipo deve ser um de: ${PERIODOS.join(', ')}` }) }),
+  tipo:      z.enum(PERIODOS,   { errorMap: () => ({ message: `tipo deve ser um de: ${PERIODOS.join(', ')}` }) }),
+  audiencia: z.enum(AUDIENCIAS, { errorMap: () => ({ message: `audiencia deve ser CLIENTE ou PROFISSIONAL` }) }),
   valor:     z.number({ invalid_type_error: 'valor deve ser um número' }).positive('valor deve ser positivo').max(100_000, 'valor máximo: R$ 100.000'),
-  consultas: z.number({ invalid_type_error: 'consultas deve ser um número' }).int().positive().max(9999),
+  consultas: z.number({ invalid_type_error: 'consultas deve ser um número' }).int().min(0).max(9999).default(0),
   taxa:      z.number({ invalid_type_error: 'taxa deve ser um número' }).int().min(0).max(100),
 });
 
@@ -50,10 +53,11 @@ const uuidParamSchema = z.object({
 
 export class AssinaturasController {
 
-  /** GET /api/admin/assinaturas */
+  /** GET /api/admin/assinaturas?audiencia=CLIENTE|PROFISSIONAL */
   list = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const result = await service.list();
+      const audiencia = req.query.audiencia as 'CLIENTE' | 'PROFISSIONAL' | undefined;
+      const result = await service.list(audiencia);
       res.json(result);
     } catch (err) {
       next(err);
@@ -63,14 +67,14 @@ export class AssinaturasController {
   /** POST /api/admin/assinaturas */
   criar = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { nome, tipo, valor, consultas, taxa } = criarPlanoSchema.parse(req.body);
+      const { nome, tipo, audiencia, valor, consultas, taxa } = criarPlanoSchema.parse(req.body);
       const adminId = req.user!.sub;
       const meta    = getMeta(req);
 
       // Converte reais → centavos aqui (OWASP A02 — evita float no banco)
       const valorCentavos = Math.round(valor * 100);
 
-      const plano = await service.criar({ nome, tipo, valorCentavos, consultas, taxa, adminId, ...meta });
+      const plano = await service.criar({ nome, tipo, audiencia, valorCentavos, consultas, taxa, adminId, ...meta });
       res.status(201).json(plano);
     } catch (err) {
       next(err);

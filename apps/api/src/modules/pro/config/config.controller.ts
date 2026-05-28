@@ -5,6 +5,20 @@ import { ConfigProService } from './config.service';
 export class ConfigProController {
   private svc = new ConfigProService();
 
+  listarConvenios = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const convenios = await this.svc.listarConvenios();
+      res.json(convenios);
+    } catch (err) { next(err); }
+  };
+
+  listarPlanos = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const planos = await this.svc.listarPlanos();
+      res.json(planos);
+    } catch (err) { next(err); }
+  };
+
   atualizarPerfil = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const profissionalId = req.user!.sub;

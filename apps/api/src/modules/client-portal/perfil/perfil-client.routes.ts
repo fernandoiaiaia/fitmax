@@ -109,7 +109,10 @@ router.delete('/perfil', controller.excluirConta);
  * GET /api/client-portal/perfil/plano
  * Informações do plano atual (nome, preço, features, data de renovação).
  */
-router.get('/plano', controller.getPlano);
+router.get('/plano',    controller.getPlano);
+router.patch('/plano',  controller.alterarPlano);
+router.delete('/plano', controller.cancelarPlano);
+
 
 // ─── Rotas de Notificações ────────────────────────────────────────────────────
 

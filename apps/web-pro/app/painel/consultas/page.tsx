@@ -137,8 +137,8 @@ export default function ConsultasPage() {
   useOutsideClick(dateRef, useCallback(() => setShowDatePicker(false), []));
 
   // ── Estado real da API ────────────────────────────────────────────────────
-  const [consultas, setConsultas] = useState<Consulta[]>(consultasFallback);
-  const [summary,   setSummary]   = useState({ total: 12, agendada: 9, cancelada: 3 });
+  const [consultas, setConsultas] = useState<Consulta[]>([]);
+  const [summary,   setSummary]   = useState({ total: 0, agendada: 0, cancelada: 0 });
   const [resumo,    setResumo]    = useState<any>(null);
 
   useEffect(() => {
@@ -155,8 +155,10 @@ export default function ConsultasPage() {
           avatar:       c.paciente.avatarUrl || `https://picsum.photos/200/200?random=${Math.floor(Math.random()*90)+10}`,
           status:       (c.status === 'agendada' ? 'agendada' : c.status === 'em_andamento' ? 'em_andamento' : c.status === 'concluida' ? 'agendada' : 'pendente') as ConsultaStatus,
         }));
-        if (mapped.length > 0) setConsultas(mapped);
-      }).catch(() => {});
+        setConsultas(mapped);
+      }).catch(() => {
+        setConsultas([]);
+      });
 
     api.get(`/pro/consultas/summary?dateFrom=${dateFrom}&dateTo=${dateTo}`)
       .then(r => setSummary(r.data))

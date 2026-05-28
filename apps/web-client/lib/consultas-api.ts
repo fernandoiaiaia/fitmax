@@ -139,3 +139,8 @@ export async function buscarDisponibilidade(profissionalId: string, data: string
   return res.data; // string[] de horas ocupadas ex: ["11:00","14:00"]
 }
 
+export async function listarConvenios(): Promise<{ id: string | number; nome: string; categoria: string; ativo: boolean }[]> {
+  const { data } = await api.get('/client-portal/convenios');
+  return data;
+}
+

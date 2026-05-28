@@ -3,7 +3,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { cancelarConsulta, reagendarConsulta, listarProfissionais, agendarConsulta, listarEspecialidades, buscarDisponibilidade } from "../../../../lib/consultas-api";
+import { cancelarConsulta, reagendarConsulta, listarProfissionais, agendarConsulta, listarEspecialidades, buscarDisponibilidade, listarConvenios } from "../../../../lib/consultas-api";
 
 // ─── Tamagui Shims (migration compatibility layer) ────────────────────────────
 const ScrollView = ({ children, ...p }: any) => <div style={{ flex:1, overflowY:"auto", ...p.style }}>{children}</div>;
@@ -50,12 +50,8 @@ function getCor(esp:  string) { return ESPECIALIDADE_COR[esp]  ?? "#a1a1aa"; }
 // Configuração mock — convênio
 const CONFIG_ACEITA_CONVENIO = true;
 
-const convenios = [
-  { id: 1, nome: "Unimed",         logo: "🏥" },
-  { id: 2, nome: "Bradesco Saúde", logo: "🔵" },
-  { id: 3, nome: "SulAmérica",     logo: "🟢" },
-  { id: 4, nome: "Outros",         logo: "➕" },
-];
+// Convenios agora vêm da API
+const CONVENIO_OUTROS_ID = "outros";
 
 const profissionais = [
   { id: 1, nome: "Dr. Roberto Alves",    especialidade: [1,2],   avatar: "https://picsum.photos/200/200?random=21", avaliacao: 4.9, modalidades: ["Presencial","Online"], clinica: { nome: "SportMed Clínica",      logradouro: "Av. Paulista",       numero: "1374", complemento: "10º andar", bairro: "Bela Vista",    cidade: "São Paulo",       uf: "SP" } },
@@ -641,13 +637,18 @@ function AgendarConsultaInner() {
   const isManageMode = !!consultaId;
 
   // ── Profissionais e especialidades reais da API ──────────────────────────────────
-  const [profissionaisAPI, setProfissionaisAPI] = useState([]);
+  const [profissionaisAPI, setProfissionaisAPI] = useState<any[]>([]);
+  const [conveniosAPI, setConveniosAPI] = useState<{id: string | number, nome: string}[]>([]);
+
   useEffect(() => {
     listarProfissionais()
       .then(data => setProfissionaisAPI(data))
       .catch(() => {});
     listarEspecialidades()
       .then(data => setEspecialidades(data))
+      .catch(() => {});
+    listarConvenios()
+      .then(data => setConveniosAPI([...data, { id: CONVENIO_OUTROS_ID, nome: "Outros" }]))
       .catch(() => {});
   }, []);
 
@@ -698,7 +699,7 @@ function AgendarConsultaInner() {
 
   // Step 1 — Convênio
   const [usaConvenio,    setUsaConvenio]    = useState<boolean | null>(null);
-  const [convenioSel,    setConvenioSel]    = useState<number | null>(null);
+  const [convenioSel,    setConvenioSel]    = useState<string | number | null>(null);
   const [convenioOutros, setConvenioOutros] = useState("");
 
   // Step 2 — Especialidade (string vinda da API)
@@ -1233,18 +1234,18 @@ function AgendarConsultaInner() {
                     {usaConvenio === true && (
                       <div className="ag-expand">
                         <div className="ag-conv-list">
-                          {convenios.map(c => (
+                          {conveniosAPI.map(c => (
                             <div
                               key={c.id}
                               className={`ag-conv-card${convenioSel === c.id ? " active" : ""}`}
                               onClick={() => setConvenioSel(c.id)}
                             >
-                              <span style={{ fontSize: 22 }}>{c.logo}</span>
+                              <span style={{ fontSize: 22 }}>{c.id === CONVENIO_OUTROS_ID ? "➕" : "🏥"}</span>
                               <span className="ag-conv-nome">{c.nome}</span>
                             </div>
                           ))}
                         </div>
-                        {convenioSel === 4 && (
+                        {convenioSel === CONVENIO_OUTROS_ID && (
                           <div style={{ marginTop: 12 }}>
                             <label className="ag-field-label">Qual convênio?</label>
                             <input
@@ -1485,7 +1486,7 @@ function AgendarConsultaInner() {
                     </Text>
                   )}
                   {CONFIG_ACEITA_CONVENIO && usaConvenio === true && convenioSel && (
-                    <Text color="$color11" fontSize={13} display="block">💳 {convenioSel === 4 ? convenioOutros || "Outros" : convenios.find(c => c.id === convenioSel)?.nome}</Text>
+                    <Text color="$color11" fontSize={13} display="block">💳 {convenioSel === CONVENIO_OUTROS_ID ? convenioOutros || "Outros" : conveniosAPI.find(c => c.id === convenioSel)?.nome}</Text>
                   )}
                   {CONFIG_ACEITA_CONVENIO && usaConvenio === false && (
                     <Text color="$color11" fontSize={13} display="block">💵 Particular</Text>
@@ -1541,7 +1542,7 @@ function AgendarConsultaInner() {
                 {CONFIG_ACEITA_CONVENIO && usaConvenio === true && convenioSel && (
                   <div className="ag-review-row">
                     <span>💳</span>
-                    <span>{convenioSel === 4 ? (convenioOutros || "Outros") : convenios.find(c => c.id === convenioSel)?.nome}</span>
+                    <span>{convenioSel === CONVENIO_OUTROS_ID ? (convenioOutros || "Outros") : conveniosAPI.find(c => c.id === convenioSel)?.nome}</span>
                   </div>
                 )}
                 {CONFIG_ACEITA_CONVENIO && usaConvenio === false && (

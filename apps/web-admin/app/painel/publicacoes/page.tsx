@@ -88,15 +88,49 @@ export default function PublicacoesAdminPage() {
 
   const handleBanir = async (id: string) => {
     setLoadingAcao(id);
-    try { await banirPublicacao(id); await loadData(); }
-    catch { setError("Erro ao banir publicação."); }
+    try {
+      // Optimistic Update
+      setPublicacoes(prev => {
+        if (activeFilter === "Ativas" || activeFilter === "Denunciadas") return prev.filter(p => p.id !== id);
+        return prev.map(p => p.id === id ? { ...p, status: 'BANIDA' } : p);
+      });
+      setContadores(prev => {
+        const pub = publicacoes.find(p => p.id === id);
+        if (!pub || pub.status === 'BANIDA') return prev;
+        return {
+          ...prev,
+          BANIDA: prev.BANIDA + 1,
+          [pub.status]: prev[pub.status as keyof typeof prev] - 1
+        };
+      });
+      await banirPublicacao(id);
+      await loadData();
+    }
+    catch { setError("Erro ao banir publicação."); await loadData(); }
     finally { setLoadingAcao(null); }
   };
 
   const handleAprovar = async (id: string) => {
     setLoadingAcao(id);
-    try { await aprovarPublicacao(id); await loadData(); }
-    catch { setError("Erro ao aprovar publicação."); }
+    try {
+      // Optimistic Update
+      setPublicacoes(prev => {
+        if (activeFilter === "Banidas" || activeFilter === "Denunciadas") return prev.filter(p => p.id !== id);
+        return prev.map(p => p.id === id ? { ...p, status: 'ATIVA' } : p);
+      });
+      setContadores(prev => {
+        const pub = publicacoes.find(p => p.id === id);
+        if (!pub || pub.status === 'ATIVA') return prev;
+        return {
+          ...prev,
+          ATIVA: prev.ATIVA + 1,
+          [pub.status]: prev[pub.status as keyof typeof prev] - 1
+        };
+      });
+      await aprovarPublicacao(id);
+      await loadData();
+    }
+    catch { setError("Erro ao aprovar publicação."); await loadData(); }
     finally { setLoadingAcao(null); }
   };
 

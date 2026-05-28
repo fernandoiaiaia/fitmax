@@ -86,6 +86,8 @@ router.get('/relatorios/especialidade', relatorios.especialidade);
 
 // ─── Configurações ────────────────────────────────────────────────────────────
 const config = new ConfigProController();
+router.get('/config/convenios',    config.listarConvenios);
+router.get('/config/planos',       config.listarPlanos);
 router.put('/config/perfil',       config.atualizarPerfil);
 router.patch('/config/senha',      authLimiter, config.atualizarSenha);
 router.patch('/config/plano',      config.atualizarPlano);

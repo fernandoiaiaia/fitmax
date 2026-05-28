@@ -14,11 +14,26 @@ export interface PerfilCliente {
 }
 
 export interface PlanoInfo {
-  planoAtual:   string;
-  preco:        string;
-  periodo:      string;
-  features:     string[];
-  membrosDesde: string; // ISO8601
+  planoAtual:    string | null;
+  id:            string | null;
+  valor:         string | null;   // ex: "R$ 29"
+  valorCentavos: number | null;
+  periodo:       string | null;   // ex: "/mês"
+  tipo:          string | null;   // MENSAL | TRIMESTRAL | SEMESTRAL | ANUAL
+  consultas:     number | null;
+  taxa:          number | null;
+  membrosDesde:  string;          // ISO8601
+}
+
+export interface PlanoDisponivel {
+  id:            string;
+  nome:          string;
+  tipo:          string;
+  valor:         string;   // ex: "R$ 29"
+  valorCentavos: number;
+  periodo:       string;   // ex: "/mês"
+  consultas:     number;
+  taxa:          number;
 }
 
 export interface NotifPrefs {
@@ -136,5 +151,32 @@ export async function alterarSenha(
     novaSenha,
     confirmar,
   });
+  return data;
+}
+
+/**
+ * Lista todos os planos ativos disponíveis para comparativo.
+ * GET /api/client-portal/planos — rota pública (sem auth)
+ */
+export async function listarPlanos(): Promise<PlanoDisponivel[]> {
+  const { data } = await api.get('/client-portal/planos');
+  return data;
+}
+
+/**
+ * Altera o plano de assinatura do cliente.
+ * PATCH /api/client-portal/perfil/plano
+ */
+export async function alterarPlano(planoId: string): Promise<{ sucesso: boolean; plano: string }> {
+  const { data } = await api.patch('/client-portal/perfil/plano', { planoId });
+  return data;
+}
+
+/**
+ * Cancela a assinatura do cliente (plano = null).
+ * DELETE /api/client-portal/perfil/plano
+ */
+export async function cancelarPlano(): Promise<{ sucesso: boolean; plano: null }> {
+  const { data } = await api.delete('/client-portal/perfil/plano');
   return data;
 }
