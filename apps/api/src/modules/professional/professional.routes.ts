@@ -6,6 +6,7 @@ const router = Router();
 const professionalController = new ProfessionalController();
 
 // GET routes — admin or the professional themselves
+router.get('/me', authenticate, authorize('professional'), professionalController.findMe); // deve vir ANTES de /:id
 router.get('/', authenticate, authorize('admin'), professionalController.findAll);
 router.get('/:id', authenticate, authorize('admin', 'professional'), professionalController.findById);
 

@@ -1,9 +1,10 @@
 //@ts-nocheck
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "../../lib/auth-context";
 
 const menuItems = [
   { label: "Painel",        href: "/painel",            icon: "grid" },
@@ -32,13 +33,19 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const pathname = usePathname();
   const router   = useRouter();
+  const { accessToken, loadingUser } = useAuth();
+
+  // Auth guard — redireciona para login se não autenticado após refresh silencioso
+  useEffect(() => {
+    if (!loadingUser && !accessToken) {
+      router.replace('/');
+    }
+  }, [loadingUser, accessToken, router]);
 
   const handleLogout = () => {
-    // Limpa qualquer dado de sessão armazenado localmente
     try { localStorage.clear(); } catch { /* noop */ }
     try { sessionStorage.clear(); } catch { /* noop */ }
     setSidebarOpen(false);
-    // replace() remove o painel do histórico — o usuário não volta com o botão "voltar"
     router.replace('/');
   };
 

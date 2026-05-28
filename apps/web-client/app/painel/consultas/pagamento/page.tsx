@@ -1,27 +1,15 @@
 //@ts-nocheck
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-
+import { detalheConsulta } from "../../../../lib/consultas-api";
 import { updateStatus } from "../consultasStore";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
-const consultasMock = [
-  { id: "c001", paciente: { nome: "Carlos Mendes", avatar: "https://picsum.photos/200/200?random=10" }, tipo: "Presencial", especialidade: { nome: "Nutrição", icon: "🥗" }, data: "2026-05-20", horario: "10:00", clinica: { nome: "SportMed Clínica", cidade: "São Paulo", uf: "SP" }, convenio: { nome: "Unimed" } },
-  { id: "c002", paciente: { nome: "Fernanda Lima",  avatar: "https://picsum.photos/200/200?random=11" }, tipo: "Online",     especialidade: { nome: "Nutrologia",  icon: "💊" }, data: "2026-05-21", horario: "14:00", clinica: null, convenio: null },
-  { id: "c003", paciente: { nome: "Rafael Oliveira",avatar: "https://picsum.photos/200/200?random=12" }, tipo: "Presencial", especialidade: { nome: "Fisioterapia",icon: "💪" }, data: "2026-05-22", horario: "09:00", clinica: { nome: "SportMed Clínica", cidade: "São Paulo", uf: "SP" }, convenio: { nome: "Bradesco Saúde" } },
-];
-
-const VALOR_BASE: Record<string, number> = {
-  "Nutrição": 250, "Nutrologia": 300, "Fisioterapia": 200,
-  "Ortopedia": 350, "Endocrinologia": 320,
-  "Medicina Esportiva": 280, "Personal Trainer": 180, "Psicologia": 240,
-};
-
 function formatDate(iso: string) {
-  const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`;
+  const [y, m, d] = iso.split("T")[0].split("-"); return `${d}/${m}/${y}`;
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -284,14 +272,24 @@ function BoletoBlock({ onCopy, copied }: { onCopy: () => void; copied: boolean }
 function PagamentoInner() {
   const router    = useRouter();
   const params    = useSearchParams();
-  const consultaId = params.get("id") ?? "c001";
-  const consulta  = consultasMock.find(c => c.id === consultaId) ?? consultasMock[0];
+  const consultaId = params.get("id") ?? "";
 
-  const valorBase = VALOR_BASE[consulta.especialidade.nome] ?? 250;
-  const temConvenio = !!consulta.convenio;
-  const valorFinal  = temConvenio ? Math.round(valorBase * 0.7) : valorBase;
+  // ─ Dados reais da API ───────────────────────────────────────────────────────
+  const [consulta, setConsulta] = useState(null);
+  const [loadingC, setLoadingC] = useState(true);
 
-  const [metodo,    setMetodo]    = useState<"pix" | "cartao" | "boleto">("pix");
+  useEffect(() => {
+    if (!consultaId) return;
+    detalheConsulta(consultaId)
+      .then(c => setConsulta(c))
+      .catch(() => {})
+      .finally(() => setLoadingC(false));
+  }, [consultaId]);
+
+  // Valor real vindo da API (em reais)
+  const valorFinal = consulta ? parseFloat(consulta.valorReais) : 0;
+
+  const [metodo,    setMetodo]    = useState("pix");
   const [copied,    setCopied]    = useState(false);
   const [cardData,  setCardData]  = useState({ number: "", name: "", expiry: "", cvv: "", parcelas: "1" });
   const [paying,    setPaying]    = useState(false);
@@ -321,13 +319,22 @@ function PagamentoInner() {
     setSuccess(true);
   }
 
+  if (loadingC || !consulta) {
+    return (
+      <div style={{ textAlign: "center", padding: 48, color: "#a1a1aa" }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
+        <span>{loadingC ? "Carregando consulta…" : "Consulta não encontrada."}</span>
+      </div>
+    );
+  }
+
   if (success) {
     return (
       <div className="pg-card pg-success">
         <div className="pg-success-icon">✅</div>
         <p style={{ color:"#fafafa", fontSize:22, fontWeight:"bold", margin:"0 0 8px" }}>Pagamento Confirmado!</p>
-        <p style={{ color:"#a1a1aa", fontSize:14, margin:"0 0 8px" }}>Sua consulta com <strong style={{ color:"#f4f4f5" }}>Dr(a). {consulta.especialidade.nome}</strong> está confirmada.</p>
-        <p style={{ color:"#a1a1aa", fontSize:13, margin:"0 0 24px" }}>📅 {formatDate(consulta.data)} às {consulta.horario}{" · "}{consulta.tipo === "Online" ? "🌐 Online" : "📍 Presencial"}</p>
+        <p style={{ color:"#a1a1aa", fontSize:14, margin:"0 0 8px" }}>Sua consulta com <strong style={{ color:"#f4f4f5" }}>Dr(a). {consulta.especialidade}</strong> está confirmada.</p>
+        <p style={{ color:"#a1a1aa", fontSize:13, margin:"0 0 24px" }}>📅 {formatDate(consulta.dataHora)} às {consulta.dataHora.substring(11,16)}{" · "}{consulta.tipo === "ONLINE" ? "🌐 Online" : "📍 Presencial"}</p>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.35)", borderRadius: 99, padding: "4px 14px", fontSize: 11, fontWeight: 800, color: "#10b981", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 28 }}>
           🟢 consulta_confirmada
         </div>
@@ -338,6 +345,7 @@ function PagamentoInner() {
       </div>
     );
   }
+
 
   const metodos = [
     { key: "pix",    icon: "⚡", title: "Pix",     sub: "Aprovação instantânea"  },
@@ -352,21 +360,21 @@ function PagamentoInner() {
         <span className="pg-section-label">Detalhes da Consulta</span>
         <div className="pg-resumo-row">
           <span>📅</span>
-          <span className="pg-resumo-text"><strong>{formatDate(consulta.data)}</strong> às {consulta.horario} · {consulta.tipo}</span>
+          <span className="pg-resumo-text"><strong>{formatDate(consulta.dataHora)}</strong> às {consulta.dataHora.substring(11,16)} · {consulta.tipo}</span>
         </div>
         <div className="pg-resumo-row">
-          <span>{consulta.especialidade.icon}</span>
-          <span className="pg-resumo-text">{consulta.especialidade.nome}</span>
+          <span>{consulta.especialidade}</span>
+          <span className="pg-resumo-text">{consulta.especialidade}</span>
         </div>
-        {consulta.tipo === "Presencial" && consulta.clinica && (
+        {consulta.tipo === "PRESENCIAL" && consulta.profissional?.cidade && (
           <div className="pg-resumo-row">
             <span>📍</span>
-            <span className="pg-resumo-text">{consulta.clinica.nome} · {consulta.clinica.cidade}/{consulta.clinica.uf}</span>
+            <span className="pg-resumo-text">{consulta.profissional.cidade}/{consulta.profissional.uf}</span>
           </div>
         )}
         <div className="pg-resumo-row">
           <span>💳</span>
-          <span className="pg-resumo-text">{consulta.convenio ? consulta.convenio.nome : <span style={{ color: "#52525b" }}>Particular</span>}</span>
+          <span className="pg-resumo-text">Particular</span>
         </div>
       </div>
 
@@ -375,7 +383,6 @@ function PagamentoInner() {
         <div>
           <span className="pg-section-label" style={{ marginBottom: 4 }}>Valor da Consulta</span>
           <div className="pg-valor-price">R$ {valorFinal.toFixed(2).replace(".", ",")}</div>
-          {temConvenio && <div className="pg-valor-note">✓ 30% coberto pelo {consulta.convenio!.nome}</div>}
         </div>
         <span style={{ fontSize: 40 }}>💰</span>
       </div>

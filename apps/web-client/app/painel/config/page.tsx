@@ -1,7 +1,10 @@
 //@ts-nocheck
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { getPerfil, updatePerfil, uploadAvatar, excluirConta as excluirContaApi, getPlano, getNotifPrefs, updateNotifPrefs, alterarSenha as alterarSenhaApi } from "../../../lib/perfil-api";
+import type { PerfilCliente, PlanoInfo, NotifPrefs } from "../../../lib/perfil-api";
+import { useAuth } from "../../../lib/auth-context";
 
 const C = { bg:"#111111", color2:"#1a1a1a", color3:"#222222", color10:"#71717a", color11:"#a1a1aa", color12:"#fafafa", border:"#27272a" };
 function HCard({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
@@ -74,47 +77,101 @@ function Toggle({ id, label, desc, value, onChange }: {
 /* ── Abas ── */
 function AbaDados() {
   const avatarRef = useRef<HTMLInputElement>(null);
-  const [nome,  setNome]  = useState("Gabriel Silas");
-  const [tel,   setTel]   = useState("(11) 95346-4325");
-  const [email, setEmail] = useState("gabriel@fitmax.com");
-  const [user,  setUser]  = useState("@gabrielsilas");
-  const [obj,   setObj]   = useState("Hipertrofia");
-  const [saved, setSaved] = useState(false);
+  const [perfil,   setPerfil]   = useState<PerfilCliente|null>(null);
+  const [nome,     setNome]     = useState("");
+  const [email,    setEmail]    = useState("");
+  const [tel,      setTel]      = useState("");
+  const [user,     setUser]     = useState("");
+  const [obj,      setObj]      = useState("Hipertrofia");
+  const [loading,  setLoading]  = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [saved,    setSaved]    = useState(false);
+  const [erro,     setErro]     = useState<string|null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showExcluir,  setShowExcluir]  = useState(false);
+  const [senhaEx,      setSenhaEx]      = useState("");
+  const [excluindo,    setExcluindo]    = useState(false);
+  const [erroEx,       setErroEx]       = useState<string|null>(null);
 
-  function handleSave() { setSaved(true); setTimeout(() => setSaved(false), 2500); }
+  const { loadingUser, accessToken } = useAuth();
+
+  useEffect(() => {
+    // Aguarda o auth estar pronto antes de buscar perfil (evita race condition com refresh)
+    if (loadingUser || !accessToken) return;
+    getPerfil().then(p => {
+      setPerfil(p); setNome(p.name); setEmail(p.email);
+      setObj(p.objetivo ?? "Hipertrofia");
+    }).catch(() => setErro("Erro ao carregar perfil")).finally(() => setLoading(false));
+  }, [loadingUser, accessToken]);
+
+  async function handleSave() {
+    setSalvando(true); setErro(null);
+    try {
+      const u = await updatePerfil({ name: nome, email, objetivo: obj as any });
+      setPerfil(u); setSaved(true); setTimeout(() => setSaved(false), 2500);
+    } catch(e: any) { setErro(e?.response?.data?.error ?? "Erro ao salvar"); }
+    finally { setSalvando(false); }
+  }
+
+  async function handleAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return;
+    setUploadingAvatar(true);
+    try { const r = await uploadAvatar(file); setPerfil(p => p ? {...p, avatarUrl: r.avatarUrl} : p); }
+    catch {} finally { setUploadingAvatar(false); }
+  }
+
+  async function handleExcluir() {
+    setExcluindo(true); setErroEx(null);
+    try { await excluirContaApi(senhaEx); window.location.href = "/login"; }
+    catch(e: any) { setErroEx(e?.response?.data?.error ?? "Erro ao excluir conta"); }
+    finally { setExcluindo(false); }
+  }
+
+  const avatarSrc = perfil?.avatarUrl ?? "https://picsum.photos/200/200?random=1";
+  const planoLabel = `Plano ${perfil?.plano ?? "Plus"} · Ativo`;
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+
+      {showExcluir && (
+        <div onClick={e => { if(e.target===e.currentTarget) setShowExcluir(false); }}
+          style={{ position:"fixed", inset:0, zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", backgroundColor:"rgba(0,0,0,0.7)", padding:16 }}>
+          <div style={{ background:C.color2, border:"1px solid rgba(244,63,94,0.4)", borderRadius:16, padding:24, width:"100%", maxWidth:380 }}>
+            <p style={{ color:C.color12, fontWeight:"bold", fontSize:16, margin:"0 0 8px" }}>Excluir conta</p>
+            <p style={{ color:C.color11, fontSize:13, margin:"0 0 16px" }}>Ação irreversível. Confirme com sua senha atual:</p>
+            <input type="password" value={senhaEx} onChange={e=>setSenhaEx(e.target.value)} placeholder="Sua senha"
+              style={{ width:"100%", background:C.color3, border:`1px solid ${C.border}`, borderRadius:8, color:"#fff", padding:"10px 12px", fontSize:13, marginBottom:12, fontFamily:"inherit", boxSizing:"border-box" as any }} />
+            {erroEx && <p style={{ color:"#f43f5e", fontSize:12, margin:"0 0 8px" }}>{erroEx}</p>}
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={()=>{setShowExcluir(false);setSenhaEx("");setErroEx(null);}}
+                style={{ flex:1, padding:"10px 0", borderRadius:8, background:"transparent", border:`1px solid ${C.border}`, color:C.color11, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>Cancelar</button>
+              <button onClick={handleExcluir} disabled={excluindo||!senhaEx}
+                style={{ flex:1, padding:"10px 0", borderRadius:8, background:excluindo||!senhaEx?"#52525b":"#f43f5e", border:"none", color:"#fff", fontSize:13, fontWeight:"bold", cursor:excluindo||!senhaEx?"not-allowed":"pointer", fontFamily:"inherit" }}>
+                {excluindo?"Excluindo…":"Confirmar exclusão"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <HCard style={{ padding:16 }}>
         <div style={{ display:"flex", alignItems:"center", gap:16 }}>
           <div style={{ position: "relative" }}>
-            <img src="https://picsum.photos/200/200?random=1" style={{ width:64, height:64, borderRadius:"50%", objectFit:"cover", border:"2px solid #10b981" }} alt="" />
-            <button
-              id="btn-trocar-avatar"
-              onClick={() => avatarRef.current?.click()}
-              style={{
-                position: "absolute", bottom: 0, right: 0,
-                background: "#10b981", border: "2px solid #111",
-                borderRadius: "50%", width: 28, height: 28,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer",
-              }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
+            <img src={avatarSrc} style={{ width:64, height:64, borderRadius:"50%", objectFit:"cover", border:"2px solid #10b981", opacity:uploadingAvatar?0.5:1 }} alt="" />
+            <button id="btn-trocar-avatar" onClick={() => avatarRef.current?.click()}
+              style={{ position:"absolute", bottom:0, right:0, background:"#10b981", border:"2px solid #111", borderRadius:"50%", width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
             </button>
-            <input ref={avatarRef} type="file" accept="image/*" style={{ display: "none" }} />
+            <input ref={avatarRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatar} />
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-            <span style={{ color:C.color12, fontSize:18, fontWeight:"bold" }}>{nome}</span>
-            <span style={{ color:C.color11, fontSize:13 }}>{email}</span>
-            <span style={{ color:"#10b981", fontSize:11, fontWeight:"bold", background:"rgba(16,185,129,0.12)", padding:"2px 12px", borderRadius:999, alignSelf:"flex-start", marginTop:4, display:"block" }}>Plano Plus · Ativo</span>
+            <span style={{ color:C.color12, fontSize:18, fontWeight:"bold" }}>{loading?"…":nome}</span>
+            <span style={{ color:C.color11, fontSize:13 }}>{loading?"…":email}</span>
+            <span style={{ color:"#10b981", fontSize:11, fontWeight:"bold", background:"rgba(16,185,129,0.12)", padding:"2px 12px", borderRadius:999, alignSelf:"flex-start", marginTop:4, display:"block" }}>{planoLabel}</span>
           </div>
         </div>
       </HCard>
 
-      {/* Dados */}
       <HCard style={{ padding:16, display:"flex", flexDirection:"column", gap:16 }}>
         <SectionTitle>Dados Pessoais</SectionTitle>
         <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
@@ -127,7 +184,6 @@ function AbaDados() {
         </div>
       </HCard>
 
-      {/* Objetivo */}
       <HCard style={{ padding:16, display:"flex", flexDirection:"column", gap:12 }}>
         <SectionTitle>Objetivo Fitness</SectionTitle>
         <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
@@ -138,16 +194,19 @@ function AbaDados() {
         </div>
       </HCard>
 
+      {erro && <p style={{ color:"#f43f5e", fontSize:13, margin:0 }}>{erro}</p>}
+
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:12 }}>
         <span id="link-termos" style={{ color:C.color10, fontSize:12, textDecoration:"underline", cursor:"pointer" }}>Termos de Uso e Política de Privacidade</span>
         <div style={{ display:"flex", gap:8 }}>
-          <button id="btn-excluir-conta" style={{ padding:"8px 16px", borderRadius:8, backgroundColor:"rgba(244,63,94,0.1)", border:"1px solid rgba(244,63,94,0.3)", color:"#f43f5e", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>Excluir conta</button>
-          <button id="btn-salvar-dados" onClick={handleSave} style={{ padding:"8px 16px", borderRadius:8, backgroundColor:saved?"#059669":"#10b981", border:"none", color:"white", fontSize:13, fontWeight:"bold", cursor:"pointer", fontFamily:"inherit" }}>{saved?"✓ Salvo!":"Salvar alterações"}</button>
+          <button id="btn-excluir-conta" onClick={()=>setShowExcluir(true)} style={{ padding:"8px 16px", borderRadius:8, backgroundColor:"rgba(244,63,94,0.1)", border:"1px solid rgba(244,63,94,0.3)", color:"#f43f5e", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>Excluir conta</button>
+          <button id="btn-salvar-dados" onClick={handleSave} disabled={salvando} style={{ padding:"8px 16px", borderRadius:8, backgroundColor:saved?"#059669":"#10b981", border:"none", color:"white", fontSize:13, fontWeight:"bold", cursor:"pointer", fontFamily:"inherit" }}>{salvando?"Salvando…":saved?"✓ Salvo!":"Salvar alterações"}</button>
         </div>
       </div>
     </div>
   );
 }
+
 
 function AbaPlano() {
   return (
@@ -202,7 +261,27 @@ function AbaNotificacoes() {
     email: true, whatsapp: false, push: true,
   });
   const toggle = (key: keyof typeof notifs) => setNotifs((p) => ({ ...p, [key]: !p[key] }));
-  const [saved, setSaved] = useState(false);
+  const [saved,    setSaved]    = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [erro,     setErro]     = useState<string|null>(null);
+
+  useEffect(() => {
+    getNotifPrefs().then(p => setNotifs({
+      confirmacao: p.confirmacao, lembrete: p.lembrete, cancelamento: p.cancelamento,
+      novosProfissionais: p.novosProfissionais, dicas: p.dicas,
+      email: p.canalEmail, whatsapp: p.canalWhatsapp, push: p.canalPush,
+    })).catch(() => {});
+  }, []);
+
+  async function handleSalvar() {
+    setSalvando(true); setErro(null);
+    try {
+      await updateNotifPrefs({ confirmacao: notifs.confirmacao, lembrete: notifs.lembrete, cancelamento: notifs.cancelamento, novosProfissionais: notifs.novosProfissionais, dicas: notifs.dicas, canalEmail: notifs.email, canalWhatsapp: notifs.whatsapp, canalPush: notifs.push });
+      setSaved(true); setTimeout(() => setSaved(false), 2500);
+    } catch { setErro("Erro ao salvar preferências"); }
+    finally { setSalvando(false); }
+  }
+
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16, maxWidth:640 }}>
       <HCard style={{ padding:16 }}>
@@ -222,8 +301,9 @@ function AbaNotificacoes() {
         <Toggle id="notif-whatsapp" label="WhatsApp" desc="Notificações via WhatsApp"     value={notifs.whatsapp} onChange={()=>toggle("whatsapp")} />
         <Toggle id="notif-push"     label="Push"     desc="Notificações no navegador"     value={notifs.push}     onChange={()=>toggle("push")} />
       </HCard>
+      {erro && <p style={{ color:"#f43f5e", fontSize:13, margin:0 }}>{erro}</p>}
       <div style={{ display:"flex", justifyContent:"flex-end" }}>
-        <button id="btn-salvar-notificacoes" onClick={()=>{setSaved(true);setTimeout(()=>setSaved(false),2500);}} style={{ padding:"8px 16px", borderRadius:8, backgroundColor:saved?"#059669":"#10b981", border:"none", color:"white", fontSize:13, fontWeight:"bold", cursor:"pointer", fontFamily:"inherit" }}>{saved?"✓ Salvo!":"Salvar preferências"}</button>
+        <button id="btn-salvar-notificacoes" onClick={handleSalvar} disabled={salvando} style={{ padding:"8px 16px", borderRadius:8, backgroundColor:saved?"#059669":"#10b981", border:"none", color:"white", fontSize:13, fontWeight:"bold", cursor:"pointer", fontFamily:"inherit" }}>{salvando?"Salvando…":saved?"✓ Salvo!":"Salvar preferências"}</button>
       </div>
     </div>
   );
@@ -233,8 +313,21 @@ function AbaSenha() {
   const [senhaAtual, setSenhaAtual] = useState("");
   const [novaSenha,  setNovaSenha]  = useState("");
   const [confirmar,  setConfirmar]  = useState("");
-  const [show, setShow] = useState({ atual: false, nova: false, confirmar: false });
-  const [saved, setSaved] = useState(false);
+  const [show,     setShow]     = useState({ atual: false, nova: false, confirmar: false });
+  const [saved,    setSaved]    = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [erro,     setErro]     = useState<string|null>(null);
+
+  async function handleSalvarSenha() {
+    if (novaSenha !== confirmar) { setErro("As senhas não coincidem"); return; }
+    setSalvando(true); setErro(null);
+    try {
+      await alterarSenhaApi(senhaAtual, novaSenha, confirmar);
+      setSaved(true); setSenhaAtual(""); setNovaSenha(""); setConfirmar("");
+      setTimeout(() => setSaved(false), 2500);
+    } catch(e: any) { setErro(e?.response?.data?.error ?? "Erro ao alterar senha"); }
+    finally { setSalvando(false); }
+  }
 
   let strength = 0;
   if (novaSenha.length >= 8)  strength++;
@@ -298,8 +391,9 @@ function AbaSenha() {
         )}
         <PwdInput id="input-confirmar-senha" label="Confirmar nova senha" field="confirmar" value={confirmar}  onChange={setConfirmar} />
       </HCard>
+      {erro && <p style={{ color:"#f43f5e", fontSize:13, margin:"8px 0 0" }}>{erro}</p>}
       <div style={{ display:"flex", justifyContent:"flex-end" }}>
-        <button id="btn-salvar-senha" onClick={()=>{setSaved(true);setTimeout(()=>setSaved(false),2500);}} style={{ padding:"8px 16px", borderRadius:8, backgroundColor:saved?"#059669":"#10b981", border:"none", color:"white", fontSize:13, fontWeight:"bold", cursor:"pointer", fontFamily:"inherit" }}>{saved?"✓ Salvo!":"Salvar senha"}</button>
+        <button id="btn-salvar-senha" onClick={handleSalvarSenha} disabled={salvando} style={{ padding:"8px 16px", borderRadius:8, backgroundColor:saved?"#059669":"#10b981", border:"none", color:"white", fontSize:13, fontWeight:"bold", cursor:"pointer", fontFamily:"inherit" }}>{salvando?"Salvando…":saved?"✓ Salvo!":"Salvar senha"}</button>
       </div>
     </div>
   );

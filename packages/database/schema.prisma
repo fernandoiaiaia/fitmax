@@ -100,6 +100,7 @@ model Client {
   password    String
   avatarUrl   String?
   cpf         String?    @unique
+  objetivo    String?    // ex: "Hipertrofia", "Emagrecimento" — objetivo fitness selecionado pelo cliente
   status      UserStatus @default(ATIVO)
   plano       String?    // ex: "Premium", "Básico"
   banidoPorId String?    // admin que baniu (OWASP A09)
@@ -108,7 +109,11 @@ model Client {
   createdAt   DateTime   @default(now())
   consultas   Consulta[]
   denuncias   Denuncia[]
-  banidoPor   Admin?     @relation("ClientBanidor", fields: [banidoPorId], references: [id])
+  banidoPor   Admin?             @relation("ClientBanidor", fields: [banidoPorId], references: [id])
+  curtidas    CurtidaFeed[]      // curtidas que o cliente deu (OWASP A01)
+  comentarios ComentarioFeed[]
+  avaliacoes  AvaliacaoConsulta[] // avaliações feitas pelo cliente (OWASP A09 — rastreabilidade)
+  notifPrefs  ClientNotifPrefs?  // preferências de notificação — relação 1:1
 }
 
 model Consulta {
@@ -126,9 +131,10 @@ model Consulta {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  profissional Professional @relation(fields: [profissionalId], references: [id])
-  cliente      Client       @relation(fields: [clienteId], references: [id])
+  profissional Professional      @relation(fields: [profissionalId], references: [id])
+  cliente      Client            @relation(fields: [clienteId], references: [id])
   repasses     Repasse[]
+  avaliacao    AvaliacaoConsulta? // relação 1:1 — OWASP A08: idempotência garantida pelo @unique
 }
 
 model Repasse {
@@ -235,29 +241,70 @@ model Disponibilidade {
   @@unique([profissionalId, dia, hora])
   @@index([profissionalId, dia])
 }
-/// Curtidas do feed — permite toggle e evita duplicatas (OWASP A01)
+/// Curtidas do feed — suporta profissional OU cliente (OWASP A01)
 model CurtidaFeed {
-  profissionalId String
+  id             String   @id @default(uuid())
   publicacaoId   String
-  criadoEm      DateTime @default(now())
+  profissionalId String?  // curtida por profissional
+  clienteId      String?  // curtida por cliente
+  criadoEm       DateTime @default(now())
 
-  profissional Professional @relation(fields: [profissionalId], references: [id])
-  publicacao   Publicacao   @relation(fields: [publicacaoId], references: [id])
+  profissional Professional? @relation(fields: [profissionalId], references: [id])
+  cliente      Client?       @relation(fields: [clienteId],      references: [id])
+  publicacao   Publicacao    @relation(fields: [publicacaoId],   references: [id])
 
-  @@id([profissionalId, publicacaoId])
+  // Garante que cada profissional ou cliente só curte uma vez por post (OWASP A01)
+  @@unique([profissionalId, publicacaoId])
+  @@unique([clienteId,      publicacaoId])
   @@index([publicacaoId])
 }
 
-/// Comentários do feed (OWASP A09 — rastreabilidade por profissional)
+/// Comentários do feed — suporta profissional OU cliente (OWASP A09 — rastreabilidade)
 model ComentarioFeed {
   id             String   @id @default(uuid())
   publicacaoId   String
-  profissionalId String
+  profissionalId String?  // comentado por profissional
+  clienteId      String?  // comentado por cliente
   texto          String
-  criadoEm      DateTime @default(now())
+  criadoEm       DateTime @default(now())
 
-  publicacao   Publicacao   @relation(fields: [publicacaoId], references: [id])
-  profissional Professional @relation(fields: [profissionalId], references: [id])
+  publicacao   Publicacao    @relation(fields: [publicacaoId],   references: [id])
+  profissional Professional? @relation(fields: [profissionalId], references: [id])
+  cliente      Client?       @relation(fields: [clienteId],      references: [id])
 
   @@index([publicacaoId])
+}
+
+/// Avaliação de uma consulta realizada — relação 1:1 com Consulta
+/// OWASP A08 — @unique em consultaId garante idempotência (um cliente, uma avaliação por consulta)
+model AvaliacaoConsulta {
+  id           String   @id @default(uuid())
+  consultaId   String   @unique            // 1:1 com Consulta (OWASP A08 — idempotência)
+  clienteId    String                      // OWASP A01 — rastreabilidade: quem avaliou
+  nota         Int                         // 1 a 5 estrelas (validado no service via Zod)
+  comentario   String?                     // texto opcional — máx. 500 chars (validado no service)
+  criadoEm    DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  consulta Consulta @relation(fields: [consultaId], references: [id])
+  cliente  Client   @relation(fields: [clienteId],  references: [id])
+
+  @@index([clienteId])
+}
+
+/// Preferências de notificação do cliente — relação 1:1 com Client
+/// Espelha AdminNotifPrefs, adaptado para o contexto do paciente
+model ClientNotifPrefs {
+  clienteId          String   @id
+  confirmacao        Boolean  @default(true)   // confirmação de agendamento
+  lembrete           Boolean  @default(true)   // lembrete 1h antes da consulta
+  cancelamento       Boolean  @default(true)   // cancelamentos e reagendamentos
+  novosProfissionais Boolean  @default(false)  // novos profissionais compatíveis com o objetivo
+  dicas              Boolean  @default(false)  // dicas de saúde personalizadas
+  canalEmail         Boolean  @default(true)
+  canalWhatsapp      Boolean  @default(false)
+  canalPush          Boolean  @default(true)
+  updatedAt          DateTime @updatedAt
+
+  cliente Client @relation(fields: [clienteId], references: [id])
 }

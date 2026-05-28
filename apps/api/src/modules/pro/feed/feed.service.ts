@@ -8,11 +8,12 @@ export const criarPublicacaoSchema = z.object({
   topico:      z.string().min(3).max(100),
   caption:     z.string().min(1).max(2200),
   // Aceita URL HTTPS externa (OWASP A10 — anti-SSRF) OU data URL de imagem do dispositivo
-  // OWASP A03 — data URLs limitadas a ~1 MB (base64 ≈ 1.4M chars)
+  // OWASP A03 — data URLs limitadas a ~2 MB raw (base64 ≈ 2.8 M chars, pois base64 adiciona ~37%)
+  // TODO: antes de produção, migrar para object storage (Cloudflare R2 / S3)
   imagemUrl: z.string().refine(
     v => {
       if (v.startsWith('data:image/')) {
-        return v.length <= 1_400_000; // ~1 MB
+        return v.length <= 2_800_000; // ~2 MB
       }
       try {
         const url = new URL(v);
@@ -20,7 +21,7 @@ export const criarPublicacaoSchema = z.object({
           !/(localhost|127\.\d+\.\d+\.\d+|10\.\d+|172\.(1[6-9]|2\d|3[01])\.)/.test(v);
       } catch { return false; }
     },
-    { message: 'imagemUrl deve ser uma URL HTTPS válida ou uma imagem do dispositivo (data:image/)' },
+    { message: 'imagemUrl deve ser uma URL HTTPS válida ou uma imagem do dispositivo (data:image/) de até 2 MB' },
   ),
   aspectRatio: z.number().min(0.5).max(2.0).default(1.0),
 });
@@ -176,13 +177,14 @@ export class FeedProService {
   /**
    * Remove publicação — OWASP A01: verifica ownership antes de deletar.
    * OWASP A09 — audit log.
+   * Remove curtidas e comentários primeiro (FK constraint sem cascade no banco).
    */
   async deletar(
     profissionalId: string,
     id: string,
     meta: { ip: string; userAgent: string },
   ) {
-    // 1. Verifica ownership
+    // 1. Verifica ownership (OWASP A01 — nunca deleta publicação de outro profissional)
     const pub = await prisma.publicacao.findFirst({
       where: { id, profissionalId },
       select: { id: true, status: true },
@@ -192,7 +194,13 @@ export class FeedProService {
       throw Object.assign(new Error('Publicação não encontrada'), { statusCode: 404 });
     }
 
-    await prisma.publicacao.delete({ where: { id } });
+    // 2. Remove relacionamentos antes de deletar (evita FK constraint violation)
+    await prisma.$transaction([
+      prisma.curtidaFeed.deleteMany({ where: { publicacaoId: id } }),
+      prisma.comentarioFeed.deleteMany({ where: { publicacaoId: id } }),
+      prisma.denuncia.deleteMany({ where: { publicacaoId: id } }),
+      prisma.publicacao.delete({ where: { id } }),
+    ]);
 
     logger.info({
       event: 'publicacao_deletada',
@@ -204,6 +212,7 @@ export class FeedProService {
 
     return { id };
   }
+
 
   /**
    * Toggle curtida — OWASP A01: controlado por profissionalId do JWT.
@@ -317,9 +326,9 @@ export class FeedProService {
       texto:    comentario.texto,
       criadoEm: comentario.criadoEm.toISOString(),
       autor: {
-        id:        comentario.profissional.id,
-        nome:      comentario.profissional.name,
-        avatarUrl: comentario.profissional.avatarUrl,
+        id:        comentario.profissional!.id,
+        nome:      comentario.profissional!.name,
+        avatarUrl: comentario.profissional!.avatarUrl,
       },
     };
   }
@@ -346,11 +355,11 @@ export class FeedProService {
         id:       c.id,
         texto:    c.texto,
         criadoEm: c.criadoEm.toISOString(),
-        autor: {
+        autor: c.profissional ? {
           id:        c.profissional.id,
           nome:      c.profissional.name,
           avatarUrl: c.profissional.avatarUrl,
-        },
+        } : null,
       })),
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };

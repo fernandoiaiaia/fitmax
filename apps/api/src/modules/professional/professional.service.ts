@@ -29,6 +29,32 @@ export class ProfessionalService {
     return professional;
   }
 
+  /** Retorna perfil completo do profissional autenticado — para o endpoint /me */
+  async findByIdFull(id: string) {
+    const professional = await prisma.professional.findUnique({
+      where: { id },
+      select: {
+        id:                   true,
+        name:                 true,
+        email:                true,
+        avatarUrl:            true,
+        especialidade:        true,
+        registroProfissional: true,
+        cidade:               true,
+        uf:                   true,
+        status:               true,
+        // contagens para o sidebar
+        _count: {
+          select: {
+            consultas: true, // total de consultas do profissional
+          },
+        },
+      },
+    });
+    if (!professional) throw new AppError('Professional not found', 404);
+    return professional;
+  }
+
   async create(dto: CreateProfessionalDto) {
     const exists = await prisma.professional.findUnique({
       where: { email: dto.email },

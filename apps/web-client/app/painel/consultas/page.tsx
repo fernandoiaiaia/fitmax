@@ -1,27 +1,50 @@
 //@ts-nocheck
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { listarConsultas, statsConsultas } from "../../../lib/consultas-api";
+import type { ConsultaStats } from "../../../lib/consultas-api";
 
 type ConsultaStatus = "agendada" | "pendente" | "a_confirmar" | "em_andamento";
 interface Consulta {
-  id: number; horario: string; nome: string; especialidade: string;
+  id: string; horario: string; nome: string; especialidade: string;
   modalidade: "Presencial" | "Online"; dataISO: string; data: string;
   avatar: string; status: ConsultaStatus;
 }
 
-const C = { bg:"#111111", color2:"#1a1a1a", color3:"#222222", color11:"#a1a1aa", color12:"#fafafa", border:"#27272a" };
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const consultas: Consulta[] = [
-  { id:1, horario:"09:00", nome:"Dr. Roberto Alves",    especialidade:"Ortopedia",         modalidade:"Presencial", dataISO:"2026-04-22", data:"Hoje, 22/04",   avatar:"https://picsum.photos/200/200?random=21", status:"agendada" },
-  { id:2, horario:"11:00", nome:"Dra. Ana Souza",       especialidade:"Nutrição",           modalidade:"Online",     dataISO:"2026-04-22", data:"Hoje, 22/04",   avatar:"https://picsum.photos/200/200?random=23", status:"pendente" },
-  { id:3, horario:"14:30", nome:"Dra. Letícia Marques", especialidade:"Endocrinologia",     modalidade:"Presencial", dataISO:"2026-04-22", data:"Hoje, 22/04",   avatar:"https://picsum.photos/200/200?random=50", status:"em_andamento" },
-  { id:4, horario:"09:00", nome:"Dr. Vinícius Almeida", especialidade:"Nutrologia",         modalidade:"Online",     dataISO:"2026-04-23", data:"Amanhã, 23/04", avatar:"https://picsum.photos/200/200?random=60", status:"a_confirmar" },
-  { id:5, horario:"16:00", nome:"Marcelo Strong",       especialidade:"Fisioterapia",       modalidade:"Presencial", dataISO:"2026-04-24", data:"24/04",         avatar:"https://picsum.photos/200/200?random=52", status:"agendada" },
-  { id:6, horario:"10:30", nome:"Bruno Silva",          especialidade:"Medicina Esportiva", modalidade:"Online",     dataISO:"2026-05-10", data:"10/05",         avatar:"https://picsum.photos/200/200?random=25", status:"pendente" },
-  { id:7, horario:"13:00", nome:"Dra. Camila Nery",    especialidade:"Personal Trainer",   modalidade:"Presencial", dataISO:"2026-05-20", data:"20/05",         avatar:"https://picsum.photos/200/200?random=22", status:"agendada" },
-];
+function isoToHorario(isoDate: string): string {
+  // ex: "2026-05-20T10:00:00.000Z" → "10:00"
+  return isoDate.substring(11, 16);
+}
+
+function isoToDataISO(isoDate: string): string {
+  return isoDate.substring(0, 10);
+}
+
+function formatDataLabel(isoDate: string): string {
+  const datePart = isoDate.substring(0, 10);
+  const [, m, d] = datePart.split("-");
+  const fmt = `${d}/${m}`;
+  const today = new Date().toISOString().substring(0, 10);
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().substring(0, 10);
+  if (datePart === today)    return `Hoje, ${fmt}`;
+  if (datePart === tomorrow) return `Amanhã, ${fmt}`;
+  return fmt;
+}
+
+function mapStatusFluxo(statusFluxo: string): ConsultaStatus {
+  const map: Record<string, ConsultaStatus> = {
+    pagamento_pendente: "pendente",
+    consulta_confirmada: "agendada",
+    consulta_cancelada: "a_confirmar",
+  };
+  return map[statusFluxo] ?? "a_confirmar";
+}
+
+const C = { bg:"#111111", color2:"#1a1a1a", color3:"#222222", color11:"#a1a1aa", color12:"#fafafa", border:"#27272a" };
 
 const statusConfig = {
   agendada:     { label:"AGENDADA",     bg:"rgba(16,185,129,0.12)",  color:"#10b981", dotColor:"#10b981" },
@@ -118,20 +141,58 @@ function ConsultaRow({ c }: { c: Consulta }) {
 
 export default function ConsultasPage() {
   const router = useRouter();
-  const [dateFrom, setDateFrom] = useState("2026-04-22");
-  const [dateTo,   setDateTo]   = useState("2026-05-22");
+  
+  // Datas padrão: hoje até hoje + 30 dias
+  const [dateFrom, setDateFrom] = useState(() => new Date().toISOString().substring(0, 10));
+  const [dateTo,   setDateTo]   = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().substring(0, 10);
+  });
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const dateRef = useRef<HTMLDivElement>(null);
+  const dateRef = useRef(null);
   useOutsideClick(dateRef, () => setShowDatePicker(false));
 
-  const filtered = consultas.filter(c => {
-    if (c.status === "em_andamento") return false;
-    if (dateFrom && c.dataISO < dateFrom) return false;
-    if (dateTo   && c.dataISO > dateTo)   return false;
-    return true;
-  });
+  // ── Estado da API ────────────────────────────────────────────────────────────
+  const [consultas, setConsultas]   = useState([]);
+  const [stats, setStats]           = useState(null);
+  const [loading, setLoading]       = useState(true);
+  const [erro, setErro]             = useState(null);
 
-  const fmtDate = (iso: string) => { const [y,m,d] = iso.split("-"); return `${d}/${m}/${y}`; };
+  const fetchDados = useCallback(async () => {
+    setLoading(true); setErro(null);
+    try {
+      const [listaRes, statsRes] = await Promise.all([
+        listarConsultas({ dateFrom, dateTo }),
+        statsConsultas({ dateFrom, dateTo }),
+      ]);
+      // Mapeia dados da API para o formato da UI
+      const mapped = listaRes.data
+        .filter(c => c.statusFluxo !== "consulta_cancelada")
+        .map(c => ({
+          id:          c.id,
+          horario:     isoToHorario(c.dataHora),
+          nome:        c.profissional.name,
+          especialidade: c.especialidade,
+          modalidade:  c.tipo === "PRESENCIAL" ? "Presencial" : "Online",
+          dataISO:     isoToDataISO(c.dataHora),
+          data:        formatDataLabel(c.dataHora),
+          avatar:      c.profissional.avatarUrl ?? `https://picsum.photos/200/200?random=${c.id.charCodeAt(0)}`,
+          status:      mapStatusFluxo(c.statusFluxo),
+        }));
+      setConsultas(mapped);
+      setStats(statsRes);
+    } catch (e) {
+      setErro("Não foi possível carregar as consultas. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  }, [dateFrom, dateTo]);
+
+  useEffect(() => { fetchDados(); }, [fetchDados]);
+
+  // Não filtra localmente — a API já filtra por período
+  const filtered = consultas;
+
+  const fmtDate = (iso) => { const [y,m,d] = iso.split("-"); return `${d}/${m}/${y}`; };
 
   return (
     <>
@@ -199,8 +260,8 @@ export default function ConsultasPage() {
           <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
             {/* Resumo do Período */}
             <div style={{ flex:1, minWidth:0, border:`1px solid ${C.border}`, backgroundColor:C.color2, borderRadius:12, padding:16, cursor:"pointer", transition:"background .15s, border-color .15s" }}
-              onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.backgroundColor=C.color3;(e.currentTarget as HTMLElement).style.borderColor="#10b981";}}
-              onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.backgroundColor=C.color2;(e.currentTarget as HTMLElement).style.borderColor=C.border;}}>
+              onMouseEnter={e=>{(e.currentTarget).style.backgroundColor=C.color3;(e.currentTarget).style.borderColor="#10b981";}}
+              onMouseLeave={e=>{(e.currentTarget).style.backgroundColor=C.color2;(e.currentTarget).style.borderColor=C.border;}}>
               <p style={{ color:C.color11, fontSize:11, fontWeight:700, letterSpacing:1, textTransform:"uppercase", margin:"0 0 12px" }}>Resumo do Período</p>
               <div className="resumo-cols" style={{ display:"flex", gap:16 }}>
                 <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8 }}>
@@ -208,7 +269,7 @@ export default function ConsultasPage() {
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
                   </div>
                   <span style={{ color:C.color11, fontSize:12 }}>Consultas</span>
-                  <span style={{ color:C.color12, fontSize:22, fontWeight:"bold" }}>{filtered.length}</span>
+                  <span style={{ color:C.color12, fontSize:22, fontWeight:"bold" }}>{loading ? "—" : (stats?.totalConsultas ?? filtered.length)}</span>
                   <div style={{ display:"flex", alignItems:"center", gap:4 }}>
                     <div style={{ width:6, height:6, borderRadius:"50%", backgroundColor:"#10b981" }} />
                     <span style={{ color:"#10b981", fontSize:11 }}>no período selecionado</span>
@@ -220,10 +281,10 @@ export default function ConsultasPage() {
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                   </div>
                   <span style={{ color:C.color11, fontSize:12 }}>Valor Investido</span>
-                  <span style={{ color:C.color12, fontSize:22, fontWeight:"bold" }}>R$970</span>
+                  <span style={{ color:C.color12, fontSize:22, fontWeight:"bold" }}>{loading ? "—" : `R$${stats?.totalInvestidoReais ?? "0.00"}`}</span>
                   <div style={{ display:"flex", alignItems:"center", gap:4 }}>
                     <div style={{ width:6, height:6, borderRadius:"50%", backgroundColor:"#10b981" }} />
-                    <span style={{ color:"#10b981", fontSize:11 }}>+8% vs mês anterior</span>
+                    <span style={{ color:"#10b981", fontSize:11 }}>no período selecionado</span>
                   </div>
                 </div>
               </div>
@@ -231,15 +292,15 @@ export default function ConsultasPage() {
 
             {/* Visão Geral do Dia */}
             <div style={{ flex:1, minWidth:0, border:`1px solid ${C.border}`, backgroundColor:C.color2, borderRadius:12, padding:16, cursor:"pointer", transition:"background .15s, border-color .15s" }}
-              onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.backgroundColor=C.color3;(e.currentTarget as HTMLElement).style.borderColor="#10b981";}}
-              onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.backgroundColor=C.color2;(e.currentTarget as HTMLElement).style.borderColor=C.border;}}>
+              onMouseEnter={e=>{(e.currentTarget).style.backgroundColor=C.color3;(e.currentTarget).style.borderColor="#10b981";}}
+              onMouseLeave={e=>{(e.currentTarget).style.backgroundColor=C.color2;(e.currentTarget).style.borderColor=C.border;}}>
               <p style={{ color:C.color11, fontSize:11, fontWeight:700, letterSpacing:1, textTransform:"uppercase", margin:"0 0 12px" }}>Visão Geral do Dia</p>
               <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                 {[
-                  { icon:"📅", label:"Consultas",  value:"3",  color:C.color12 },
-                  { icon:"✅", label:"Confirmadas", value:"1",  color:"#10b981" },
-                  { icon:"⏳", label:"Pendentes",   value:"1",  color:"#facc15" },
-                  { icon:"⏱",  label:"Próxima em",  value:"2h", color:"#60a5fa" },
+                  { icon:"📅", label:"Consultas",  value: loading ? "—" : String(stats?.consultasHoje ?? 0),  color:C.color12 },
+                  { icon:"✅", label:"Confirmadas", value: loading ? "—" : String(stats?.confirmadas ?? 0),   color:"#10b981" },
+                  { icon:"⏳", label:"Pendentes",   value: loading ? "—" : String(stats?.pendentes ?? 0),     color:"#facc15" },
+                  { icon:"⏱",  label:"Próxima em",  value: loading ? "—" : (stats?.proximaEm ?? "—"),         color:"#60a5fa" },
                 ].map((item,i)=>(
                   <div key={i} id={`day-item-${i}`} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingTop:6, paddingBottom:6, paddingLeft:8, paddingRight:8, borderRadius:8, backgroundColor:C.bg, border:`1px solid ${C.border}` }}>
                     <div style={{ display:"flex", alignItems:"center", gap:6 }}>
@@ -258,14 +319,19 @@ export default function ConsultasPage() {
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <div>
                 <h2 style={{ color:C.color12, fontSize:20, fontWeight:"bold", margin:0 }}>Próximas Consultas</h2>
-                <span style={{ color:C.color11, fontSize:12 }}>{filtered.length} consultas encontradas</span>
+                <span style={{ color:C.color11, fontSize:12 }}>{loading ? "Carregando…" : `${filtered.length} consultas encontradas`}</span>
               </div>
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-              {filtered.length === 0 ? (
+              {erro ? (
+                <div style={{ border:`1px solid rgba(244,63,94,0.3)`, backgroundColor:"rgba(244,63,94,0.06)", borderRadius:12, padding:32, display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:32 }}>⚠️</span>
+                  <span style={{ color:"#f43f5e", fontSize:14 }}>{erro}</span>
+                </div>
+              ) : filtered.length === 0 ? (
                 <div style={{ border:`1px solid ${C.border}`, backgroundColor:C.color2, borderRadius:12, padding:32, display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
-                  <span style={{ fontSize:32 }}>📭</span>
-                  <span style={{ color:C.color11, fontSize:14 }}>Nenhuma consulta encontrada para este filtro.</span>
+                  <span style={{ fontSize:32 }}>{loading ? "⏳" : "📭"}</span>
+                  <span style={{ color:C.color11, fontSize:14 }}>{loading ? "Carregando consultas…" : "Nenhuma consulta encontrada para este filtro."}</span>
                 </div>
               ) : (
                 filtered.map(c => <ConsultaRow key={c.id} c={c} />)

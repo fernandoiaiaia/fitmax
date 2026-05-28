@@ -44,7 +44,7 @@ api.interceptors.response.use(
   res => res,
   async (error: AxiosError) => {
     const original = error.config as typeof error.config & { _retry?: boolean };
-    const isRefreshEndpoint = original?.url?.includes('/auth/pro/refresh');
+    const isRefreshEndpoint = original?.url?.includes('/auth/client/refresh');
 
     if (error.response?.status === 401 && !original?._retry && !isRefreshEndpoint) {
       if (isRefreshing) {
@@ -67,8 +67,8 @@ api.interceptors.response.use(
         return api(original!);
       } catch {
         tokenStore.clear();
-        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-          window.location.href = '/login';
+        if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+          window.location.href = '/';
         }
         return Promise.reject(error);
       } finally {

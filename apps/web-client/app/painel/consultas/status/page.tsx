@@ -1,22 +1,14 @@
 //@ts-nocheck
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-
+import { detalheConsulta } from "../../../../lib/consultas-api";
 import TimelineStatus from "../TimelineStatus";
 import { useStatusMap } from "../consultasStore";
 
-// ─── Mock (espelho do pendentes) ──────────────────────────────────────────────
-
-const consultasMock = [
-  { id: "c001", paciente: { nome: "Carlos Mendes", avatar: "https://picsum.photos/200/200?random=10" }, tipo: "Presencial", especialidade: { nome: "Nutrição", icon: "🥗" }, data: "2026-05-20", horario: "10:00", clinica: { nome: "SportMed Clínica", cidade: "São Paulo", uf: "SP" }, convenio: { nome: "Unimed" }, justificativa: "" },
-  { id: "c002", paciente: { nome: "Fernanda Lima",  avatar: "https://picsum.photos/200/200?random=11" }, tipo: "Online",     especialidade: { nome: "Nutrologia",  icon: "💊" }, data: "2026-05-21", horario: "14:00", clinica: null, convenio: null, justificativa: "" },
-  { id: "c003", paciente: { nome: "Rafael Oliveira",avatar: "https://picsum.photos/200/200?random=12" }, tipo: "Presencial", especialidade: { nome: "Fisioterapia",icon: "💪" }, data: "2026-05-22", horario: "09:00", clinica: { nome: "SportMed Clínica", cidade: "São Paulo", uf: "SP" }, convenio: { nome: "Bradesco Saúde" }, justificativa: "" },
-];
-
 function formatDate(iso: string) {
-  const [y,m,d] = iso.split("-"); return `${d}/${m}/${y}`;
+  const [y,m,d] = iso.split("T")[0].split("-"); return `${d}/${m}/${y}`;
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -73,13 +65,42 @@ function BadgeStatus({ status }: { status: string }) {
 function StatusInner() {
   const router = useRouter();
   const params  = useSearchParams();
-  const id      = params.get("id") ?? "c001";
-  const consulta = consultasMock.find(c => c.id === id) ?? consultasMock[0];
+  const id      = params.get("id") ?? "";
 
-  const statusMap = useStatusMap();
-  const status = statusMap[id] ?? "consulta_solicitada";
+  // ─ Dados reais da API ───────────────────────────────────────────────────────
+  const [consulta, setConsulta] = useState(null);
+  const [loading,  setLoading]  = useState(true);
+
+  useEffect(() => {
+    if (!id) return;
+    detalheConsulta(id)
+      .then(c => setConsulta(c))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  // Mapeia statusFluxo da API para o tipo StatusConsulta do timeline
+  function mapStatus(statusFluxo) {
+    const m = {
+      pagamento_pendente:  "pagamento_pendente",
+      consulta_confirmada: "consulta_confirmada",
+      consulta_cancelada:  "consulta_recusada",
+    };
+    return m[statusFluxo] ?? "consulta_solicitada";
+  }
+
+  const status = consulta ? mapStatus(consulta.statusFluxo) : "consulta_solicitada";
 
   function irPagar() { router.push(`/painel/consultas/pagamento?id=${id}`); }
+
+  if (loading || !consulta) {
+    return (
+      <div style={{ textAlign: "center", padding: 48, color: "#a1a1aa" }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
+        <span>{loading ? "Carregando consulta…" : "Consulta não encontrada."}</span>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
@@ -92,25 +113,25 @@ function StatusInner() {
 
         <div className="st-row">
           <span>👨‍⚕️</span>
-          <span className="st-txt"><strong>{consulta.paciente.nome}</strong></span>
+          <span className="st-txt"><strong>{consulta.profissional.name}</strong></span>
         </div>
         <div className="st-row">
-          <span>{consulta.especialidade.icon}</span>
-          <span className="st-txt">{consulta.especialidade.nome}</span>
+          <span>🏥</span>
+          <span className="st-txt">{consulta.especialidade}</span>
         </div>
         <div className="st-row">
           <span>📅</span>
-          <span className="st-txt"><strong>{formatDate(consulta.data)}</strong> às {consulta.horario} · {consulta.tipo}</span>
+          <span className="st-txt"><strong>{formatDate(consulta.dataHora)}</strong> às {consulta.dataHora.substring(11,16)} · {consulta.tipo}</span>
         </div>
-        {consulta.tipo === "Presencial" && consulta.clinica && (
+        {consulta.tipo === "PRESENCIAL" && consulta.profissional?.cidade && (
           <div className="st-row">
             <span>📍</span>
-            <span className="st-txt">{consulta.clinica.nome} · {consulta.clinica.cidade}/{consulta.clinica.uf}</span>
+            <span className="st-txt">{consulta.profissional.cidade}/{consulta.profissional.uf}</span>
           </div>
         )}
         <div className="st-row">
           <span>💳</span>
-          <span className="st-txt">{consulta.convenio?.nome ?? <span style={{color:"#52525b"}}>Particular</span>}</span>
+          <span className="st-txt">Particular</span>
         </div>
       </div>
 
@@ -132,7 +153,7 @@ function StatusInner() {
         <div className="st-confirm-banner">
           <span style={{ fontSize:28, display:"block", marginBottom:8 }}>🎉</span>
           <span style={{ color:"#10b981", fontSize:15, fontWeight:"700", display:"block", marginBottom:4 }}>Consulta Confirmada!</span>
-          <span style={{ color:"#a1a1aa", fontSize:13 }}>Seu pagamento foi recebido. Até {formatDate(consulta.data)} às {consulta.horario}!</span>
+          <span style={{ color:"#a1a1aa", fontSize:13 }}>Seu pagamento foi recebido. Até {formatDate(consulta.dataHora)} às {consulta.dataHora.substring(11,16)}!</span>
         </div>
       )}
 
@@ -141,8 +162,8 @@ function StatusInner() {
         <span style={{ color:"#a1a1aa", fontSize:11, fontWeight:"700", display:"block", marginBottom:16, textTransform:"uppercase", letterSpacing:"0.06em" }}>Histórico do Agendamento</span>
         <TimelineStatus
           consultaId={id}
-          defaultStatus="consulta_solicitada"
-          justificativa={consulta.justificativa || undefined}
+          defaultStatus={status}
+          justificativa={consulta.estornoMotivo || undefined}
           role="paciente"
           onPagar={status === "pagamento_pendente" ? irPagar : undefined}
         />

@@ -33,10 +33,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     _setAccessToken(token);
   }, []);
 
-  // Carrega dados do profissional logado
+  // Carrega dados do cliente logado
   const loadUser = useCallback(async (token: string) => {
     try {
-      const { data } = await api.get('/professionals/me', {
+      const { data } = await api.get('/clients/me', {
         headers: { Authorization: `Bearer ${token}` },
       });
       setUser({
@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await api.post<{ accessToken: string }>('/auth/pro/refresh');
+        const { data } = await api.post<{ accessToken: string }>('/auth/client/refresh');
         tokenStore.set(data.accessToken);
         _setAccessToken(data.accessToken);
         await loadUser(data.accessToken);

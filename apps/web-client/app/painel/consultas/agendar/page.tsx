@@ -1,8 +1,9 @@
 //@ts-nocheck
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { cancelarConsulta, reagendarConsulta, listarProfissionais, agendarConsulta, listarEspecialidades, buscarDisponibilidade } from "../../../../lib/consultas-api";
 
 // ─── Tamagui Shims (migration compatibility layer) ────────────────────────────
 const ScrollView = ({ children, ...p }: any) => <div style={{ flex:1, overflowY:"auto", ...p.style }}>{children}</div>;
@@ -17,16 +18,34 @@ const H2 = ({ children, color, size, fontWeight, style, ...p }: any) =>
 
 // ─── Types & Mock Data ────────────────────────────────────────────────────────
 
-const especialidades = [
-  { id: 1, nome: "Nutrição",          icon: "🥗", cor: "#10b981" },
-  { id: 2, nome: "Ortopedia",         icon: "🦴", cor: "#60a5fa" },
-  { id: 3, nome: "Personal Trainer",  icon: "🏋️", cor: "#f59e0b" },
-  { id: 4, nome: "Fisioterapia",      icon: "💪", cor: "#a78bfa" },
-  { id: 5, nome: "Endocrinologia",    icon: "🔬", cor: "#f43f5e" },
-  { id: 6, nome: "Medicina Esportiva",icon: "⚕️", cor: "#34d399" },
-  { id: 7, nome: "Psicologia",        icon: "🧠", cor: "#fb923c" },
-  { id: 8, nome: "Nutrologia",        icon: "💊", cor: "#e879f9" },
-];
+// Mapa de ícones e cores por nome de especialidade (extensível automaticamente)
+const ESPECIALIDADE_ICON: Record<string, string> = {
+  "Nutrição":           "🥗",
+  "Ortopedia":          "🦴",
+  "Personal Trainer":   "🏋️",
+  "Fisioterapia":       "💪",
+  "Endocrinologia":     "🔬",
+  "Medicina Esportiva": "⚕️",
+  "Psicologia":         "🧠",
+  "Nutrologia":         "💊",
+  "Cardiologia":        "❤️",
+  "Dermatologia":       "🪷",
+  "Fisiculturismo":     "🏋️",
+};
+const ESPECIALIDADE_COR: Record<string, string> = {
+  "Nutrição":           "#10b981",
+  "Ortopedia":          "#60a5fa",
+  "Personal Trainer":   "#f59e0b",
+  "Fisioterapia":       "#a78bfa",
+  "Endocrinologia":     "#f43f5e",
+  "Medicina Esportiva": "#34d399",
+  "Psicologia":         "#fb923c",
+  "Nutrologia":         "#e879f9",
+  "Cardiologia":        "#ef4444",
+  "Dermatologia":       "#fbbf24",
+};
+function getIcon(esp: string) { return ESPECIALIDADE_ICON[esp] ?? "🏥"; }
+function getCor(esp:  string) { return ESPECIALIDADE_COR[esp]  ?? "#a1a1aa"; }
 
 // Configuração mock — convênio
 const CONFIG_ACEITA_CONVENIO = true;
@@ -621,8 +640,18 @@ function AgendarConsultaInner() {
 
   const isManageMode = !!consultaId;
 
-  // ── Manage mode state ────────────────────────────────────────────────────────
-  // manageView: "menu" | "pagar" | "cancelar" | "cancelado" | "pago" | "reagendando"
+  // ── Profissionais e especialidades reais da API ──────────────────────────────────
+  const [profissionaisAPI, setProfissionaisAPI] = useState([]);
+  useEffect(() => {
+    listarProfissionais()
+      .then(data => setProfissionaisAPI(data))
+      .catch(() => {});
+    listarEspecialidades()
+      .then(data => setEspecialidades(data))
+      .catch(() => {});
+  }, []);
+
+
   const [manageView, setManageView] = useState<string>("menu");
   const [payMethod,  setPayMethod]  = useState<string | null>(null);
   const [payDone,    setPayDone]    = useState(false);
@@ -637,6 +666,9 @@ function AgendarConsultaInner() {
   };
   const statusCfg = statusLabels[consultaStatus] ?? { label: consultaStatus.toUpperCase(), bg: "rgba(255,255,255,0.08)", color: "#a1a1aa" };
 
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelError,   setCancelError]   = useState("");
+
   async function handlePagar() {
     if (!payMethod || payLoading) return;
     setPayLoading(true);
@@ -645,8 +677,17 @@ function AgendarConsultaInner() {
     setPayDone(true);
   }
 
-  function handleCancelar() {
-    setCancelDone(true);
+  async function handleCancelar() {
+    if (cancelLoading) return;
+    setCancelLoading(true); setCancelError("");
+    try {
+      await cancelarConsulta(consultaId!);
+      setCancelDone(true);
+    } catch {
+      setCancelError("Erro ao cancelar consulta. Tente novamente.");
+    } finally {
+      setCancelLoading(false);
+    }
   }
 
   // ── Agendamento flow states (must be before any conditional return for Rules of Hooks) ──
@@ -660,8 +701,9 @@ function AgendarConsultaInner() {
   const [convenioSel,    setConvenioSel]    = useState<number | null>(null);
   const [convenioOutros, setConvenioOutros] = useState("");
 
-  // Step 2
-  const [espSel, setEspSel] = useState<number | null>(null);
+  // Step 2 — Especialidade (string vinda da API)
+  const [espSel, setEspSel] = useState(null); // nome da especialidade selecionada
+  const [especialidades, setEspecialidades] = useState([]);
 
   // Step 3
   const [proSel, setProSel] = useState<number | null>(null);
@@ -673,6 +715,17 @@ function AgendarConsultaInner() {
   const [calMonth, setCalMonth] = useState(today.getMonth());
   const [daysSel, setDaySel]   = useState<number | null>(null);
   const [horSel, setHorSel]    = useState<string | null>(null);
+
+  // ── Horários já ocupados para o profissional/data selecionados ───────────────
+  // Deve ficar DEPOIS de proSel, daysSel, calYear e calMonth (Rules of Hooks)
+  const [horariosOcupadosAPI, setHorariosOcupadosAPI] = useState<string[]>([]);
+  useEffect(() => {
+    if (!proSel || !daysSel) { setHorariosOcupadosAPI([]); return; }
+    const dataStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(daysSel).padStart(2, '0')}`;
+    buscarDisponibilidade(String(proSel), dataStr)
+      .then(horas => setHorariosOcupadosAPI(horas))
+      .catch(() => setHorariosOcupadosAPI([]));
+  }, [proSel, daysSel, calMonth, calYear]);
 
   // Step 5 — Observação + Submissão
   const [observacao,        setObservacao]        = useState("");
@@ -914,14 +967,28 @@ function AgendarConsultaInner() {
 
   // ── Modo Agendar Normal (também ativado quando manageView === "reagendando") ──
 
-  const profFiltrados = profissionais.filter(p => {
-    const matchEsp  = espSel ? p.especialidade.includes(espSel) : true;
+  // Usa profissionais da API se disponíveis, senão usa o mock local
+  const profissionaisParaExibir = profissionaisAPI.length > 0
+    ? profissionaisAPI.map((p) => ({
+        id:          p.id,
+        nome:        p.name,
+        avatar:      p.avatarUrl ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}&background=10b981&color=fff`,
+        especialidade: [p.especialidade].filter(Boolean) as string[],
+        avaliacao:   4.8,
+        modalidades: ["Online", "Presencial"],
+        clinica:     p.cidade ? `${p.cidade}, ${p.uf}` : null,
+      }))
+    : profissionais;  // fallback para mock
+
+  const profFiltrados = profissionaisParaExibir.filter(p => {
+    // espSel é agora uma string (nome da especialidade)
+    const matchEsp  = espSel ? p.especialidade.some(e => e.toLowerCase() === espSel.toLowerCase()) : true;
     const matchTipo = tipoConsulta ? p.modalidades.includes(tipoConsulta) : true;
     return matchEsp && matchTipo;
   });
 
-  const proAtual = profissionais.find(p => p.id === proSel);
-  const espAtual = especialidades.find(e => e.id === espSel);
+  const proAtual = profissionaisParaExibir.find(p => p.id === proSel);
+  const espAtual = espSel ? { nome: espSel } : null;
 
   const calDays = buildCalendar(calYear, calMonth);
 
@@ -954,31 +1021,43 @@ function AgendarConsultaInner() {
     if (!canSubmit || isSubmitting) return;
     setIsSubmitting(true); setSubmitError("");
     try {
-      await new Promise(r => setTimeout(r, 800)); // simula latência de API
-      const convenioNome = convenioSel === 4
-        ? (convenioOutros || "Outros")
-        : convenios.find(c => c.id === convenioSel)?.nome ?? null;
-      const payload = {
-        tipo: tipoConsulta,
-        endereco: tipoConsulta === "Presencial" ? (proAtual?.clinica ?? null) : null,
-        convenio: usaConvenio ? { id: convenioSel, nome: convenioNome } : null,
-        especialidadeId: espSel,
-        profissionalId: proSel,
-        modalidade,
-        data: `${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(daysSel).padStart(2,"0")}`,
-        horario: horSel,
-        observacao: observacao.trim() || null,
-        status: "consulta_solicitada",
-      };
-      console.log("[FitMax] Agendamento solicitado:", payload);
+      // Constrói a data no fuso horário LOCAL do navegador, não UTC direto
+      const [hh, mm] = (horSel ?? "08:00").split(":").map(Number);
+      const dtLocal = new Date(calYear, calMonth, daysSel!, hh, mm, 0, 0);
+      const dataHoraISO = dtLocal.toISOString(); // converte local → UTC corretamente
+
+      // Modo reagendar: chama a API com a nova data
+      if (isManageMode && manageView === "reagendando") {
+        await reagendarConsulta(consultaId!, dataHoraISO);
+        router.push("/painel/consultas");
+        return;
+      }
+
+      // Novo agendamento real
+      const espNome = espAtual?.nome ?? especialidades[0] ?? "Consulta";
+      const tipo = tipoConsulta === "Online" ? "ONLINE" : "PRESENCIAL";
+
+      await agendarConsulta({
+        profissionalId: String(proSel),
+        especialidade:  espNome,
+        tipo:           tipo as "ONLINE" | "PRESENCIAL",
+        dataHora:       dataHoraISO,
+        valorCentavos:  25000, // R$ 250,00 padrão
+        observacao:     observacao.trim() || undefined,
+      });
+
       setAgendamentoStatus("consulta_solicitada");
       setStep(6);
-    } catch {
-      setSubmitError("Erro ao solicitar agendamento. Tente novamente.");
+    } catch (e: any) {
+      const msg = e?.response?.data?.details?.dataHora?.[0]
+        ?? e?.response?.data?.error
+        ?? "Erro ao solicitar agendamento. Tente novamente.";
+      setSubmitError(msg);
     } finally {
       setIsSubmitting(false);
     }
   }
+
 
   // 5 etapas de seleção (0−4) + review (5) + sucesso (6)
   const progress = step >= 5 ? 100 : Math.round((step / 5) * 100);
@@ -1204,22 +1283,31 @@ function AgendarConsultaInner() {
               <Text color="$color12" fontSize={16} fontWeight="bold" display="block" marginBottom="$4">
                 Qual especialidade você procura?
               </Text>
-              <div className="ag-esp-grid">
-                {especialidades.map(esp => {
-                  const isActive = espSel === esp.id;
-                  return (
-                    <div
-                      key={esp.id}
-                      className={`ag-esp-card${isActive ? " active" : ""}`}
-                      style={{ "--esp-cor": esp.cor, "--esp-rgb": esp.cor.replace("#","").match(/../g)?.map(x=>parseInt(x,16)).join(",") } as React.CSSProperties}
-                      onClick={() => setEspSel(esp.id)}
-                    >
-                      <span className="ag-esp-icon">{esp.icon}</span>
-                      <span className="ag-esp-label" style={isActive ? { color: esp.cor } : {}}>{esp.nome}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              {especialidades.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 32, color: "#52525b" }}>
+                  <span style={{ fontSize: 28, display: "block", marginBottom: 8 }}>⏳</span>
+                  Carregando especialidades…
+                </div>
+              ) : (
+                <div className="ag-esp-grid">
+                  {especialidades.map((nome) => {
+                    const isActive = espSel === nome;
+                    const cor = getCor(nome);
+                    const rgb = cor.replace("#","").match(/../g)?.map(x=>parseInt(x,16)).join(",") ?? "16,185,129";
+                    return (
+                      <div
+                        key={nome}
+                        className={`ag-esp-card${isActive ? " active" : ""}`}
+                        style={{ "--esp-cor": cor, "--esp-rgb": rgb } as React.CSSProperties}
+                        onClick={() => setEspSel(nome)}
+                      >
+                        <span className="ag-esp-icon">{getIcon(nome)}</span>
+                        <span className="ag-esp-label" style={isActive ? { color: cor } : {}}>{nome}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <XStack justifyContent="space-between" marginTop="$5">
                 <button className="ag-btn-ghost" onClick={() => setStep(1)}>← Voltar</button>
                 <button
@@ -1236,6 +1324,7 @@ function AgendarConsultaInner() {
             </div>
           )}
 
+
           {/* ═══ ETAPA 3 — Profissional ═══ */}
           {step === 3 && (
             <div className="ag-step-card">
@@ -1247,8 +1336,8 @@ function AgendarConsultaInner() {
                   </span>
                 )}
                 {espAtual && (
-                  <span style={{ fontSize: 12, color: espAtual.cor, fontWeight: 700, background: `${espAtual.cor}20`, border: `1px solid ${espAtual.cor}44`, borderRadius: 20, padding: "3px 10px" }}>
-                    {espAtual.icon} {espAtual.nome}
+                  <span style={{ fontSize: 12, color: getCor(espAtual.nome), fontWeight: 700, background: `${getCor(espAtual.nome)}20`, border: `1px solid ${getCor(espAtual.nome)}44`, borderRadius: 20, padding: "3px 10px" }}>
+                    {getIcon(espAtual.nome)} {espAtual.nome}
                   </span>
                 )}
               </XStack>
@@ -1356,19 +1445,29 @@ function AgendarConsultaInner() {
                   </Text>
                   <div className="ag-hor-grid">
                     {horarios.map(h => {
-                      const occupied = horariosOcupados.includes(h);
-                      const isActive = horSel === h;
+                      // Bloqueia horas passadas se o dia selecionado é hoje
+                      const isToday = daysSel === today.getDate()
+                        && calMonth === today.getMonth()
+                        && calYear  === today.getFullYear();
+                      const [hh] = h.split(":").map(Number);
+                      const isPast    = isToday && hh <= today.getHours();
+                      const isBooked  = horariosOcupadosAPI.includes(h); // já agendado no banco
+                      const isBlocked = isPast || isBooked;
+                      const isActive  = horSel === h;
                       return (
                         <button
                           key={h}
-                          className={`ag-hor-btn${occupied ? " occupied" : ""}${isActive ? " active" : ""}`}
-                          onClick={() => { if (!occupied) setHorSel(h); }}
+                          className={`ag-hor-btn${isBlocked ? " occupied" : ""}${isActive ? " active" : ""}`}
+                          onClick={() => { if (!isBlocked) setHorSel(h); }}
+                          title={isPast ? "Horário já passou" : isBooked ? "Horário já agendado" : undefined}
                         >
                           {h}
                         </button>
                       );
                     })}
                   </div>
+
+
                 </div>
               )}
 

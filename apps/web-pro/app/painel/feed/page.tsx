@@ -89,7 +89,7 @@ export default function FeedPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) { setPublishErr("Selecione um arquivo de imagem."); return; }
-    if (file.size > 1 * 1024 * 1024) { setPublishErr("Arquivo muito grande. O tamanho máximo permitido é 1 MB."); return; }
+    if (file.size > 2 * 1024 * 1024) { setPublishErr("Arquivo muito grande. O tamanho máximo permitido é 2 MB."); return; }
     setPublishErr(null);
     const reader = new FileReader();
     reader.onload = ev => {
@@ -133,8 +133,8 @@ export default function FeedPage() {
         } else {
           setPublishErr("Erro de validação nos dados enviados.");
         }
-      } else if (err.response?.status === 413 || (err.response?.status === 500 && imageData && imageData.length > 1_000_000)) {
-        setPublishErr("Arquivo muito grande. O tamanho máximo permitido é 1 MB.");
+      } else if (err.response?.status === 413 || (err.response?.status === 500 && imageData && imageData.length > 2_800_000)) {
+        setPublishErr("Arquivo muito grande. O tamanho máximo permitido é 2 MB.");
       } else {
         setPublishErr(err.response?.data?.error ?? "Erro ao publicar. Verifique o tamanho da imagem e tente novamente.");
       }
@@ -262,7 +262,7 @@ export default function FeedPage() {
                 >
                   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                   <span style={{ color:"#a1a1aa", fontSize:13 }}>Clique para selecionar uma imagem do dispositivo</span>
-                  <span style={{ color:"#52525b", fontSize:11 }}>JPG, PNG, WEBP · Máx. 1 MB</span>
+                  <span style={{ color:"#52525b", fontSize:11 }}>JPG, PNG, WEBP · Máx. 2 MB</span>
                 </div>
               )}
 

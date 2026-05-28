@@ -25,6 +25,17 @@ export class ProfessionalController {
     }
   };
 
+  /** GET /professionals/me — retorna perfil do profissional autenticado (OWASP A01) */
+  findMe = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = req.user!.sub; // sempre do JWT, nunca do body
+      const professional = await this.professionalService.findByIdFull(id);
+      res.json(professional);
+    } catch (err) {
+      next(err);
+    }
+  };
+
   findById = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const professional = await this.professionalService.findById(req.params.id);
