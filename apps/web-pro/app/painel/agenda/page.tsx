@@ -2,6 +2,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import useSWR from "swr";
+import { api } from "@/lib/api";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -32,19 +34,7 @@ const HORARIOS_DIA = [
   { hora:"18:00", disponivel:false },
 ];
 
-const consultasPorDia: Record<string, Consulta[]> = {
-  "2026-04-23": [
-    { id:1, hora:"09:00", duracao:1, paciente:"Fernanda Lima",    avatar:"https://picsum.photos/200/200?random=41", especialidade:"Cardiologia",        modalidade:"Presencial", status:"confirmada"   },
-    { id:2, hora:"11:00", duracao:1, paciente:"Guilherme Augusto",avatar:"https://picsum.photos/200/200?random=30", especialidade:"Check-up",           modalidade:"Presencial", status:"em_andamento" },
-    { id:3, hora:"14:00", duracao:1, paciente:"Ricardo Nunes",    avatar:"https://picsum.photos/200/200?random=45", especialidade:"Avaliação Cardíaca", modalidade:"Presencial", status:"pendente"     },
-    { id:4, hora:"16:00", duracao:1, paciente:"Beatriz Santos",   avatar:"https://picsum.photos/200/200?random=46", especialidade:"Cardiologia",        modalidade:"Online",     status:"confirmada"   },
-  ],
-  "2026-04-24": [
-    { id:5, hora:"09:00", duracao:1, paciente:"Lucas Mendes",    avatar:"https://picsum.photos/200/200?random=32", especialidade:"Check-up",  modalidade:"Presencial", status:"confirmada" },
-    { id:6, hora:"10:00", duracao:1, paciente:"Ana Paula Ramos", avatar:"https://picsum.photos/200/200?random=48", especialidade:"Cardiologia",modalidade:"Online",     status:"confirmada" },
-    { id:7, hora:"15:00", duracao:1, paciente:"Thiago Oliveira", avatar:"https://picsum.photos/200/200?random=49", especialidade:"Cardiologia",modalidade:"Presencial", status:"pendente"   },
-  ],
-};
+// mock removido
 
 const STATUS_CONFIG = {
   confirmada:   { label:"Confirmada",   bg:"rgba(16,185,129,0.12)", color:"#10b981", border:"rgba(16,185,129,0.3)", dot:"#10b981" },
@@ -53,7 +43,7 @@ const STATUS_CONFIG = {
   cancelada:    { label:"Cancelada",    bg:"rgba(244,63,94,0.12)",  color:"#f43f5e", border:"rgba(244,63,94,0.3)",  dot:"#f43f5e" },
 };
 
-const TODAY = new Date("2026-04-23T12:00:00-03:00");
+const TODAY = new Date();
 function toISO(d:Date){ return d.toISOString().slice(0,10); }
 function addDays(d:Date,n:number){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
 function fmtLong(d:Date){ return d.toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"}); }
@@ -395,8 +385,9 @@ function ConsultaDetalhePanel({ consulta, onClose, onStatusChange }: {
 
 interface SlotState { hora:string; estado:"disponivel"|"bloqueado"|"agendado"; paciente?:string; }
 
-function PainelSlots({ iso, slots, setSlots, highlightHora, consultasDia }: {
+function PainelSlots({ iso, slots, setSlots, highlightHora, consultasDia, onSaveDia }: {
   iso:string; slots:SlotState[]; setSlots:(s:SlotState[])=>void; highlightHora?:string; consultasDia?: Consulta[];
+  onSaveDia?: (iso: string, slots: SlotState[]) => Promise<void>;
 }) {
   const [novoHor, setNovoHor] = useState("");
   const [saved, setSaved]     = useState(false);
@@ -413,13 +404,20 @@ function PainelSlots({ iso, slots, setSlots, highlightHora, consultasDia }: {
   }
   function bloquearTudo(){ setSlots(slots.map(s=>s.estado==="agendado" ? s : {...s,estado:"bloqueado"})); setSaved(false); }
   function liberarTudo(){  setSlots(slots.map(s=>s.estado==="agendado" ? s : {...s,estado:"disponivel"})); setSaved(false); }
-  function aplicarPadrao(){ setSlots(HORARIOS_DIA.map(h=>{ const c=consultasPorDia[iso]?.find(x=>x.hora===h.hora); return { hora:h.hora, estado:c?"agendado":h.disponivel?"disponivel":"bloqueado", paciente:c?.paciente }; })); setSaved(false); }
+  function aplicarPadrao(){ setSlots(HORARIOS_DIA.map(h=>{ const c=consultasDia?.find(x=>x.hora===h.hora); return { hora:h.hora, estado:c?"agendado":h.disponivel?"disponivel":"bloqueado", paciente:c?.paciente }; })); setSaved(false); }
   function addHor(){
     if(!novoHor||slots.find(s=>s.hora===novoHor)) return;
     setSlots([...slots,{hora:novoHor,estado:"disponivel"}].sort((a,b)=>a.hora.localeCompare(b.hora)));
     setNovoHor(""); setSaved(false);
   }
-  function salvar(){ setSaved(true); setTimeout(()=>setSaved(false),2500); }
+  async function salvar(){ 
+    if(onSaveDia){
+      try { await onSaveDia(iso, slots); setSaved(true); setTimeout(()=>setSaved(false),2500); }
+      catch(e) { alert("Erro ao salvar disponibilidade"); }
+    } else {
+      setSaved(true); setTimeout(()=>setSaved(false),2500); 
+    }
+  }
 
   return (
     <div className="ag-slots-wrap">
@@ -472,24 +470,9 @@ function PainelSlots({ iso, slots, setSlots, highlightHora, consultasDia }: {
 
 // ─── Calendário Gerenciar ─────────────────────────────────────────────────────
 
-function buildSlotsForDay(iso:string): SlotState[]{
-  const consultas = consultasPorDia[iso] ?? [];
-  return HORARIOS_DIA.map(h=>{
-    const c = consultas.find(x=>x.hora===h.hora);
-    return { hora:h.hora, estado:c?"agendado":h.disponivel?"disponivel":"bloqueado", paciente:c?.paciente };
-  });
-}
-
-function getDayClass(iso:string): string {
-  const c = consultasPorDia[iso];
-  if(c && c.length>0) return "has-consulta";
-  if(HORARIOS_DIA.some(h=>h.disponivel)) return "has-disponivel";
-  return "blocked";
-}
-
 // ─── Recorrência Semanal ──────────────────────────────────────────────────────
 
-function RecorrenciaSemanal(){
+function RecorrenciaSemanal({ onApply }: { onApply?: (data: any) => Promise<void> }){
   const [dias,    setDias]    = useState<number[]>([1,2,3,4,5]);
   const [inicio,  setInicio]  = useState("08:00");
   const [fim,     setFim]     = useState("17:00");
@@ -497,7 +480,14 @@ function RecorrenciaSemanal(){
   const [saved,   setSaved]   = useState(false);
 
   function toggleDia(d:number){ setDias(prev=>prev.includes(d)?prev.filter(x=>x!==d):[...prev,d].sort()); setSaved(false); }
-  function aplicar(){ setSaved(true); setTimeout(()=>setSaved(false),2500); }
+  async function aplicar(){ 
+    if(onApply){
+      try {
+        await onApply({ diasSemana: dias, horaInicio: inicio, horaFim: fim, duracaoMin: parseInt(duracao) });
+        setSaved(true); setTimeout(()=>setSaved(false),2500);
+      } catch(e) { alert("Erro ao aplicar recorrência"); }
+    }
+  }
 
   return (
     <div className="ag-recorr-wrap">
@@ -550,9 +540,13 @@ interface AbaGerenciarProps {
   setConsulta: (c: Consulta | null) => void;
   onStatusChange: (id: number, status: Consulta["status"]) => void;
   consultasDia: Consulta[];
+  mesData: any;
+  gerDiaData: any;
+  onSaveDia: (iso: string, slots: SlotState[]) => Promise<void>;
+  onApplyRecorrencia: (data: any) => Promise<void>;
 }
 
-function AbaGerenciar({ sel, setSel, cy, setCy, cm, setCm, consulta, setConsulta, onStatusChange, consultasDia }: AbaGerenciarProps){
+function AbaGerenciar({ sel, setSel, cy, setCy, cm, setCm, consulta, setConsulta, onStatusChange, consultasDia, mesData, gerDiaData, onSaveDia, onApplyRecorrencia }: AbaGerenciarProps){
   const today = new Date();
   const [slotsMap, setSlotsMap] = useState<Record<string,SlotState[]>>({});
 
@@ -560,7 +554,15 @@ function AbaGerenciar({ sel, setSel, cy, setCy, cm, setCm, consulta, setConsulta
   const todayISO = toISO(today);
 
   function getSlots(iso:string): SlotState[]{
-    return slotsMap[iso] ?? buildSlotsForDay(iso);
+    if (slotsMap[iso]) return slotsMap[iso];
+    if (gerDiaData && gerDiaData.dia === iso) {
+      return HORARIOS_DIA.map(h => {
+        const slot = gerDiaData.slots?.find((s:any) => s.hora === h.hora);
+        if (slot) return { hora: slot.hora, estado: slot.estado, paciente: slot.consulta?.paciente?.nome };
+        return { hora: h.hora, estado: "bloqueado" };
+      });
+    }
+    return HORARIOS_DIA.map(h=>({ hora: h.hora, estado: "bloqueado" }));
   }
   function setSlots(iso:string, s:SlotState[]){
     setSlotsMap(prev=>({...prev,[iso]:s}));
@@ -568,6 +570,14 @@ function AbaGerenciar({ sel, setSel, cy, setCy, cm, setCm, consulta, setConsulta
 
   function prevMes(){ if(cm===0){setCm(11);setCy(y=>y-1);}else{setCm(m=>m-1);} }
   function nextMes(){ if(cm===11){setCm(0);setCy(y=>y+1);}else{setCm(m=>m+1);} }
+
+  function getDayClass(iso:string): string {
+    if (!mesData) return "blocked";
+    const d = mesData.dias?.find((x:any)=>x.dia===iso);
+    if (d?.temConsulta) return "has-consulta";
+    if (d?.temDisponibilidade) return "has-disponivel";
+    return "blocked";
+  }
 
   return (
     <div className="ag-panel" style={{display:"flex",flexDirection:"column",gap:16}}>
@@ -614,12 +624,12 @@ function AbaGerenciar({ sel, setSel, cy, setCy, cm, setCm, consulta, setConsulta
 
         {/* Painel de slots */}
         <div style={{flex:"2 1 320px",minWidth:300}}>
-          <PainelSlots iso={sel} slots={getSlots(sel)} setSlots={(s)=>setSlots(sel,s)} highlightHora={consulta?.hora} consultasDia={consultasDia}/>
+          <PainelSlots iso={sel} slots={getSlots(sel)} setSlots={(s)=>setSlots(sel,s)} highlightHora={consulta?.hora} consultasDia={consultasDia} onSaveDia={onSaveDia}/>
         </div>
       </div>
 
       {/* Recorrência */}
-      <RecorrenciaSemanal/>
+      <RecorrenciaSemanal onApply={onApplyRecorrencia}/>
     </div>
   );
 }
@@ -642,12 +652,34 @@ export default function AgendaPage() {
   const [gerConsulta,   setGerConsulta]   = useState<Consulta | null>(null);
   const [statusOverrides, setStatusOverrides] = useState<Record<number, Consulta["status"]>>({}); 
 
+  // ── SWR Data Fetching ──
+  const { data: me } = useSWR('/pro/me', async (url) => (await api.get(url)).data);
   const iso = toISO(currentDate);
-  const consultasHoje = (consultasPorDia[iso] ?? []).map(c=>
+  const { data: agendaDia, mutate: mutAgendaDia } = useSWR(`/pro/agenda/dia?data=${iso}`, async (url) => (await api.get(url)).data);
+  const { data: gerMes, mutate: mutGerMes } = useSWR(`/pro/agenda/mes?ano=${gerCy}&mes=${gerCm+1}`, async (url) => (await api.get(url)).data);
+  const { data: gerDia, mutate: mutGerDia } = useSWR(`/pro/agenda/dia?data=${gerSel}`, async (url) => (await api.get(url)).data);
+
+  function mapConsultas(slots: any[]) {
+    if (!slots) return [];
+    return slots.filter((s:any) => s.consulta).map((s:any) => ({
+      id: s.consulta.id,
+      hora: s.hora,
+      duracao: 1,
+      paciente: s.consulta.paciente.nome,
+      avatar: s.consulta.paciente.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.consulta.paciente.nome)}&background=random`,
+      especialidade: s.consulta.especialidade,
+      modalidade: s.consulta.modalidade === 'PRESENCIAL' ? 'Presencial' : 'Online',
+      status: s.consulta.status
+    }));
+  }
+
+  const consultasHoje = mapConsultas(agendaDia?.slots).map(c=>
     statusOverrides[c.id] ? {...c, status: statusOverrides[c.id]} : c
   );
   
-  const consultasSel = (consultasPorDia[gerSel] ?? []).map(c=>
+  const slotsHoje = agendaDia?.slots || [];
+
+  const consultasSel = mapConsultas(gerDia?.slots).map(c=>
     statusOverrides[c.id] ? {...c, status: statusOverrides[c.id]} : c
   );
   const consultasPorHora = useMemo(()=>{
@@ -695,10 +727,10 @@ export default function AgendaPage() {
               {/* Nav Bar */}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#141414",padding:12,borderRadius:14,border:"1px solid rgba(255,255,255,0.08)",flexWrap:"wrap",gap:12,marginBottom:20}}>
                 <div style={{display:"flex",gap:12,alignItems:"center"}}>
-                  <img src="https://picsum.photos/200/200?random=30" style={{width:36,height:36,borderRadius:"50%",background:"#27272a",objectFit:"cover"}} alt="Doctor" />
+                  <img src={me?.avatarUrl || "https://picsum.photos/200/200?random=30"} style={{width:36,height:36,borderRadius:"50%",background:"#27272a",objectFit:"cover"}} alt="Doctor" />
                   <div className="dr-info" style={{display:"flex",flexDirection:"column"}}>
-                    <span style={{color:"#fafafa",fontSize:14,fontWeight:"bold"}}>Dr. Rafael Costa</span>
-                    <span style={{color:"#a1a1aa",fontSize:12}}>Cardiologista · CRM 54321</span>
+                    <span style={{color:"#fafafa",fontSize:14,fontWeight:"bold"}}>{me ? me.name : "Carregando..."}</span>
+                    <span style={{color:"#a1a1aa",fontSize:12}}>{me ? `${me.especialidade} · ${me.registroProfissional}` : ""}</span>
                   </div>
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:16}}>
@@ -734,13 +766,15 @@ export default function AgendaPage() {
                 <div style={{flex:2,minWidth:300,background:"#141414",borderRadius:14,border:"1px solid rgba(255,255,255,0.08)",overflow:"hidden"}}>
                   {HORARIOS_DIA.map((h,i)=>{
                     const c=consultasPorHora[h.hora];
+                    const slotInfo = slotsHoje?.find((s:any) => s.hora === h.hora);
+                    const isDisponivel = slotInfo?.estado === 'disponivel';
                     return (
                       <div key={h.hora} style={{display:"flex",borderBottom:i<HORARIOS_DIA.length-1?"1px solid rgba(255,255,255,0.08)":"none"}}>
                         <div style={{width:80,display:"flex",alignItems:"center",justifyContent:"center",padding:"16px 0",borderRight:"1px solid rgba(255,255,255,0.08)",background:"#09090b"}}>
                           <span style={{color:"#a1a1aa",fontSize:14,fontWeight:"bold"}}>{h.hora}</span>
                         </div>
                         <div style={{flex:1,padding:8,display:"flex",flexDirection:"column",justifyContent:"center",minHeight:80}}>
-                          {c ? <ConsultaCard c={c} onPress={()=>handleCardClick(iso,c)}/> : h.disponivel ? (
+                          {c ? <ConsultaCard c={c} onPress={()=>handleCardClick(iso,c)}/> : isDisponivel ? (
                             <button onClick={()=>setShowNova(true)} style={{width:"100%",padding:"16px",display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"transparent",border:"1px dashed rgba(255,255,255,0.15)",borderRadius:12,color:"#71717a",fontSize:13,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}
                               onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.03)";e.currentTarget.style.borderColor="rgba(255,255,255,0.25)";}}
                               onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor="rgba(255,255,255,0.15)";}}>
@@ -765,7 +799,7 @@ export default function AgendaPage() {
                         {label:"Confirmadas",  value:consultasHoje.filter(c=>c.status==="confirmada").length,   color:"#10b981"},
                         {label:"Pendentes",    value:consultasHoje.filter(c=>c.status==="pendente").length,     color:"#facc15"},
                         {label:"Em andamento", value:consultasHoje.filter(c=>c.status==="em_andamento").length, color:"#60a5fa"},
-                        {label:"Disponíveis",  value:HORARIOS_DIA.filter(h=>h.disponivel&&!consultasPorHora[h.hora]).length, color:"#a1a1aa"},
+                        {label:"Disponíveis",  value:slotsHoje.filter((s:any)=>s.estado==="disponivel").length, color:"#a1a1aa"},
                       ].map((s,i)=>(
                         <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",borderRadius:8,background:"#09090b",border:"1px solid rgba(255,255,255,0.05)"}}>
                           <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -802,9 +836,28 @@ export default function AgendaPage() {
               consulta={gerConsulta}
               setConsulta={setGerConsulta}
               consultasDia={consultasSel}
-              onStatusChange={(id, status)=>{
-                setStatusOverrides(prev=>({...prev,[id]:status}));
-                setGerConsulta(prev=>prev ? {...prev,status} : prev);
+              mesData={gerMes}
+              gerDiaData={gerDia}
+              onSaveDia={async (isoDia, slots) => {
+                await api.put('/pro/agenda/disponibilidade', {
+                  dia: isoDia,
+                  slots: slots.map(s => ({ hora: s.hora, estado: s.estado === 'agendado' ? 'DISPONIVEL' : s.estado.toUpperCase() }))
+                });
+                mutGerMes(); mutAgendaDia(); mutGerDia();
+              }}
+              onApplyRecorrencia={async (data) => {
+                await api.patch('/pro/agenda/recorrencia', data);
+                mutGerMes(); mutAgendaDia(); mutGerDia();
+              }}
+              onStatusChange={async (id, status)=>{
+                try {
+                  await api.patch(`/pro/agenda/consulta/${id}/status`, { status });
+                  setStatusOverrides(prev=>({...prev,[id]:status}));
+                  setGerConsulta(prev=>prev ? {...prev,status} : prev);
+                  mutAgendaDia(); mutGerDia();
+                } catch (err) {
+                  alert("Erro ao alterar o status da consulta.");
+                }
               }}
             />
           )}

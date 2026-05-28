@@ -9,6 +9,8 @@ import usuariosRouter from '../modules/usuarios/usuarios.routes';
 import relatoriosRouter from '../modules/relatorios/relatorios.routes';
 import assinaturasRouter from '../modules/assinaturas/assinaturas.routes';
 import configuracoesRouter from '../modules/configuracoes/configuracoes.routes';
+import { proRouter } from '../modules/pro/pro.routes';
+import { clientPortalRouter } from '../modules/client-portal/client-portal.routes';
 
 const router = Router();
 
@@ -22,5 +24,8 @@ router.use('/admin/usuarios',        usuariosRouter);
 router.use('/admin/relatorios',      relatoriosRouter);
 router.use('/admin/assinaturas',     assinaturasRouter);
 router.use('/admin/configuracoes',   configuracoesRouter);
+router.use('/pro',                   proRouter);  // Painel do Profissional
+router.use('/client-portal',         clientPortalRouter); // Painel do Paciente
 
 export { router as apiRouter };
+

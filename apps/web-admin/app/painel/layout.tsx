@@ -96,7 +96,7 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const pathname = usePathname();
   const router   = useRouter();
-  const { logout, isAuthenticated, isLoading } = useAuth();
+  const { logout, isAuthenticated, isLoading, error } = useAuth();
 
   const handleLogout = useCallback(async () => {
     setSidebarOpen(false);

@@ -35,6 +35,12 @@ export function errorHandler(
     return;
   }
 
+  // Express body-parser errors (e.g., PayloadTooLargeError)
+  if (err && typeof err === 'object' && 'status' in err && (err as any).status === 413) {
+    res.status(413).json({ error: 'Arquivo muito grande. O tamanho máximo permitido é 1 MB.' } satisfies ApiError);
+    return;
+  }
+
   // Unexpected errors
   logger.error(err, 'Unhandled error');
   res.status(500).json({ error: 'Internal server error' } satisfies ApiError);

@@ -1,7 +1,9 @@
 //@ts-nocheck
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { api } from "@/lib/api";
 
 const C = {
   bg:     "#111111",
@@ -10,18 +12,27 @@ const C = {
   border: "rgba(255,255,255,0.07)",
 };
 
-const consultasMock = [
-  { id:1, paciente:"Guilherme Augusto", tipo:"Presencial",  data:"Hoje, 11:00",   avatar:"https://picsum.photos/200/200?random=30", badgeBg:"rgba(234,179,8,0.15)",   badgeColor:"#facc15" },
-  { id:2, paciente:"Mariana Ferreira",  tipo:"Online",      data:"Hoje, 13:00",   avatar:"https://picsum.photos/200/200?random=31", badgeBg:"rgba(16,185,129,0.15)",  badgeColor:"#4ade80" },
-  { id:3, paciente:"Lucas Mendes",      tipo:"Presencial",  data:"Amanhã, 09:00", avatar:"https://picsum.photos/200/200?random=32", badgeBg:"rgba(59,130,246,0.15)", badgeColor:"#60a5fa" },
-];
+// Mapeamento de status para cor do badge do widget de consultas
+function badgeStyle(status: string) {
+  if (status === "em_andamento") return { bg: "rgba(16,185,129,0.15)",  color: "#4ade80" };
+  if (status === "agendada")     return { bg: "rgba(234,179,8,0.15)",   color: "#facc15" };
+  return                                { bg: "rgba(59,130,246,0.15)",  color: "#60a5fa" };
+}
 
-const agendaMock = [
-  { id:1, titulo:"Reunião de Equipe",      horario:"09:00 – 10:00", dotColor:"#a855f7", time:"Hoje"    },
-  { id:2, titulo:"Avaliação Cardiológica", horario:"14:00 – 15:30", dotColor:"#10b981", time:"Em breve" },
-];
+function formatHorario(iso: string) {
+  const d = new Date(iso);
+  const hoje = new Date();
+  const amanha = new Date(hoje); amanha.setDate(hoje.getDate() + 1);
+  const isHoje   = d.toDateString() === hoje.toDateString();
+  const isAmanha = d.toDateString() === amanha.toDateString();
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  if (isHoje)   return `Hoje, ${hora}`;
+  if (isAmanha) return `Amanhã, ${hora}`;
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + `, ${hora}`;
+}
 
-const feedThumbnails = [
+// Fallback de thumbnails locais caso não haja publicações reais
+const feedFallback = [
   "/feed_cardiology.png",
   "/feed_workout.png",
   "/feed_nutrition.png",
@@ -29,6 +40,37 @@ const feedThumbnails = [
 ];
 
 export default function PainelPage() {
+  const [summary, setSummary] = useState<any>(null);
+
+  useEffect(() => {
+    api.get("/pro/dashboard/summary")
+      .then(r => setSummary(r.data))
+      .catch(() => {}); // falha silenciosa — mocks continuam visíveis
+  }, []);
+
+  // Consultas: usa API ou fallback mock
+  const consultas = summary?.proximasConsultas ?? [
+    { id: "m1", paciente: { nome: "Guilherme Augusto", avatarUrl: "https://picsum.photos/200/200?random=30" }, modalidade: "PRESENCIAL", dataHora: new Date().toISOString(), status: "agendada" },
+    { id: "m2", paciente: { nome: "Mariana Ferreira",  avatarUrl: "https://picsum.photos/200/200?random=31" }, modalidade: "ONLINE",      dataHora: new Date().toISOString(), status: "em_andamento" },
+    { id: "m3", paciente: { nome: "Lucas Mendes",      avatarUrl: "https://picsum.photos/200/200?random=32" }, modalidade: "PRESENCIAL", dataHora: new Date(Date.now() + 86400000).toISOString(), status: "agendada" },
+  ];
+
+  // Feed thumbnails: usa API ou fallback
+  const feedThumbs = summary?.feedDestaques?.length
+    ? summary.feedDestaques.map((p: any) => p.imagemUrl)
+    : feedFallback;
+
+  // Agenda: monta a partir das consultas do dia
+  const agendaItems = summary
+    ? [
+        { id: "a1", titulo: `${summary.consultas.total} consulta(s) hoje`, horario: `${summary.consultas.agendada} agendada · ${summary.consultas.concluida} concluída`, dotColor: "#10b981", time: "Hoje" },
+        { id: "a2", titulo: `${summary.slotsDisponiveisHoje} slot(s) disponível`, horario: "Na agenda do dia", dotColor: "#a855f7", time: "Em breve" },
+      ]
+    : [
+        { id: "m1", titulo: "Reunião de Equipe",      horario: "09:00 – 10:00", dotColor: "#a855f7", time: "Hoje" },
+        { id: "m2", titulo: "Avaliação Cardiológica", horario: "14:00 – 15:30", dotColor: "#10b981", time: "Em breve" },
+      ];
+
   return (
     <>
       <style>{`
@@ -101,7 +143,7 @@ export default function PainelPage() {
                 </div>
                 <div className="w-body" style={{ justifyContent:"center" }}>
                   <div style={{ display:"flex", flexWrap:"wrap", gap:8, width:"100%", height:"100%" }}>
-                    {feedThumbnails.map((src, idx) => (
+                    {feedThumbs.slice(0, 4).map((src: string, idx: number) => (
                       <div key={idx} style={{ width:"calc(50% - 4px)", minHeight:80, borderRadius:8, overflow:"hidden", background:"#1a1a1a", position:"relative", flexShrink:0 }}>
                         <img src={src} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" />
                         {idx === 3 && (
@@ -126,7 +168,9 @@ export default function PainelPage() {
                 <div className="w-header">
                   <div>
                     <h2 style={{ color:"#fafafa", fontSize:16, fontWeight:"bold", margin:0 }}>Consultas Pendentes</h2>
-                    <span style={{ color:"#71717a", fontSize:12 }}>3 confirmadas esta semana</span>
+                    <span style={{ color:"#71717a", fontSize:12 }}>
+                      {summary ? `${summary.consultas.agendada} agendada(s) hoje` : "3 confirmadas esta semana"}
+                    </span>
                   </div>
                   <div className="w-icon" style={{ background:"rgba(59,130,246,0.15)" }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -135,16 +179,19 @@ export default function PainelPage() {
                   </div>
                 </div>
                 <div className="w-body" style={{ gap:8, justifyContent:"center" }}>
-                  {consultasMock.map((c) => (
-                    <div key={c.id} style={{ display:"flex", alignItems:"center", gap:8, background:C.bg, padding:8, borderRadius:8, border:`1px solid ${C.border}` }}>
-                      <img src={c.avatar} style={{ width:32, height:32, borderRadius:"50%", objectFit:"cover", flexShrink:0 }} alt={c.paciente} />
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <p style={{ color:"#fafafa", fontWeight:"bold", fontSize:13, margin:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.paciente}</p>
-                        <p style={{ color:"#71717a", fontSize:11, margin:0 }}>{c.tipo}</p>
+                  {consultas.map((c: any) => {
+                    const badge = badgeStyle(c.status);
+                    return (
+                      <div key={c.id} style={{ display:"flex", alignItems:"center", gap:8, background:C.bg, padding:8, borderRadius:8, border:`1px solid ${C.border}` }}>
+                        <img src={c.paciente.avatarUrl || `https://picsum.photos/200/200?random=30`} style={{ width:32, height:32, borderRadius:"50%", objectFit:"cover", flexShrink:0 }} alt={c.paciente.nome} />
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <p style={{ color:"#fafafa", fontWeight:"bold", fontSize:13, margin:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.paciente.nome}</p>
+                          <p style={{ color:"#71717a", fontSize:11, margin:0 }}>{c.modalidade === "PRESENCIAL" ? "Presencial" : "Online"}</p>
+                        </div>
+                        <span style={{ background:badge.bg, color:badge.color, fontSize:10, fontWeight:"bold", padding:"2px 8px", borderRadius:999, flexShrink:0 }}>{formatHorario(c.dataHora)}</span>
                       </div>
-                      <span style={{ background:c.badgeBg, color:c.badgeColor, fontSize:10, fontWeight:"bold", padding:"2px 8px", borderRadius:999, flexShrink:0 }}>{c.data}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </Link>
@@ -164,11 +211,11 @@ export default function PainelPage() {
                   </div>
                 </div>
                 <div className="w-body" style={{ gap:8, justifyContent:"center" }}>
-                  {agendaMock.map((a, idx) => (
+                  {agendaItems.map((a: any, idx: number) => (
                     <div key={a.id} style={{ display:"flex", gap:8, alignItems:"flex-start" }}>
                       <div style={{ display:"flex", flexDirection:"column", alignItems:"center", width:12, flexShrink:0, marginTop:4 }}>
                         <div style={{ width:10, height:10, borderRadius:"50%", background:a.dotColor, border:`2px solid ${C.bg}`, zIndex:2 }} />
-                        {idx < agendaMock.length - 1 && (
+                        {idx < agendaItems.length - 1 && (
                           <div style={{ width:2, height:42, background:C.border, marginTop:-2, zIndex:1 }} />
                         )}
                       </div>

@@ -44,19 +44,33 @@ export async function logoutAdmin(): Promise<void> {
   }
 }
 
+let silentRefreshPromise: Promise<AuthUser | null> | null = null;
+
 /**
  * Silently refresh the access token on app load.
- * Returns the user if a valid refresh cookie exists, otherwise null.
+ * Returns the user if a valid refresh cookie exists.
+ * Throws the original error so the caller can distinguish 401 (no session) from transient errors.
+ * Memoized to prevent race conditions (e.g., React Strict Mode calling it twice).
  */
 export async function silentRefresh(): Promise<AuthUser | null> {
-  try {
-    const { data } = await api.post<LoginResponse>('/auth/admin/refresh');
-    tokenStore.set(data.accessToken);
-    const payload = parseJwtPayload(data.accessToken);
-    return { id: payload.sub, email: '', role: 'admin' };
-  } catch {
-    return null;
+  if (silentRefreshPromise) {
+    return silentRefreshPromise;
   }
+
+  silentRefreshPromise = (async () => {
+    try {
+      const { data } = await api.post<LoginResponse>('/auth/admin/refresh');
+      tokenStore.set(data.accessToken);
+      const payload = parseJwtPayload(data.accessToken);
+      return { id: payload.sub, email: '', role: 'admin' } as AuthUser;
+    } catch (err) {
+      throw err;
+    } finally {
+      silentRefreshPromise = null;
+    }
+  })();
+
+  return silentRefreshPromise;
 }
 
 function parseJwtPayload(token: string): { sub: string; role: string } {

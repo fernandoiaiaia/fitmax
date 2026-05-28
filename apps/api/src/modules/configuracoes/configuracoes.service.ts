@@ -402,4 +402,93 @@ export class ConfiguracoesService {
 
     return { deleted: true, id, nome: convenio.nome };
   }
+
+  // ── Gestão de Administradores ─────────────────────────────────────────────
+
+  /**
+   * Lista todos os admins da plataforma.
+   * OWASP A02 — nunca expõe o hash de senha.
+   * OWASP A01 — só admins autenticados chegam aqui (middleware na rota).
+   */
+  async listAdmins() {
+    const admins = await prisma.admin.findMany({
+      select: {
+        id: true, email: true, name: true,
+        phone: true, username: true, avatarUrl: true, createdAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return admins.map(a => ({
+      ...a,
+      createdAt: a.createdAt.toISOString(),
+    }));
+  }
+
+  /**
+   * Cria um novo administrador.
+   * OWASP A02 — senha hasheada com bcrypt cost 12 antes de persistir.
+   * OWASP A03 — email único validado com query parametrizada.
+   * OWASP A09 — audit log.
+   */
+  async criarAdmin(
+    dto: { email: string; name?: string; password: string },
+    criadoPorId: string,
+    ip: string,
+    userAgent: string,
+  ) {
+    const existente = await prisma.admin.findUnique({ where: { email: dto.email } });
+    if (existente) throw new AppError(`Já existe um administrador com o e-mail "${dto.email}"`, 409);
+
+    const hash = await bcrypt.hash(dto.password, 12);
+
+    const admin = await prisma.admin.create({
+      data: { email: dto.email, name: dto.name ?? null, password: hash },
+      select: {
+        id: true, email: true, name: true,
+        phone: true, username: true, avatarUrl: true, createdAt: true,
+      },
+    });
+
+    logger.warn(
+      { event: 'admin_criado', novoAdminId: admin.id, email: dto.email, criadoPorId, ip, userAgent },
+      `🛡️  Novo administrador "${dto.email}" criado pelo admin ${criadoPorId}`
+    );
+
+    return { ...admin, createdAt: admin.createdAt.toISOString() };
+  }
+
+  /**
+   * Remove um administrador.
+   * OWASP A01 — impede que o admin se auto-exclua.
+   * OWASP A09 — log ANTES do delete.
+   */
+  async excluirAdmin(
+    id: string,
+    requesterId: string,
+    ip: string,
+    userAgent: string,
+  ) {
+    if (id === requesterId) {
+      throw new AppError('Você não pode excluir sua própria conta de administrador', 400);
+    }
+
+    const admin = await prisma.admin.findUnique({ where: { id } });
+    if (!admin) throw new AppError('Administrador não encontrado', 404);
+
+    logger.warn(
+      { event: 'admin_exclusao_iniciada', adminId: id, email: admin.email, requesterId, ip, userAgent },
+      `⚠️  Exclusão do admin "${admin.email}" iniciada por ${requesterId}`
+    );
+
+    await prisma.admin.delete({ where: { id } });
+
+    logger.warn(
+      { event: 'admin_excluido', adminId: id, email: admin.email, requesterId, ip, userAgent },
+      `🗑️  Admin "${admin.email}" excluído permanentemente por ${requesterId}`
+    );
+
+    return { deleted: true, id, email: admin.email };
+  }
 }
+

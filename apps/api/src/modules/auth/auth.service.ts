@@ -16,6 +16,12 @@ export interface LoginDto {
   password: string;
 }
 
+export interface RegisterDto {
+  name: string;
+  email: string;
+  password: string;
+}
+
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
@@ -23,16 +29,16 @@ export interface AuthTokens {
 }
 
 // ─── Redis key helpers ────────────────────────────────────────────────────────
-const lockoutKey = (email: string) => `lockout:admin:${email}`;
-const attemptsKey = (email: string) => `attempts:admin:${email}`;
-const refreshKey = (jti: string) => `refresh:admin:${jti}`;
+const lockoutKey = (prefix: string, email: string) => `lockout:${prefix}:${email}`;
+const attemptsKey = (prefix: string, email: string) => `attempts:${prefix}:${email}`;
+const refreshKey = (prefix: string, jti: string) => `refresh:${prefix}:${jti}`;
 
 export class AuthService {
   /**
    * OWASP A07 — Check if account is locked out.
    */
-  private async assertNotLockedOut(email: string): Promise<void> {
-    const locked = await redis.get(lockoutKey(email));
+  private async assertNotLockedOut(prefix: string, email: string): Promise<void> {
+    const locked = await redis.get(lockoutKey(prefix, email));
     if (locked) {
       throw new AppError('Account temporarily locked. Try again in 15 minutes.', 429);
     }
@@ -41,8 +47,8 @@ export class AuthService {
   /**
    * OWASP A07 — Track failed login attempts; lock after MAX_LOGIN_ATTEMPTS.
    */
-  private async recordFailedAttempt(email: string): Promise<void> {
-    const key = attemptsKey(email);
+  private async recordFailedAttempt(prefix: string, email: string): Promise<void> {
+    const key = attemptsKey(prefix, email);
     const attempts = await redis.incr(key);
 
     // Set expiry on first attempt
@@ -51,7 +57,7 @@ export class AuthService {
     }
 
     if (attempts >= MAX_LOGIN_ATTEMPTS) {
-      await redis.setex(lockoutKey(email), LOCKOUT_DURATION_SECONDS, '1');
+      await redis.setex(lockoutKey(prefix, email), LOCKOUT_DURATION_SECONDS, '1');
       await redis.del(key);
     }
   }
@@ -59,8 +65,8 @@ export class AuthService {
   /**
    * Clear failed attempts on successful login.
    */
-  private async clearFailedAttempts(email: string): Promise<void> {
-    await redis.del(attemptsKey(email));
+  private async clearFailedAttempts(prefix: string, email: string): Promise<void> {
+    await redis.del(attemptsKey(prefix, email));
   }
 
   /**
@@ -68,7 +74,7 @@ export class AuthService {
    */
   private auditLog(
     event: 'login_success' | 'login_failure' | 'logout' | 'token_refresh',
-    data: { email?: string; adminId?: string; ip: string; userAgent: string; reason?: string },
+    data: { email?: string; adminId?: string; proId?: string; clientId?: string; ip: string; userAgent: string; reason?: string },
   ): void {
     logger.info({ event, ...data, timestamp: new Date().toISOString() }, `Auth: ${event}`);
   }
@@ -79,26 +85,26 @@ export class AuthService {
    */
   async loginAdmin(dto: LoginDto, meta: { ip: string; userAgent: string }): Promise<AuthTokens> {
     // Check lockout first (OWASP A07)
-    await this.assertNotLockedOut(dto.email);
+    await this.assertNotLockedOut('admin', dto.email);
 
     const admin = await prisma.admin.findUnique({ where: { email: dto.email } });
 
     // OWASP A07 — generic error message; never reveal if email exists
     if (!admin) {
-      await this.recordFailedAttempt(dto.email);
+      await this.recordFailedAttempt('admin', dto.email);
       this.auditLog('login_failure', { email: dto.email, ...meta, reason: 'user_not_found' });
       throw new AppError('Credenciais inválidas', 401);
     }
 
     const valid = await bcrypt.compare(dto.password, admin.password);
     if (!valid) {
-      await this.recordFailedAttempt(dto.email);
+      await this.recordFailedAttempt('admin', dto.email);
       this.auditLog('login_failure', { email: dto.email, ...meta, reason: 'wrong_password' });
       throw new AppError('Credenciais inválidas', 401);
     }
 
     // Success — clear failed attempts
-    await this.clearFailedAttempts(dto.email);
+    await this.clearFailedAttempts('admin', dto.email);
 
     // Generate tokens (OWASP A04 — short-lived access token)
     const jti = uuidv4();
@@ -106,7 +112,7 @@ export class AuthService {
     const refreshToken = signRefreshToken({ sub: admin.id, role: 'admin' }, jti);
 
     // Store refresh token JTI in Redis for revocation (OWASP A04)
-    await redis.setex(refreshKey(jti), REFRESH_TOKEN_TTL_SECONDS, admin.id);
+    await redis.setex(refreshKey('admin', jti), REFRESH_TOKEN_TTL_SECONDS, admin.id);
 
     this.auditLog('login_success', { email: dto.email, adminId: admin.id, ...meta });
 
@@ -114,10 +120,154 @@ export class AuthService {
   }
 
   /**
+   * Professional login with lockout, audit logging and dual-token generation.
+   * OWASP A02, A04, A07, A09
+   */
+  async loginProfessional(dto: LoginDto, meta: { ip: string; userAgent: string }): Promise<AuthTokens> {
+    await this.assertNotLockedOut('pro', dto.email);
+
+    const pro = await prisma.professional.findUnique({ where: { email: dto.email } });
+
+    if (!pro) {
+      await this.recordFailedAttempt('pro', dto.email);
+      this.auditLog('login_failure', { email: dto.email, ...meta, reason: 'user_not_found' });
+      throw new AppError('Credenciais inválidas', 401);
+    }
+
+    if (pro.status !== 'ATIVO') {
+      await this.recordFailedAttempt('pro', dto.email);
+      this.auditLog('login_failure', { email: dto.email, ...meta, reason: 'account_inactive' });
+      throw new AppError('Sua conta não está ativa. Contate o suporte.', 403);
+    }
+
+    const valid = await bcrypt.compare(dto.password, pro.password);
+    if (!valid) {
+      await this.recordFailedAttempt('pro', dto.email);
+      this.auditLog('login_failure', { email: dto.email, ...meta, reason: 'wrong_password' });
+      throw new AppError('Credenciais inválidas', 401);
+    }
+
+    await this.clearFailedAttempts('pro', dto.email);
+
+    const jti = uuidv4();
+    const accessToken = signAccessToken({ sub: pro.id, role: 'professional' });
+    const refreshToken = signRefreshToken({ sub: pro.id, role: 'professional' }, jti);
+
+    await redis.setex(refreshKey('pro', jti), REFRESH_TOKEN_TTL_SECONDS, pro.id);
+
+    this.auditLog('login_success', { email: dto.email, proId: pro.id, ...meta });
+
+    return { accessToken, refreshToken, expiresIn: 15 * 60 };
+  }
+
+  /**
+   * Client login with lockout, audit logging and dual-token generation.
+   * OWASP A02, A04, A07, A09
+   */
+  async loginClient(dto: LoginDto, meta: { ip: string; userAgent: string }): Promise<AuthTokens> {
+    await this.assertNotLockedOut('client', dto.email);
+
+    const client = await prisma.client.findUnique({ where: { email: dto.email } });
+
+    if (!client) {
+      await this.recordFailedAttempt('client', dto.email);
+      this.auditLog('login_failure', { email: dto.email, ...meta, reason: 'user_not_found' });
+      throw new AppError('Credenciais inválidas', 401);
+    }
+
+    if (client.status !== 'ATIVO') {
+      await this.recordFailedAttempt('client', dto.email);
+      this.auditLog('login_failure', { email: dto.email, ...meta, reason: 'account_inactive' });
+      throw new AppError('Sua conta não está ativa. Contate o suporte.', 403);
+    }
+
+    const valid = await bcrypt.compare(dto.password, client.password);
+    if (!valid) {
+      await this.recordFailedAttempt('client', dto.email);
+      this.auditLog('login_failure', { email: dto.email, ...meta, reason: 'wrong_password' });
+      throw new AppError('Credenciais inválidas', 401);
+    }
+
+    await this.clearFailedAttempts('client', dto.email);
+
+    const jti = uuidv4();
+    const accessToken = signAccessToken({ sub: client.id, role: 'client' });
+    const refreshToken = signRefreshToken({ sub: client.id, role: 'client' }, jti);
+
+    await redis.setex(refreshKey('client', jti), REFRESH_TOKEN_TTL_SECONDS, client.id);
+
+    this.auditLog('login_success', { email: dto.email, ...meta, reason: 'client_login' });
+
+    return { accessToken, refreshToken, expiresIn: 15 * 60 };
+  }
+
+  /**
+   * Client registration.
+   */
+  async registerClient(dto: RegisterDto, meta: { ip: string; userAgent: string }): Promise<AuthTokens> {
+    const existing = await prisma.client.findUnique({ where: { email: dto.email } });
+    if (existing) {
+      this.auditLog('login_failure', { email: dto.email, ...meta, reason: 'registration_email_in_use' });
+      throw new AppError('E-mail já está em uso', 400);
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const client = await prisma.client.create({
+      data: {
+        name: dto.name,
+        email: dto.email,
+        password: hashedPassword,
+        status: 'ATIVO',
+      }
+    });
+
+    this.auditLog('login_success', { email: dto.email, clientId: client.id, ...meta, reason: 'client_registration' });
+
+    const jti = uuidv4();
+    const accessToken = signAccessToken({ sub: client.id, role: 'client' });
+    const refreshTokenStr = signRefreshToken({ sub: client.id, role: 'client' }, jti);
+
+    await redis.setex(refreshKey('client', jti), REFRESH_TOKEN_TTL_SECONDS, client.id);
+
+    return { accessToken, refreshToken: refreshTokenStr, expiresIn: 15 * 60 };
+  }
+
+  /**
+   * Professional registration.
+   */
+  async registerProfessional(dto: RegisterDto, meta: { ip: string; userAgent: string }): Promise<AuthTokens> {
+    const existing = await prisma.professional.findUnique({ where: { email: dto.email } });
+    if (existing) {
+      this.auditLog('login_failure', { email: dto.email, ...meta, reason: 'registration_email_in_use' });
+      throw new AppError('E-mail já está em uso', 400);
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const pro = await prisma.professional.create({
+      data: {
+        name: dto.name,
+        email: dto.email,
+        password: hashedPassword,
+        status: 'ATIVO',
+      }
+    });
+
+    this.auditLog('login_success', { email: dto.email, proId: pro.id, ...meta, reason: 'registration' });
+
+    const jti = uuidv4();
+    const accessToken = signAccessToken({ sub: pro.id, role: 'professional' });
+    const refreshTokenStr = signRefreshToken({ sub: pro.id, role: 'professional' }, jti);
+
+    await redis.setex(refreshKey('pro', jti), REFRESH_TOKEN_TTL_SECONDS, pro.id);
+
+    return { accessToken, refreshToken: refreshTokenStr, expiresIn: 15 * 60 };
+  }
+
+  /**
    * Rotate refresh token — invalidates old JTI, issues new pair.
    * OWASP A04 — token rotation prevents stolen refresh token reuse.
    */
-  async refreshAdminToken(
+  async refreshToken(
     oldRefreshToken: string,
     meta: { ip: string; userAgent: string },
   ): Promise<AuthTokens> {
@@ -127,48 +277,61 @@ export class AuthService {
       const { default: jwt } = await import('jsonwebtoken');
       const { env } = await import('../../config/env');
       payload = jwt.verify(oldRefreshToken, env.JWT_SECRET) as typeof payload;
-    } catch {
-      throw new AppError('Invalid or expired refresh token', 401);
+    } catch (err) {
+      console.error('JWT Verify Failed. Token length:', oldRefreshToken?.length, 'Error:', err);
+      throw new AppError(`Invalid or expired refresh token: ${(err as any).message}`, 401);
     }
 
     if (payload.type !== 'refresh') {
       throw new AppError('Invalid token type', 401);
     }
 
+    const prefix = payload.role === 'admin' ? 'admin' : payload.role === 'client' ? 'client' : 'pro';
+
     // Verify JTI exists in Redis (not revoked)
-    const stored = await redis.get(refreshKey(payload.jti));
+    const stored = await redis.get(refreshKey(prefix, payload.jti));
     if (!stored) {
       throw new AppError('Refresh token has been revoked', 401);
     }
 
-    // Revoke old token (rotation)
-    await redis.del(refreshKey(payload.jti));
+    // Grace period for rotation (OWASP A04): 
+    // Instead of deleting the old token immediately, we set a short 30-second TTL.
+    // This prevents the user from being locked out if they hit F5 and the browser 
+    // aborts the connection before receiving the new Set-Cookie header.
+    await redis.expire(refreshKey(prefix, payload.jti), 30);
 
     // Issue new pair
     const newJti = uuidv4();
     const accessToken = signAccessToken({ sub: payload.sub, role: payload.role });
-    const refreshToken = signRefreshToken({ sub: payload.sub, role: payload.role }, newJti);
+    const refreshTokenStr = signRefreshToken({ sub: payload.sub, role: payload.role }, newJti);
 
-    await redis.setex(refreshKey(newJti), REFRESH_TOKEN_TTL_SECONDS, payload.sub);
+    await redis.setex(refreshKey(prefix, newJti), REFRESH_TOKEN_TTL_SECONDS, payload.sub);
 
-    this.auditLog('token_refresh', { adminId: payload.sub, ...meta });
+    this.auditLog('token_refresh', { 
+      [payload.role === 'admin' ? 'adminId' : payload.role === 'client' ? 'clientId' : 'proId']: payload.sub, 
+      ...meta 
+    });
 
-    return { accessToken, refreshToken, expiresIn: 15 * 60 };
+    return { accessToken, refreshToken: refreshTokenStr, expiresIn: 15 * 60 };
   }
 
   /**
    * Logout — revoke refresh token in Redis.
    */
-  async logoutAdmin(
+  async logout(
     refreshToken: string,
     meta: { ip: string; userAgent: string },
   ): Promise<void> {
     try {
       const { default: jwt } = await import('jsonwebtoken');
       const { env } = await import('../../config/env');
-      const payload = jwt.verify(refreshToken, env.JWT_SECRET) as { jti: string; sub: string };
-      await redis.del(refreshKey(payload.jti));
-      this.auditLog('logout', { adminId: payload.sub, ...meta });
+      const payload = jwt.verify(refreshToken, env.JWT_SECRET) as { jti: string; sub: string; role: string };
+      const prefix = payload.role === 'admin' ? 'admin' : payload.role === 'client' ? 'client' : 'pro';
+      await redis.del(refreshKey(prefix, payload.jti));
+      this.auditLog('logout', { 
+        [payload.role === 'admin' ? 'adminId' : payload.role === 'client' ? 'clientId' : 'proId']: payload.sub, 
+        ...meta 
+      });
     } catch {
       // Ignore invalid tokens on logout — just clear the cookie
     }

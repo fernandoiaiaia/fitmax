@@ -3,6 +3,7 @@
 
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -14,19 +15,14 @@ interface Consulta {
   avatar: string; status: ConsultaStatus;
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+// ─── Mock Fallbacks (usados enquanto API carrega) ────────────────────────────
 
-const consultaEmAndamento = {
-  nome: "Guilherme Augusto", especialidade: "Cardiologia",
-  horario: "11:00 — 11:50", avatar: "https://picsum.photos/200/200?random=30",
-};
-
-const consultas: Consulta[] = [
-  { id:1, horario:"09:00", nome:"Fernanda Lima",     especialidade:"Cardiologia", modalidade:"Presencial", data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=41", status:"agendada" },
-  { id:2, horario:"11:00", nome:"Guilherme Augusto", especialidade:"Cardiologia", modalidade:"Presencial", data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=30", status:"em_andamento" },
-  { id:3, horario:"13:00", nome:"Mariana Ferreira",  especialidade:"Cardiologia", modalidade:"Online",     data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=31", status:"pendente" },
-  { id:4, horario:"15:30", nome:"Ricardo Nunes",     especialidade:"Check-up",    modalidade:"Presencial", data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=45", status:"a_confirmar" },
-  { id:5, horario:"09:00", nome:"Lucas Mendes",      especialidade:"Check-up",    modalidade:"Presencial", data:"Amanhã, 24/04", dataISO:"2026-04-24", avatar:"https://picsum.photos/200/200?random=32", status:"agendada" },
+const consultasFallback: Consulta[] = [
+  { id: 1, horario:"09:00", nome:"Fernanda Lima",     especialidade:"Cardiologia", modalidade:"Presencial", data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=41", status:"agendada" },
+  { id: 2, horario:"11:00", nome:"Guilherme Augusto", especialidade:"Cardiologia", modalidade:"Presencial", data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=30", status:"em_andamento" },
+  { id: 3, horario:"13:00", nome:"Mariana Ferreira",  especialidade:"Cardiologia", modalidade:"Online",     data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=31", status:"pendente" },
+  { id: 4, horario:"15:30", nome:"Ricardo Nunes",     especialidade:"Check-up",    modalidade:"Presencial", data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=45", status:"a_confirmar" },
+  { id: 5, horario:"09:00", nome:"Lucas Mendes",      especialidade:"Check-up",    modalidade:"Presencial", data:"Amanhã, 24/04", dataISO:"2026-04-24", avatar:"https://picsum.photos/200/200?random=32", status:"agendada" },
 ];
 
 const statusConfig: Record<ConsultaStatus, { label: string; bg: string; color: string }> = {
@@ -130,18 +126,49 @@ function ConsultaRow({ c }: { c: Consulta }) {
 
 export default function ConsultasPage() {
   const router = useRouter();
-  const [dateFrom, setDateFrom] = useState("2026-04-22");
-  const [dateTo,   setDateTo]   = useState("2026-05-22");
+  const today  = new Date().toISOString().slice(0, 10);
+  const [dateFrom, setDateFrom] = useState(today);
+  const [dateTo,   setDateTo]   = useState(() => {
+    const d = new Date(); d.setMonth(d.getMonth() + 1);
+    return d.toISOString().slice(0, 10);
+  });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const dateRef = useRef<HTMLDivElement>(null);
   useOutsideClick(dateRef, useCallback(() => setShowDatePicker(false), []));
 
-  const filtered = consultas.filter((c) => {
-    if (c.status === "em_andamento") return false;
-    if (dateFrom && c.dataISO < dateFrom) return false;
-    if (dateTo   && c.dataISO > dateTo)   return false;
-    return true;
-  });
+  // ── Estado real da API ────────────────────────────────────────────────────
+  const [consultas, setConsultas] = useState<Consulta[]>(consultasFallback);
+  const [summary,   setSummary]   = useState({ total: 12, agendada: 9, cancelada: 3 });
+  const [resumo,    setResumo]    = useState<any>(null);
+
+  useEffect(() => {
+    api.get(`/pro/consultas?dateFrom=${dateFrom}&dateTo=${dateTo}&page=1&limit=50`)
+      .then(r => {
+        const mapped = r.data.data.map((c: any) => ({
+          id:           c.id,
+          horario:      new Date(c.dataHora).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }),
+          nome:         c.paciente.nome,
+          especialidade: c.especialidade,
+          modalidade:   c.modalidade === 'PRESENCIAL' ? 'Presencial' : 'Online',
+          data:         new Date(c.dataHora).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }),
+          dataISO:      c.dataHora.slice(0, 10),
+          avatar:       c.paciente.avatarUrl || `https://picsum.photos/200/200?random=${Math.floor(Math.random()*90)+10}`,
+          status:       (c.status === 'agendada' ? 'agendada' : c.status === 'em_andamento' ? 'em_andamento' : c.status === 'concluida' ? 'agendada' : 'pendente') as ConsultaStatus,
+        }));
+        if (mapped.length > 0) setConsultas(mapped);
+      }).catch(() => {});
+
+    api.get(`/pro/consultas/summary?dateFrom=${dateFrom}&dateTo=${dateTo}`)
+      .then(r => setSummary(r.data))
+      .catch(() => {});
+
+    api.get(`/pro/consultas/resumo-periodo?dateFrom=${dateFrom}&dateTo=${dateTo}`)
+      .then(r => setResumo(r.data))
+      .catch(() => {});
+  }, [dateFrom, dateTo]);
+
+  const consultaEmAndamento = consultas.find(c => c.status === 'em_andamento') ?? null;
+  const filtered = consultas.filter(c => c.status !== "em_andamento");
 
   const fmtDate = (iso: string) => { const [y,m,d] = iso.split("-"); return `${d}/${m}/${y}`; };
 
@@ -156,10 +183,10 @@ export default function ConsultasPage() {
   };
 
   const dayItems = [
-    { icon:"📅", label:"Total de Consultas", value:"12",  color:"#fafafa" },
-    { icon:"✅", label:"Confirmadas",         value:"9",   color:"#10b981" },
-    { icon:"⏳", label:"Pendentes",           value:"3",   color:"#facc15" },
-    { icon:"⏱",  label:"Tempo Médio",         value:"48m", color:"#60a5fa" },
+    { icon:"📅", label:"Total de Consultas", value: String(summary.total),    color:"#fafafa" },
+    { icon:"✅", label:"Confirmadas",         value: String(summary.agendada), color:"#10b981" },
+    { icon:"⏳", label:"Pendentes",           value: String((summary as any).cancelada ?? 0), color:"#facc15" },
+    { icon:"⏱",  label:"Tempo Médio",         value: resumo?.tempoMedioMinutos ? `${resumo.tempoMedioMinutos}m` : "—", color:"#60a5fa" },
   ];
 
   return (
@@ -246,20 +273,26 @@ export default function ConsultasPage() {
                   <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8 }}>
                     <div style={{ width:36, height:36, borderRadius:"50%", background:"rgba(16,185,129,0.12)", display:"flex", alignItems:"center", justifyContent:"center" }}><TrendingIcon /></div>
                     <span style={{ color:"#a1a1aa", fontSize:12 }}>Agendamentos</span>
-                    <span style={{ color:"#fafafa", fontSize:22, fontWeight:"bold" }}>142</span>
+                    <span style={{ color:"#fafafa", fontSize:22, fontWeight:"bold" }}>{resumo ? resumo.agendamentos : '—'}</span>
                     <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-                      <span style={{ width:6, height:6, borderRadius:"50%", background:"#10b981", flexShrink:0 }} />
-                      <span style={{ color:"#10b981", fontSize:11 }}>+12% vs mês anterior</span>
+                      <span style={{ width:6, height:6, borderRadius:"50%", background: resumo?.variacaoPctAgendamentos >= 0 ? "#10b981" : "#ef4444", flexShrink:0 }} />
+                      <span style={{ color: resumo?.variacaoPctAgendamentos >= 0 ? "#10b981" : "#ef4444", fontSize:11 }}>
+                        {resumo ? `${resumo.variacaoPctAgendamentos > 0 ? '+' : ''}${resumo.variacaoPctAgendamentos ?? 0}% vs mês anterior` : '— vs mês anterior'}
+                      </span>
                     </div>
                   </div>
                   <div className="pro-resumo-sep" style={{ width:1, background:C.border, alignSelf:"stretch" }} />
                   <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8 }}>
                     <div style={{ width:36, height:36, borderRadius:"50%", background:"rgba(16,185,129,0.12)", display:"flex", alignItems:"center", justifyContent:"center" }}><MoneyIcon /></div>
                     <span style={{ color:"#a1a1aa", fontSize:12 }}>Valor Gerado</span>
-                    <span style={{ color:"#fafafa", fontSize:22, fontWeight:"bold" }}>R$8.400</span>
+                    <span style={{ color:"#fafafa", fontSize:22, fontWeight:"bold" }}>
+                      {resumo ? `R$${Number(resumo.valorGeradoReais).toLocaleString('pt-BR', { minimumFractionDigits:0, maximumFractionDigits:0 })}` : '—'}
+                    </span>
                     <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-                      <span style={{ width:6, height:6, borderRadius:"50%", background:"#10b981", flexShrink:0 }} />
-                      <span style={{ color:"#10b981", fontSize:11 }}>+8% vs mês anterior</span>
+                      <span style={{ width:6, height:6, borderRadius:"50%", background: resumo?.variacaoPctValor >= 0 ? "#10b981" : "#ef4444", flexShrink:0 }} />
+                      <span style={{ color: resumo?.variacaoPctValor >= 0 ? "#10b981" : "#ef4444", fontSize:11 }}>
+                        {resumo ? `${resumo.variacaoPctValor > 0 ? '+' : ''}${resumo.variacaoPctValor ?? 0}% vs mês anterior` : '— vs mês anterior'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -276,19 +309,32 @@ export default function ConsultasPage() {
                       <span style={{ color:"#60a5fa", fontSize:10, fontWeight:"bold" }}>Ao vivo</span>
                     </div>
                   </div>
-                  <div style={{ display:"flex", gap:12, alignItems:"center" }}>
-                    <img src={consultaEmAndamento.avatar} alt={consultaEmAndamento.nome} style={{ width:44, height:44, borderRadius:"50%", objectFit:"cover", border:"2px solid rgba(96,165,250,0.4)", flexShrink:0 }} />
-                    <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                      <span style={{ color:"#fafafa", fontSize:14, fontWeight:"bold" }}>{consultaEmAndamento.nome}</span>
-                      <span style={{ color:"#a1a1aa", fontSize:12 }}>{consultaEmAndamento.especialidade}</span>
-                      <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-                        <span style={{ color:"#60a5fa" }}><ClockIcon /></span>
-                        <span style={{ color:"#60a5fa", fontSize:12 }}>{consultaEmAndamento.horario}</span>
+                  {consultaEmAndamento ? (
+                    <div style={{ display:"flex", gap:12, alignItems:"center" }}>
+                      <img src={consultaEmAndamento.avatar} alt={consultaEmAndamento.nome} style={{ width:44, height:44, borderRadius:"50%", objectFit:"cover", border:"2px solid rgba(96,165,250,0.4)", flexShrink:0 }} />
+                      <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                        <span style={{ color:"#fafafa", fontSize:14, fontWeight:"bold" }}>{consultaEmAndamento.nome}</span>
+                        <span style={{ color:"#a1a1aa", fontSize:12 }}>{consultaEmAndamento.especialidade}</span>
+                        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                          <span style={{ color:"#60a5fa" }}><ClockIcon /></span>
+                          <span style={{ color:"#60a5fa", fontSize:12 }}>{consultaEmAndamento.horario}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0" }}>
+                      <div style={{ width:44, height:44, borderRadius:"50%", background:"rgba(96,165,250,0.08)", border:"2px solid rgba(96,165,250,0.2)", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                        <ClockIcon />
+                      </div>
+                      <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                        <span style={{ color:"#a1a1aa", fontSize:13 }}>Nenhuma consulta em andamento</span>
+                        <span style={{ color:"#52525b", fontSize:11 }}>Aguardando início do atendimento</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
+
             </div>
 
             {/* Visão Geral do Dia */}

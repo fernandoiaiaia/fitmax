@@ -8,8 +8,9 @@ import {
   fetchNotifPrefs, updateNotifPrefs,
   alterarSenha,
   fetchConvenios, criarConvenio, editarConvenio, toggleConvenio, excluirConvenio,
+  fetchAdmins, criarAdmin, excluirAdmin,
 } from "../../../lib/configuracoes-api";
-import type { ConvenioItem } from "../../../lib/configuracoes-api";
+import type { ConvenioItem, AdminItem } from "../../../lib/configuracoes-api";
 
 // ── Paleta ─────────────────────────────────────────────────────────────────────
 const C = {
@@ -19,13 +20,14 @@ const C = {
 };
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-type Aba = "dados" | "notificacoes" | "seguranca" | "convenios";
+type Aba = "dados" | "notificacoes" | "seguranca" | "convenios" | "admins";
 
 const ABAS: { id: Aba; label: string; icon: string }[] = [
   { id: "dados",        label: "Dados do Admin", icon: "👤" },
   { id: "notificacoes", label: "Notificações",   icon: "🔔" },
   { id: "seguranca",    label: "Segurança",      icon: "🔒" },
   { id: "convenios",    label: "Convênios",      icon: "🏥" },
+  { id: "admins",       label: "Administradores", icon: "🛡️" },
 ];
 
 const CATEGORIAS_CONVENIO = ["Nacional", "Regional", "Empresarial", "Odontológico", "Outro"];
@@ -86,6 +88,31 @@ function SaveButton({ id, saved, onClick, text = "Salvar alterações" }: { id: 
       onMouseEnter={e=>!saved&&((e.target as HTMLElement).style.background="#0ea370")} onMouseLeave={e=>!saved&&((e.target as HTMLElement).style.background=C.green)}>
       {saved ? "✓ Salvo!" : text}
     </button>
+  );
+}
+
+/** Campo de senha com botão mostrar/ocultar — definido no nível do módulo para evitar remount a cada render */
+function PwdInput({ id, label, field, value, onChange, show, onToggleShow }: {
+  id: string; label: string; field: string; value: string;
+  onChange: (v: string) => void;
+  show: boolean;
+  onToggleShow: () => void;
+}) {
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+      <label style={{ color:C.muted, fontSize:12, fontWeight:600 }}>{label}</label>
+      <div style={{ position:"relative" }}>
+        <input id={id} type={show ? "text" : "password"} value={value} onChange={e=>onChange(e.target.value)}
+          style={{ background:"#141414", border:`1px solid ${C.border}`, borderRadius:10, height:42, padding:"0 40px 0 12px", color:C.text, fontSize:14, fontFamily:"inherit", outline:"none", width:"100%", transition:"border-color .2s" }}
+          onFocus={e=>(e.target.style.borderColor=C.green)} onBlur={e=>(e.target.style.borderColor=C.border)} />
+        <button type="button" onClick={onToggleShow} style={{ position:"absolute", right:10, top:10, background:"none", border:"none", cursor:"pointer", color:C.green }}>
+          {show
+            ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          }
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -286,41 +313,47 @@ function AbaSeguranca() {
   const strengthColors = ["#f43f5e", "#f97316", "#facc15", "#10b981"];
   const strengthLabel  = ["Muito curta", "Fraca", "Razoável", "Forte"];
 
+  // Validação visual do campo "confirmar"
+  const senhasConferem = confirmar.length > 0 && confirmar === novaSenha;
+  const senhasConflito = confirmar.length > 0 && confirmar !== novaSenha;
+
   async function handleSave() {
-    setError(null); setSaving(true);
+    setError(null);
+
+    // Validações frontend antes de enviar
+    if (!senhaAtual) return setError("Informe a senha atual.");
+    if (novaSenha.length < 8) return setError("A nova senha deve ter ao menos 8 caracteres.");
+    if (novaSenha !== confirmar) return setError("A confirmação da senha não confere com a nova senha.");
+    if (novaSenha === senhaAtual) return setError("A nova senha não pode ser igual à senha atual.");
+
+    setSaving(true);
     try {
       await alterarSenha({ senhaAtual, novaSenha, confirmar });
-      setSaved(true); setTimeout(() => setSaved(false), 2500);
+      setSaved(true);
       setSenhaAtual(""); setNovaSenha(""); setConfirmar("");
+      setTimeout(() => setSaved(false), 4000);
     } catch (err) { setError(apiErr(err)); }
     finally { setSaving(false); }
   }
 
-  function PwdInput({ id, label, field, value, onChange }: { id: string; label: string; field: "atual"|"nova"|"confirmar"; value: string; onChange: (v:string)=>void; }) {
-    return (
-      <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-        <label style={{ color:C.muted, fontSize:12, fontWeight:600 }}>{label}</label>
-        <div style={{ position:"relative" }}>
-          <input id={id} type={show[field] ? "text" : "password"} value={value} onChange={e=>onChange(e.target.value)}
-            style={{ background:"#141414", border:`1px solid ${C.border}`, borderRadius:10, height:42, padding:"0 40px 0 12px", color:C.text, fontSize:14, fontFamily:"inherit", outline:"none", width:"100%", transition:"border-color .2s" }}
-            onFocus={e=>(e.target.style.borderColor=C.green)} onBlur={e=>(e.target.style.borderColor=C.border)} />
-          <button type="button" onClick={()=>setShow(p=>({...p, [field]:!p[field]}))} style={{ position:"absolute", right:10, top:10, background:"none", border:"none", cursor:"pointer", color:C.green }}>
-            {show[field]
-              ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-            }
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16, maxWidth:500, animation:"fadeIn .3s ease" }}>
+
+      {/* Banner de sucesso */}
+      {saved && (
+        <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 16px", background:"rgba(16,185,129,0.1)", border:"1px solid rgba(16,185,129,0.3)", borderRadius:10 }}>
+          <span style={{ fontSize:20 }}>✅</span>
+          <div>
+            <p style={{ margin:0, color:C.green, fontSize:14, fontWeight:700 }}>Senha alterada com sucesso!</p>
+            <p style={{ margin:0, color:C.muted, fontSize:12 }}>Use a nova senha na próxima vez que fizer login.</p>
+          </div>
+        </div>
+      )}
+
       <HCard style={{ padding:20, display:"flex", flexDirection:"column", gap:16 }}>
         <SectionTitle>Alterar senha</SectionTitle>
-        <PwdInput id="input-senha-atual" label="Senha atual" field="atual" value={senhaAtual} onChange={setSenhaAtual} />
-        <PwdInput id="input-nova-senha"  label="Nova senha"  field="nova"  value={novaSenha}  onChange={setNovaSenha} />
+        <PwdInput id="input-senha-atual" label="Senha atual"         field="atual"     value={senhaAtual} onChange={setSenhaAtual} show={show.atual}     onToggleShow={() => setShow(p => ({...p, atual:     !p.atual}))} />
+        <PwdInput id="input-nova-senha"  label="Nova senha"          field="nova"      value={novaSenha}  onChange={setNovaSenha}  show={show.nova}      onToggleShow={() => setShow(p => ({...p, nova:      !p.nova}))} />
         {novaSenha.length > 0 && (
           <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
             <div style={{ display:"flex", gap:4 }}>
@@ -329,8 +362,44 @@ function AbaSeguranca() {
             <span style={{ fontSize:12, fontWeight:600, color: strength>0 ? strengthColors[strength-1] : C.dim }}>{strength===0 ? "Senha muito curta" : strengthLabel[strength-1]}</span>
           </div>
         )}
-        <PwdInput id="input-confirmar-senha" label="Confirmar nova senha" field="confirmar" value={confirmar} onChange={setConfirmar} />
-        {error && <p style={{ color:"#f43f5e", fontSize:13, margin:0 }}>{error}</p>}
+
+        {/* Campo confirmar com indicador visual */}
+        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+          <label style={{ color:C.muted, fontSize:12, fontWeight:600 }}>
+            Confirmar nova senha
+            {senhasConferem && <span style={{ color:C.green, fontSize:11, marginLeft:8 }}>✓ senhas conferem</span>}
+            {senhasConflito && <span style={{ color:"#f43f5e", fontSize:11, marginLeft:8 }}>✗ senhas não conferem</span>}
+          </label>
+          <div style={{ position:"relative" }}>
+            <input
+              id="input-confirmar-senha"
+              type={show.confirmar ? "text" : "password"}
+              value={confirmar}
+              onChange={e => setConfirmar(e.target.value)}
+              style={{
+                background:"#141414",
+                border:`1px solid ${senhasConferem ? "rgba(16,185,129,0.5)" : senhasConflito ? "rgba(244,63,94,0.5)" : C.border}`,
+                borderRadius:10, height:42, padding:"0 40px 0 12px", color:C.text, fontSize:14,
+                fontFamily:"inherit", outline:"none", width:"100%", transition:"border-color .2s",
+              }}
+              onFocus={e => e.target.style.borderColor = senhasConflito ? "rgba(244,63,94,0.7)" : C.green}
+              onBlur={e => e.target.style.borderColor = senhasConferem ? "rgba(16,185,129,0.5)" : senhasConflito ? "rgba(244,63,94,0.5)" : C.border}
+            />
+            <button type="button" onClick={() => setShow(p => ({...p, confirmar: !p.confirmar}))} style={{ position:"absolute", right:10, top:10, background:"none", border:"none", cursor:"pointer", color:C.green }}>
+              {show.confirmar
+                ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              }
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 14px", background:"rgba(244,63,94,0.08)", border:"1px solid rgba(244,63,94,0.3)", borderRadius:8 }}>
+            <span style={{ fontSize:16 }}>⚠️</span>
+            <span style={{ color:"#f43f5e", fontSize:13 }}>{error}</span>
+          </div>
+        )}
       </HCard>
       <div style={{ display:"flex", justifyContent:"flex-end" }}>
         <SaveButton id="btn-salvar-senha" saved={saved} onClick={handleSave} text={saving ? "Salvando..." : "Salvar senha"} />
@@ -520,6 +589,270 @@ function AbaConvenios() {
 }
 
 
+// ── Aba: Administradores ──
+function AbaAdmins() {
+  const [lista,    setLista]    = useState<AdminItem[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [saving,   setSaving]   = useState(false);
+  const [error,    setError]    = useState<string|null>(null);
+  const [success,  setSuccess]  = useState<string|null>(null);
+  const [confirmId,setConfirmId]= useState<string|null>(null);
+
+  // Form
+  const [novoEmail, setNovoEmail]   = useState("");
+  const [novoNome,  setNovoNome]    = useState("");
+  const [novaSenha, setNovaSenha]   = useState("");
+  const [confirmSenha, setConfirmSenha] = useState("");
+  const [showSenha, setShowSenha]   = useState(false);
+  const [formError, setFormError]   = useState<string|null>(null);
+  const [novosCreds, setNovosCreds] = useState<{email:string; senha:string}|null>(null);
+
+  const currentId = typeof window !== "undefined"
+    ? (() => { try { const t = document.cookie.match(/access_token=([^;]+)/)?.[1] ?? ""; if (!t) return ""; const p = JSON.parse(atob(t.split(".")[1])); return p.sub ?? ""; } catch { return ""; } })()
+    : "";
+
+  useEffect(() => {
+    fetchAdmins()
+      .then(setLista)
+      .catch(() => setError("Não foi possível carregar os administradores."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleCriar() {
+    setFormError(null);
+    if (!novoEmail.trim()) return setFormError("E-mail é obrigatório.");
+    if (novaSenha.length < 8) return setFormError("A senha deve ter ao menos 8 caracteres.");
+    if (novaSenha !== confirmSenha) return setFormError("As senhas não coincidem.");
+    setSaving(true);
+    try {
+      const novo = await criarAdmin({
+        email:    novoEmail.trim(),
+        name:     novoNome.trim() || undefined,
+        password: novaSenha,
+      });
+      setLista(p => [...p, novo]);
+      // Guarda as credenciais para exibir ao admin criador
+      setNovosCreds({ email: novo.email, senha: novaSenha });
+      setNovoEmail(""); setNovoNome(""); setNovaSenha(""); setConfirmSenha("");
+      setSuccess(`Admin "${novo.email}" criado com sucesso!`);
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (err) {
+      setFormError(err instanceof AxiosError ? err.response?.data?.error ?? "Erro inesperado." : "Erro inesperado.");
+    } finally { setSaving(false); }
+  }
+
+  async function handleExcluir(id: string) {
+    setError(null);
+    try {
+      const r = await excluirAdmin(id);
+      setLista(p => p.filter(a => a.id !== id));
+      setConfirmId(null);
+      setSuccess(`Admin "${r.email}" excluído.`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err instanceof AxiosError ? err.response?.data?.error ?? "Erro ao excluir." : "Erro ao excluir.");
+      setConfirmId(null);
+    }
+  }
+
+  let senhaStrength = 0;
+  if (novaSenha.length >= 8)  senhaStrength++;
+  if (novaSenha.length >= 10 && /[A-Z]/.test(novaSenha)) senhaStrength++;
+  if (novaSenha.length >= 12 && /[0-9]/.test(novaSenha)) senhaStrength++;
+  if (novaSenha.length >= 14 && /[^a-zA-Z0-9]/.test(novaSenha)) senhaStrength++;
+  const strengthColors = ["#f43f5e", "#f97316", "#facc15", "#10b981"];
+
+  if (loading) return <div style={{ padding:40, textAlign:"center", color:C.muted }}>Carregando...</div>;
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:16, animation:"fadeIn .3s ease" }}>
+
+      {/* Header stats */}
+      <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
+        <div style={{ flex:1, minWidth:120, background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
+          <span style={{ color:C.text, fontSize:28, fontWeight:800, lineHeight:1 }}>{lista.length}</span>
+          <p style={{ color:C.muted, fontSize:13, margin:"4px 0 0" }}>Administradores</p>
+        </div>
+        <div style={{ flex:2, minWidth:200, background:"rgba(16,185,129,0.06)", border:"1px solid rgba(16,185,129,0.2)", borderRadius:12, padding:"14px 20px", display:"flex", alignItems:"center", gap:12 }}>
+          <span style={{ fontSize:22 }}>🛡️</span>
+          <p style={{ margin:0, color:C.muted, fontSize:13 }}>Apenas administradores registrados têm acesso ao painel. Você não pode excluir sua própria conta.</p>
+        </div>
+      </div>
+
+      {/* Formulário de cadastro */}
+      <HCard style={{ padding:20, display:"flex", flexDirection:"column", gap:16 }}>
+        <SectionTitle>Cadastrar Novo Administrador</SectionTitle>
+        <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
+          <InputField id="admin-novo-nome"  label="Nome (opcional)" value={novoNome}  onChange={setNovoNome}  placeholder="Ex: João Silva" />
+          <InputField id="admin-novo-email" label="E-mail *"         value={novoEmail} onChange={setNovoEmail} placeholder="admin@empresa.com" type="email" />
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+          <label style={{ color:C.muted, fontSize:12, fontWeight:600 }}>Senha *</label>
+          <div style={{ position:"relative", maxWidth:400 }}>
+            <input
+              id="admin-nova-senha"
+              type={showSenha ? "text" : "password"}
+              value={novaSenha}
+              onChange={e => setNovaSenha(e.target.value)}
+              placeholder="Mínimo 8 caracteres"
+              style={{ width:"100%", background:"#141414", border:`1px solid ${C.border}`, borderRadius:10, height:42, padding:"0 44px 0 12px", color:C.text, fontSize:14, fontFamily:"inherit", outline:"none", boxSizing:"border-box", transition:"border-color .2s" }}
+              onFocus={e => e.target.style.borderColor=C.green}
+              onBlur={e => e.target.style.borderColor=C.border}
+            />
+            <button type="button" onClick={() => setShowSenha(p => !p)} style={{ position:"absolute", right:10, top:11, background:"none", border:"none", cursor:"pointer", color:C.green }}>
+              {showSenha
+                ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              }
+            </button>
+          </div>
+          {novaSenha.length > 0 && (
+            <div style={{ display:"flex", flexDirection:"column", gap:4, maxWidth:400 }}>
+              <div style={{ display:"flex", gap:4 }}>
+                {[0,1,2,3].map(i => <div key={i} style={{ flex:1, height:3, borderRadius:4, background: i < senhaStrength ? strengthColors[senhaStrength-1] : "rgba(255,255,255,0.1)" }} />)}
+              </div>
+              <span style={{ fontSize:11, color: senhaStrength > 0 ? strengthColors[senhaStrength-1] : C.dim }}>
+                {["Muito curta","Fraca","Razoável","Forte"][senhaStrength-1] ?? "Muito curta"}
+              </span>
+            </div>
+          )}
+        </div>
+        {/* Confirmar Senha */}
+        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+          <label style={{ color:C.muted, fontSize:12, fontWeight:600 }}>Confirmar Senha *</label>
+          <div style={{ position:"relative", maxWidth:400 }}>
+            <input
+              id="admin-confirm-senha"
+              type={showSenha ? "text" : "password"}
+              value={confirmSenha}
+              onChange={e => setConfirmSenha(e.target.value)}
+              placeholder="Repita a senha"
+              style={{ width:"100%", background:"#141414", border:`1px solid ${
+                confirmSenha.length > 0 ? (confirmSenha === novaSenha ? "rgba(16,185,129,0.5)" : "rgba(244,63,94,0.5)") : C.border
+              }`, borderRadius:10, height:42, padding:"0 12px", color:C.text, fontSize:14, fontFamily:"inherit", outline:"none", boxSizing:"border-box", transition:"border-color .2s" }}
+            />
+            {confirmSenha.length > 0 && (
+              <span style={{ position:"absolute", right:12, top:12, fontSize:16 }}>
+                {confirmSenha === novaSenha ? "✅" : "❌"}
+              </span>
+            )}
+          </div>
+        </div>
+        {formError && <p style={{ color:"#f43f5e", fontSize:13, margin:0 }}>{formError}</p>}
+        <div>
+          <button
+            id="btn-criar-admin"
+            onClick={handleCriar}
+            disabled={saving}
+            style={{ padding:"10px 22px", borderRadius:10, background:saving ? "#059669" : C.green, border:"none", color:"white", fontSize:13, fontWeight:700, cursor:saving?"not-allowed":"pointer", fontFamily:"inherit", transition:"background .15s" }}
+            onMouseEnter={e => !saving && ((e.target as HTMLElement).style.background="#0ea370")}
+            onMouseLeave={e => !saving && ((e.target as HTMLElement).style.background=C.green)}
+          >
+            {saving ? "Cadastrando..." : "+ Cadastrar Administrador"}
+          </button>
+        </div>
+      </HCard>
+
+      {/* Feedbacks */}
+      {error   && <p style={{ color:"#f43f5e", fontSize:13, margin:0 }}>{error}</p>}
+      {success && <p style={{ color:C.green,    fontSize:13, margin:0 }}>✅ {success}</p>}
+
+      {/* Modal de credenciais após criação */}
+      {novosCreds && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999 }}>
+          <div style={{ background:"#1a1a1a", border:"1px solid rgba(16,185,129,0.3)", borderRadius:16, padding:32, maxWidth:420, width:"90%", display:"flex", flexDirection:"column", gap:16 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+              <span style={{ fontSize:28 }}>🛡️</span>
+              <div>
+                <h3 style={{ margin:0, color:C.text, fontSize:18, fontWeight:800 }}>Administrador Criado!</h3>
+                <p style={{ margin:0, color:C.muted, fontSize:13 }}>Compartilhe essas credenciais com o novo admin</p>
+              </div>
+            </div>
+            <div style={{ background:"#111", border:`1px solid ${C.border}`, borderRadius:10, padding:16, display:"flex", flexDirection:"column", gap:10 }}>
+              <div>
+                <span style={{ color:C.dim, fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>E-mail</span>
+                <p style={{ margin:"4px 0 0", color:C.text, fontSize:15, fontWeight:700, fontFamily:"monospace" }}>{novosCreds.email}</p>
+              </div>
+              <div style={{ height:1, background:C.border }} />
+              <div>
+                <span style={{ color:C.dim, fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>Senha</span>
+                <p style={{ margin:"4px 0 0", color:C.green, fontSize:15, fontWeight:700, fontFamily:"monospace" }}>{novosCreds.senha}</p>
+              </div>
+            </div>
+            <p style={{ margin:0, color:"#f97316", fontSize:12 }}>
+              ⚠️ Anote essas informações agora. A senha não poderá ser recuperada após fechar esta janela.
+            </p>
+            <button
+              onClick={() => setNovosCreds(null)}
+              style={{ padding:"10px", borderRadius:10, background:C.green, border:"none", color:"white", fontSize:14, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}
+            >
+              Entendi, fechar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Lista de admins */}
+      <HCard style={{ border:`1px solid ${C.border}` }}>
+        {lista.length === 0 ? (
+          <div style={{ padding:40, textAlign:"center", color:C.muted }}>Nenhum administrador encontrado.</div>
+        ) : (
+          lista.map((a, i) => {
+            const isMe = a.id === currentId;
+            const isConfirming = confirmId === a.id;
+            return (
+              <div key={a.id}
+                style={{ display:"flex", alignItems:"center", gap:14, padding:"14px 20px", borderBottom: i === lista.length-1 ? "none" : `1px solid ${C.border}`, transition:"background .15s" }}
+                onMouseEnter={e => (e.currentTarget.style.background=C.hover)}
+                onMouseLeave={e => (e.currentTarget.style.background="transparent")}
+              >
+                {/* Avatar */}
+                <img
+                  src={a.avatarUrl ?? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(a.name || a.email)}&backgroundColor=10b981&textColor=ffffff`}
+                  style={{ width:40, height:40, borderRadius:"50%", objectFit:"cover", border:`2px solid ${isMe ? C.green : C.border}`, flexShrink:0 }}
+                  alt={a.name || a.email}
+                />
+                {/* Info */}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                    <span style={{ color:C.text, fontSize:14, fontWeight:700, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {a.name || "(sem nome)"}
+                    </span>
+                    {isMe && (
+                      <span style={{ color:C.green, fontSize:10, fontWeight:700, background:"rgba(16,185,129,0.12)", padding:"2px 8px", borderRadius:999 }}>VOCÊ</span>
+                    )}
+                  </div>
+                  <span style={{ color:C.muted, fontSize:12 }}>{a.email}</span>
+                  <span style={{ color:C.dim, fontSize:11, display:"block" }}>Desde {new Date(a.createdAt).toLocaleDateString("pt-BR")}</span>
+                </div>
+                {/* Ações */}
+                {!isMe && (
+                  isConfirming ? (
+                    <div style={{ display:"flex", gap:8, alignItems:"center", flexShrink:0 }}>
+                      <span style={{ color:C.muted, fontSize:12 }}>Confirmar?</span>
+                      <button onClick={() => handleExcluir(a.id)} style={{ padding:"6px 14px", borderRadius:8, background:"#f43f5e", border:"none", color:"white", fontSize:12, fontWeight:700, cursor:"pointer" }}>Excluir</button>
+                      <button onClick={() => setConfirmId(null)} style={{ padding:"6px 12px", borderRadius:8, background:"transparent", border:`1px solid ${C.border}`, color:C.muted, fontSize:12, fontWeight:600, cursor:"pointer" }}>Cancelar</button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmId(a.id)}
+                      style={{ width:34, height:34, borderRadius:8, background:"transparent", border:`1px solid ${C.border}`, color:"#f43f5e", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all .15s" }}
+                      onMouseEnter={e => { e.currentTarget.style.background="rgba(244,63,94,0.1)"; e.currentTarget.style.borderColor="rgba(244,63,94,0.3)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background="transparent"; e.currentTarget.style.borderColor=C.border; }}
+                      title="Excluir administrador"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    </button>
+                  )
+                )}
+              </div>
+            );
+          })
+        )}
+      </HCard>
+    </div>
+  );
+}
 
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
@@ -569,6 +902,7 @@ export default function ConfigPage() {
           {aba === "notificacoes" && <AbaNotificacoes />}
           {aba === "seguranca"    && <AbaSeguranca />}
           {aba === "convenios"    && <AbaConvenios />}
+          {aba === "admins"       && <AbaAdmins />}
         </div>
 
       </div>

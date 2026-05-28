@@ -101,6 +101,16 @@ const uuidParamSchema = z.object({
   id: z.string().uuid('ID deve ser um UUID válido'),
 });
 
+/** Criação de novo administrador */
+const criarAdminSchema = z.object({
+  email:    z.string().email('E-mail inválido').max(254).toLowerCase().trim(),
+  name:     z.string().min(2, 'Nome deve ter ao menos 2 caracteres').max(100).trim().optional(),
+  password: z
+    .string()
+    .min(8, 'A senha deve ter ao menos 8 caracteres')
+    .max(128, 'Senha muito longa'),
+});
+
 // ─── Controller ───────────────────────────────────────────────────────────────
 
 export class ConfiguracoesController {
@@ -254,6 +264,44 @@ export class ConfiguracoesController {
       const adminId = req.user!.sub;
       const meta    = getMeta(req);
       const result  = await service.excluirConvenio(id, adminId, meta.ip, meta.userAgent);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  // ── Gestão de Administradores ─────────────────────────────────────────────────
+
+  /** GET /api/admin/configuracoes/admins */
+  listAdmins = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const result = await service.listAdmins();
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  /** POST /api/admin/configuracoes/admins */
+  criarAdmin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const criadoPorId = req.user!.sub;
+      const dto         = criarAdminSchema.parse(req.body);
+      const meta        = getMeta(req);
+      const admin       = await service.criarAdmin(dto, criadoPorId, meta.ip, meta.userAgent);
+      res.status(201).json(admin);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  /** DELETE /api/admin/configuracoes/admins/:id */
+  excluirAdmin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id }   = uuidParamSchema.parse(req.params);
+      const requesterId = req.user!.sub;
+      const meta        = getMeta(req);
+      const result      = await service.excluirAdmin(id, requesterId, meta.ip, meta.userAgent);
       res.json(result);
     } catch (err) {
       next(err);

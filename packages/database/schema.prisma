@@ -39,6 +39,11 @@ enum UserStatus {
   BANIDO
 }
 
+enum DisponibilidadeEstado {
+  DISPONIVEL
+  BLOQUEADO
+}
+
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model Admin {
@@ -67,6 +72,12 @@ model Professional {
   avatarUrl            String?
   especialidade        String?
   registroProfissional String?      // ex: "CRM 54.321 · SP" ou "CREF 77.001 · GO"
+  telefone             String?
+  username             String?      @unique
+  cidade               String?
+  uf                   String?
+  convenios            String[]
+  notificacoes         Json?        @default("{}")
   cpf                  String?      @unique
   status               UserStatus   @default(ATIVO)
   plano                String?      // ex: "Pro Anual", "Pro Mensal"
@@ -76,6 +87,9 @@ model Professional {
   createdAt            DateTime     @default(now())
   consultas            Consulta[]
   publicacoes          Publicacao[]
+  disponibilidades     Disponibilidade[]
+  curtidas_            CurtidaFeed[]
+  comentarios_         ComentarioFeed[]
   banidoPor            Admin?       @relation("ProfessionalBanidor", fields: [banidoPorId], references: [id])
 }
 
@@ -144,9 +158,11 @@ model Publicacao {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
-  profissional Professional @relation(fields: [profissionalId], references: [id])
-  moderadoPor  Admin?       @relation("PublicacaoModerador", fields: [moderadoPorId], references: [id])
+  profissional Professional  @relation(fields: [profissionalId], references: [id])
+  moderadoPor  Admin?        @relation("PublicacaoModerador", fields: [moderadoPorId], references: [id])
   denuncias    Denuncia[]
+  curtidas     CurtidaFeed[]
+  comentarios_ ComentarioFeed[]
 }
 
 model Denuncia {
@@ -202,4 +218,46 @@ model Convenio {
   updatedAt   DateTime @updatedAt
 
   criadoPor Admin @relation("ConvenioCriador", fields: [criadoPorId], references: [id])
+}
+
+/// Slots de disponibilidade da agenda do profissional
+model Disponibilidade {
+  id             String               @id @default(uuid())
+  profissionalId String
+  dia            String               // "2026-04-23" (ISO date)
+  hora           String               // "09:00"
+  estado         DisponibilidadeEstado @default(DISPONIVEL)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  profissional Professional @relation(fields: [profissionalId], references: [id])
+
+  @@unique([profissionalId, dia, hora])
+  @@index([profissionalId, dia])
+}
+/// Curtidas do feed — permite toggle e evita duplicatas (OWASP A01)
+model CurtidaFeed {
+  profissionalId String
+  publicacaoId   String
+  criadoEm      DateTime @default(now())
+
+  profissional Professional @relation(fields: [profissionalId], references: [id])
+  publicacao   Publicacao   @relation(fields: [publicacaoId], references: [id])
+
+  @@id([profissionalId, publicacaoId])
+  @@index([publicacaoId])
+}
+
+/// Comentários do feed (OWASP A09 — rastreabilidade por profissional)
+model ComentarioFeed {
+  id             String   @id @default(uuid())
+  publicacaoId   String
+  profissionalId String
+  texto          String
+  criadoEm      DateTime @default(now())
+
+  publicacao   Publicacao   @relation(fields: [publicacaoId], references: [id])
+  profissional Professional @relation(fields: [profissionalId], references: [id])
+
+  @@index([publicacaoId])
 }

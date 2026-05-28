@@ -4,6 +4,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
 import "./responsive.css";
 
 const menuItems = [
@@ -86,6 +87,12 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
   const [sidebarOpen, setSidebarOpen]         = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const pathname = usePathname();
+  const { user, logout } = useAuth();
+
+  const nomeExibido    = user?.nome ?? 'Profissional';
+  const roleExibida    = [user?.especialidade, user?.registroProfissional].filter(Boolean).join(' · ');
+  const avatarUrl      = user?.avatarUrl ?? `https://picsum.photos/200/200?random=10`;
+  const totalConsultas = user?.totalConsultas ?? 0;
 
   return (
     <>
@@ -182,22 +189,22 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
             {/* Profile Block */}
             <div className={`pro-profile${desktopCollapsed ? " pro-profile--collapsed" : ""}`}>
               <img
-                src="https://picsum.photos/200/200?random=10"
-                alt="Dr. Rafael Costa"
+                src={avatarUrl}
+                alt={nomeExibido}
                 className="pro-profile__avatar"
               />
               {!desktopCollapsed && (
                 <>
-                  <p className="pro-profile__name">Dr. Rafael Costa</p>
-                  <p className="pro-profile__role">Cardiologista · CRM 54321</p>
+                  <p className="pro-profile__name">{nomeExibido}</p>
+                  <p className="pro-profile__role">{roleExibida || 'Profissional FitMax'}</p>
                   <div className="pro-profile__stats">
                     <div className="pro-profile__stat">
-                      <span className="pro-profile__stat-val">48</span>
+                      <span className="pro-profile__stat-val">—</span>
                       <span className="pro-profile__stat-lbl">Pacientes</span>
                     </div>
                     <div className="pro-profile__stat-sep" />
                     <div className="pro-profile__stat">
-                      <span className="pro-profile__stat-val">12</span>
+                      <span className="pro-profile__stat-val">{totalConsultas}</span>
                       <span className="pro-profile__stat-lbl">Consultas</span>
                     </div>
                   </div>
@@ -236,20 +243,20 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
 
             {/* Logout */}
             <div className="pro-sidebar__footer">
-              <Link
-                href="/"
-                onClick={() => setSidebarOpen(false)}
+              <button
+                onClick={logout}
                 className={[
                   "pro-nav-item",
                   "pro-nav-item--signout",
                   desktopCollapsed ? "pro-nav-item--icon-only" : "",
                 ].join(" ")}
+                style={{ width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
               >
                 <span className="pro-nav-item__icon">
                   <SidebarIcon name="log-out" color="#52525b" />
                 </span>
                 {!desktopCollapsed && "Sair"}
-              </Link>
+              </button>
             </div>
 
           </div>
@@ -279,8 +286,8 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
                 <span className="pro-topbar__notif-dot" />
               </button>
               <img
-                src="https://picsum.photos/200/200?random=10"
-                alt="Dr. Rafael Costa"
+                src={avatarUrl}
+                alt={nomeExibido}
                 className="pro-topbar__avatar"
               />
             </div>

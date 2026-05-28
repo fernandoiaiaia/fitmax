@@ -7,7 +7,7 @@ import type { NextRequest } from "next/server";
  */
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const hasRefreshCookie = req.cookies.has("refreshToken");
+  const hasRefreshCookie = req.cookies.has("fitmax_admin_refresh");
 
   // Protege todas as rotas /painel
   if (pathname.startsWith("/painel") && !hasRefreshCookie) {

@@ -2,6 +2,7 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
+import { api } from "@/lib/api";
 
 type StatusPagamento = "pago" | "pendente" | "reembolsado";
 
@@ -11,18 +12,14 @@ interface ConsultaHistorico {
   avatar: string; valor: string; statusPagamento: StatusPagamento; nota?: number;
 }
 
-const historico: ConsultaHistorico[] = [
-  { id:1, data:"23/04/2026", dataISO:"2026-04", horario:"11:00", paciente:"Guilherme Augusto", especialidade:"Cardiologia",       modalidade:"Presencial", avatar:"https://picsum.photos/200/200?random=30", valor:"R$ 350", statusPagamento:"pago",        nota:5 },
-  { id:2, data:"23/04/2026", dataISO:"2026-04", horario:"13:00", paciente:"Mariana Ferreira",  especialidade:"Cardiologia",       modalidade:"Online",     avatar:"https://picsum.photos/200/200?random=31", valor:"R$ 280", statusPagamento:"pendente" },
-  { id:3, data:"22/04/2026", dataISO:"2026-04", horario:"09:00", paciente:"Fernanda Lima",     especialidade:"Cardiologia",       modalidade:"Presencial", avatar:"https://picsum.photos/200/200?random=41", valor:"R$ 350", statusPagamento:"pago",        nota:4 },
-  { id:4, data:"20/04/2026", dataISO:"2026-04", horario:"15:30", paciente:"Ricardo Nunes",     especialidade:"Check-up Cardíaco", modalidade:"Presencial", avatar:"https://picsum.photos/200/200?random=45", valor:"R$ 420", statusPagamento:"pago" },
-  { id:5, data:"15/04/2026", dataISO:"2026-04", horario:"10:00", paciente:"Beatriz Santos",    especialidade:"Cardiologia",       modalidade:"Online",     avatar:"https://picsum.photos/200/200?random=46", valor:"R$ 280", statusPagamento:"reembolsado" },
-  { id:6, data:"30/03/2026", dataISO:"2026-03", horario:"14:00", paciente:"Carlos Eduardo",    especialidade:"Avaliação Cardíaca",modalidade:"Presencial", avatar:"https://picsum.photos/200/200?random=47", valor:"R$ 500", statusPagamento:"pago",        nota:5 },
-];
-
 const PERIODOS = ["Semana", "Mês", "Ano", "Tudo"];
 
-const mesLabels: Record<string, string> = { "2026-04":"Abril 2026", "2026-03":"Março 2026" };
+function getMesLabel(isoDate: string) {
+  const [year, month] = isoDate.split('-');
+  const date = new Date(parseInt(year), parseInt(month) - 1, 15);
+  const m = date.toLocaleDateString('pt-BR', { month: 'long' });
+  return m.charAt(0).toUpperCase() + m.slice(1) + ' ' + year;
+}
 
 function agruparPorMes(items: ConsultaHistorico[]) {
   const g: Record<string, ConsultaHistorico[]> = {};
@@ -107,17 +104,50 @@ export default function HistoricoPage() {
   const headerMenuRef = useRef<HTMLDivElement>(null);
   useOutsideClick(headerMenuRef, useCallback(() => setHeaderMenuOpen(false), []));
 
-  const grupos = agruparPorMes(historico);
+  // Estado real da API
+  const [consultasList, setConsultasList] = useState<ConsultaHistorico[]>([]);
+  const [resumo, setResumo] = useState<any>(null);
+
+  const periodoParam: Record<string, string> = {
+    "Semana": "semana", "Mês": "mes", "Ano": "ano", "Tudo": "tudo",
+  };
+
+  useEffect(() => {
+    const p = periodoParam[periodo] ?? "mes";
+    api.get(`/pro/historico?periodo=${p}&page=1&limit=50`)
+      .then(r => {
+        setConsultasList(r.data.data.map((c: any) => ({
+        id:              c.id,
+        data:            new Date(c.dataHora).toLocaleDateString('pt-BR'),
+        dataISO:         c.dataHora.slice(0, 7),
+        horario:         new Date(c.dataHora).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }),
+        paciente:        c.paciente.nome,
+        especialidade:   c.especialidade,
+        modalidade:      c.modalidade === 'PRESENCIAL' ? 'Presencial' : 'Online',
+        avatar:          c.paciente.avatarUrl || `https://picsum.photos/200/200?random=30`,
+        valor:           `R$ ${Number(c.valorReais).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`,
+        statusPagamento: c.statusPagamento,
+        nota:            undefined,
+      })));
+      })
+      .catch(() => setConsultasList([]));
+
+    api.get(`/pro/historico/resumo?periodo=${p}`)
+      .then(r => setResumo(r.data))
+      .catch(() => {});
+  }, [periodo]);
+
+  const grupos = agruparPorMes(consultasList);
   const meses  = Object.keys(grupos).sort((a,b) => b.localeCompare(a));
-  const totalPago = historico.filter(c=>c.statusPagamento==="pago").reduce((acc,c)=>acc+parseInt(c.valor.replace(/\D/g,"")),0);
-  const pendentes = historico.filter(c=>c.statusPagamento==="pendente").length;
-  const timeline  = historico.slice().sort((a,b)=>b.id-a.id).map(c=>({ data:c.data, descricao:`${c.especialidade} · ${c.modalidade}`, paciente:c.paciente }));
+  const totalPago = resumo ? Number(resumo.totalRecebidoReais) * 100 : consultasList.filter(c=>c.statusPagamento==="pago").reduce((acc,c)=>acc+parseInt(c.valor.replace(/\D/g,"")),0);
+  const pendentes = resumo?.pendentesDePagamento ?? consultasList.filter(c=>c.statusPagamento==="pendente").length;
+  const timeline  = consultasList.slice().sort((a,b)=>String(b.id).localeCompare(String(a.id))).map(c=>({ data:c.data, descricao:`${c.especialidade} · ${c.modalidade}`, paciente:c.paciente }));
 
   const resumoItems = [
-    { label:"Total de atendimentos",    value:String(historico.length),                    color:"#fafafa" },
-    { label:"Total recebido",           value:`R$ ${totalPago.toLocaleString("pt-BR")}`,   color:"#10b981" },
-    { label:"Pendentes de pagamento",   value:String(pendentes),                           color:"#facc15" },
-    { label:"Reembolsados",             value:String(historico.filter(c=>c.statusPagamento==="reembolsado").length), color:"#a1a1aa" },
+    { label:"Total de atendimentos",  value: resumo ? String(resumo.totalAtendimentos) : String(consultasList.length), color:"#fafafa" },
+    { label:"Total recebido",         value: resumo ? `R$ ${Number(resumo.totalRecebidoReais).toLocaleString("pt-BR")}` : `R$ ${Math.round(totalPago/100).toLocaleString("pt-BR")}`, color:"#10b981" },
+    { label:"Pendentes de pagamento", value: String(pendentes), color:"#facc15" },
+    { label:"Reembolsados",           value: resumo ? String(resumo.reembolsados) : String(consultasList.filter(c=>c.statusPagamento==="reembolsado").length), color:"#a1a1aa" },
   ];
 
   return (
@@ -195,7 +225,7 @@ export default function HistoricoPage() {
               <h2 style={{ color:"#fafafa", fontSize:20, fontWeight:"bold", margin:0 }}>Consultas Realizadas</h2>
               {meses.map(mesKey => {
                 const items = grupos[mesKey];
-                const label = mesLabels[mesKey] ?? mesKey;
+                const label = getMesLabel(mesKey);
                 return (
                   <div key={mesKey} style={{ display:"flex", flexDirection:"column", gap:12 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:12 }}>

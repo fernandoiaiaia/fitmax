@@ -81,4 +81,12 @@ router.put('/convenios/:id',              controller.editarConvenio);
 router.patch('/convenios/:id/toggle',     controller.toggleConvenio);
 router.delete('/convenios/:id',           controller.excluirConvenio);
 
+// ─── Administradores ──────────────────────────────────────────────────────────
+// OWASP A07 — criação de admin usa o mesmo rate limiter estrito de senha
+router.get('/admins',         controller.listAdmins);
+router.post('/admins',        passwordLimiter, controller.criarAdmin);
+router.delete('/admins/:id',  controller.excluirAdmin);
+
 export default router;
+
+

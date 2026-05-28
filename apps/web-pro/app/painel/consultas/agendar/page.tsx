@@ -3,6 +3,7 @@
 
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { api } from "@/lib/api";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -129,6 +130,14 @@ const STYLES = `
     color: #a1a1aa; cursor: pointer; font-family: inherit; transition: all 0.15s;
   }
   .pro-btn-ghost:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); color: #e4e4e7; }
+
+  .pro-date-input {
+    background: #222; border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px; color: #fafafa; padding: 10px 14px;
+    font-size: 14px; width: 100%; outline: none;
+    colorScheme: dark; font-family: inherit; box-sizing: border-box;
+  }
+  .pro-date-input:focus { border-color: rgba(96,165,250,0.5); }
 `;
 
 // ─── Inner Component ──────────────────────────────────────────────────────────
@@ -149,6 +158,13 @@ function ConsultaDetalheInner() {
   const [view, setView]               = useState<string>("menu");
   const [cancelDone, setCancelDone]   = useState(false);
   const [confirmDone, setConfirmDone] = useState(false);
+  const [loading, setLoading]         = useState(false);
+  const [apiError, setApiError]       = useState<string | null>(null);
+
+  // Reagendar state
+  const [novaData,   setNovaData]   = useState("");
+  const [novaHora,   setNovaHora]   = useState("");
+  const [reagendDone, setReagendDone] = useState(false);
 
   const statusLabels: Record<string, { label: string; bg: string; color: string }> = {
     agendada:     { label:"AGENDADA",     bg:"rgba(16,185,129,0.12)",  color:"#10b981" },
@@ -161,6 +177,52 @@ function ConsultaDetalheInner() {
   if (!consultaId) {
     router.push("/painel/consultas");
     return null;
+  }
+
+  // ─── Handlers de API ───────────────────────────────────────────────────────
+
+  async function handleConfirmar() {
+    setLoading(true);
+    setApiError(null);
+    try {
+      await api.patch(`/pro/consultas/${consultaId}/status`, { status: "em_andamento" });
+      setConfirmDone(true);
+    } catch (err: any) {
+      setApiError(err.response?.data?.error ?? "Erro ao confirmar consulta. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleCancelar() {
+    setLoading(true);
+    setApiError(null);
+    try {
+      await api.patch(`/pro/consultas/${consultaId}/status`, { status: "cancelada" });
+      setCancelDone(true);
+    } catch (err: any) {
+      setApiError(err.response?.data?.error ?? "Erro ao cancelar consulta. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleReagendar() {
+    if (!novaData || !novaHora) {
+      setApiError("Selecione uma data e um horário.");
+      return;
+    }
+    const novaDataHora = `${novaData}T${novaHora}:00.000Z`;
+    setLoading(true);
+    setApiError(null);
+    try {
+      await api.patch(`/pro/consultas/${consultaId}/reagendar`, { novaDataHora });
+      setReagendDone(true);
+    } catch (err: any) {
+      setApiError(err.response?.data?.error ?? "Erro ao reagendar. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -208,13 +270,20 @@ function ConsultaDetalheInner() {
             </div>
           </div>
 
+          {/* Erro inline global */}
+          {apiError && (
+            <div style={{ background:"rgba(244,63,94,0.08)", border:"1px solid rgba(244,63,94,0.3)", borderRadius:10, padding:"10px 16px", color:"#f43f5e", fontSize:13 }}>
+              ⚠️ {apiError}
+            </div>
+          )}
+
           {/* ── MENU ── */}
-          {view === "menu" && !cancelDone && !confirmDone && (
+          {view === "menu" && !cancelDone && !confirmDone && !reagendDone && (
             <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
               <span style={{ color:"#a1a1aa", fontSize:13, fontWeight:600 }}>O que você deseja fazer?</span>
               <div className="pro-mg-actions-grid">
                 {(consultaStatus === "a_confirmar" || consultaStatus === "pendente") && (
-                  <div id="btn-pro-confirmar" className="pro-mg-action-card confirmar" onClick={() => setView("confirmar")}>
+                  <div id="btn-pro-confirmar" className="pro-mg-action-card confirmar" onClick={() => { setApiError(null); setView("confirmar"); }}>
                     <div className="pro-mg-action-icon" style={{ background:"rgba(16,185,129,0.12)" }}>✅</div>
                     <p className="pro-mg-action-title" style={{ color:"#10b981" }}>Confirmar</p>
                     <p className="pro-mg-action-sub">Confirme a presença do paciente nesta consulta</p>
@@ -223,14 +292,14 @@ function ConsultaDetalheInner() {
                 <div
                   id="btn-pro-reagendar"
                   className="pro-mg-action-card reagendar"
-                  onClick={() => setView("reagendar")}
+                  onClick={() => { setApiError(null); setView("reagendar"); }}
                   style={{ gridColumn: (consultaStatus !== "a_confirmar" && consultaStatus !== "pendente") ? "1 / -1" : "auto" }}
                 >
                   <div className="pro-mg-action-icon" style={{ background:"rgba(96,165,250,0.12)" }}>📅</div>
                   <p className="pro-mg-action-title" style={{ color:"#60a5fa" }}>Reagendar</p>
                   <p className="pro-mg-action-sub">Proponha uma nova data e horário para esta consulta</p>
                 </div>
-                <div id="btn-pro-cancelar" className="pro-mg-action-card cancelar" onClick={() => setView("cancelar")} style={{ gridColumn:"1 / -1" }}>
+                <div id="btn-pro-cancelar" className="pro-mg-action-card cancelar" onClick={() => { setApiError(null); setView("cancelar"); }} style={{ gridColumn:"1 / -1" }}>
                   <div className="pro-mg-action-icon" style={{ background:"rgba(244,63,94,0.1)" }}>🗑️</div>
                   <p className="pro-mg-action-title" style={{ color:"#f43f5e" }}>Cancelar Consulta</p>
                   <p className="pro-mg-action-sub">Cancele esta consulta e notifique o paciente</p>
@@ -246,8 +315,16 @@ function ConsultaDetalheInner() {
               <p style={{ color:"#a1a1aa", fontSize:14, margin:"0 0 8px" }}>Confirmar a consulta de <strong style={{ color:"#f4f4f5" }}>{consultaNome}</strong>?</p>
               <p style={{ color:"#71717a", fontSize:13, margin:"0 0 20px" }}>📅 {consultaData} às {consultaHor} · {consultaMod}</p>
               <div style={{ display:"flex", gap:12 }}>
-                <button className="pro-btn-ghost" onClick={() => setView("menu")} style={{ flex:1 }}>← Voltar</button>
-                <button id="btn-pro-confirmar-ok" className="pro-btn-primary" onClick={() => setConfirmDone(true)} style={{ flex:2 }}>Confirmar ✅</button>
+                <button className="pro-btn-ghost" onClick={() => setView("menu")} style={{ flex:1 }} disabled={loading}>← Voltar</button>
+                <button
+                  id="btn-pro-confirmar-ok"
+                  className="pro-btn-primary"
+                  onClick={handleConfirmar}
+                  disabled={loading}
+                  style={{ flex:2 }}
+                >
+                  {loading ? "Confirmando…" : "Confirmar ✅"}
+                </button>
               </div>
             </div>
           )}
@@ -263,19 +340,60 @@ function ConsultaDetalheInner() {
           )}
 
           {/* ── REAGENDAR ── */}
-          {view === "reagendar" && (
+          {view === "reagendar" && !reagendDone && (
             <div className="pro-mg-confirm-box" style={{ background:"rgba(96,165,250,0.06)", border:"1px solid rgba(96,165,250,0.2)" }}>
               <span style={{ color:"#60a5fa", fontSize:12, fontWeight:800, display:"block", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:12 }}>📅 Reagendar Consulta</span>
-              <p style={{ color:"#a1a1aa", fontSize:14, margin:"0 0 8px" }}>Propor novo horário para <strong style={{ color:"#f4f4f5" }}>{consultaNome}</strong>.</p>
+              <p style={{ color:"#a1a1aa", fontSize:14, margin:"0 0 16px" }}>Propor novo horário para <strong style={{ color:"#f4f4f5" }}>{consultaNome}</strong>.</p>
+
+              {/* Seletor de nova data/hora */}
+              <div style={{ display:"flex", gap:12, marginBottom:12 }}>
+                <div style={{ flex:1 }}>
+                  <label style={{ color:"#a1a1aa", fontSize:11, fontWeight:600, letterSpacing:0.5, textTransform:"uppercase", display:"block", marginBottom:4 }}>Nova Data</label>
+                  <input
+                    type="date"
+                    value={novaData}
+                    onChange={e => setNovaData(e.target.value)}
+                    className="pro-date-input"
+                    style={{ colorScheme:"dark" }}
+                    min={new Date().toISOString().slice(0, 10)}
+                  />
+                </div>
+                <div style={{ flex:1 }}>
+                  <label style={{ color:"#a1a1aa", fontSize:11, fontWeight:600, letterSpacing:0.5, textTransform:"uppercase", display:"block", marginBottom:4 }}>Novo Horário</label>
+                  <input
+                    type="time"
+                    value={novaHora}
+                    onChange={e => setNovaHora(e.target.value)}
+                    className="pro-date-input"
+                    style={{ colorScheme:"dark" }}
+                  />
+                </div>
+              </div>
+
               <p style={{ color:"#71717a", fontSize:12, margin:"0 0 20px", background:"rgba(96,165,250,0.06)", borderRadius:8, padding:"10px 12px", border:"1px solid rgba(96,165,250,0.15)" }}>
                 O paciente será notificado e precisará aceitar o novo horário proposto.
               </p>
               <div style={{ display:"flex", gap:12 }}>
-                <button className="pro-btn-ghost" onClick={() => setView("menu")} style={{ flex:1 }}>← Voltar</button>
-                <button className="pro-btn-primary" style={{ flex:2, background:"linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)", boxShadow:"0 4px 16px rgba(96,165,250,0.25)" }} onClick={() => router.push("/painel/consultas")}>
-                  Ir para Agenda 📅
+                <button className="pro-btn-ghost" onClick={() => setView("menu")} style={{ flex:1 }} disabled={loading}>← Voltar</button>
+                <button
+                  id="btn-pro-reagendar-ok"
+                  onClick={handleReagendar}
+                  disabled={loading || !novaData || !novaHora}
+                  style={{ flex:2, padding:"14px 0", borderRadius:12, fontSize:14, fontWeight:700, background:"linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)", boxShadow:"0 4px 16px rgba(96,165,250,0.25)", border:"none", color:"#fff", cursor:"pointer", fontFamily:"inherit", transition:"all 0.15s", opacity: loading || !novaData || !novaHora ? 0.5 : 1 }}
+                >
+                  {loading ? "Reagendando…" : "Confirmar Reagendamento 📅"}
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* ── REAGENDADO ── */}
+          {reagendDone && (
+            <div className="pro-mg-success">
+              <div className="pro-mg-success-icon" style={{ background:"rgba(96,165,250,0.1)", border:"2px solid #60a5fa" }}>📅</div>
+              <p style={{ color:"#fafafa", fontSize:20, fontWeight:"bold", margin:"0 0 8px" }}>Consulta Reagendada!</p>
+              <p style={{ color:"#a1a1aa", fontSize:13, margin:"0 0 20px" }}>A consulta com <strong style={{ color:"#f4f4f5" }}>{consultaNome}</strong> foi reagendada para {novaData} às {novaHora}.</p>
+              <button className="pro-btn-primary" style={{ margin:"0 auto" }} onClick={() => router.push("/painel/consultas")}>Ver Consultas →</button>
             </div>
           )}
 
@@ -289,9 +407,14 @@ function ConsultaDetalheInner() {
                 O paciente será notificado automaticamente sobre o cancelamento.
               </p>
               <div style={{ display:"flex", gap:12 }}>
-                <button className="pro-btn-ghost" onClick={() => setView("menu")} style={{ flex:1 }}>← Voltar</button>
-                <button id="btn-pro-confirmar-cancelamento" onClick={() => setCancelDone(true)} style={{ flex:2, padding:"14px 0", borderRadius:12, fontSize:14, fontWeight:700, background:"#f43f5e", border:"none", color:"#fff", cursor:"pointer", fontFamily:"inherit", transition:"all 0.15s" }}>
-                  Cancelar Consulta
+                <button className="pro-btn-ghost" onClick={() => setView("menu")} style={{ flex:1 }} disabled={loading}>← Voltar</button>
+                <button
+                  id="btn-pro-confirmar-cancelamento"
+                  onClick={handleCancelar}
+                  disabled={loading}
+                  style={{ flex:2, padding:"14px 0", borderRadius:12, fontSize:14, fontWeight:700, background:"#f43f5e", border:"none", color:"#fff", cursor:"pointer", fontFamily:"inherit", transition:"all 0.15s", opacity: loading ? 0.5 : 1 }}
+                >
+                  {loading ? "Cancelando…" : "Cancelar Consulta"}
                 </button>
               </div>
             </div>

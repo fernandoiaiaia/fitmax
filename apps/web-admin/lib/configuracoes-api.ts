@@ -152,3 +152,42 @@ export async function excluirConvenio(
   const { data } = await api.delete(`/admin/configuracoes/convenios/${id}`);
   return data;
 }
+
+// ─── Administradores ──────────────────────────────────────────────────────────
+
+export interface AdminItem {
+  id:        string;
+  email:     string;
+  name:      string | null;
+  phone:     string | null;
+  username:  string | null;
+  avatarUrl: string | null;
+  createdAt: string;
+}
+
+export interface CriarAdminPayload {
+  email:     string;
+  name?:     string;
+  password:  string;
+}
+
+/** GET /admin/configuracoes/admins */
+export async function fetchAdmins(): Promise<AdminItem[]> {
+  const { data } = await api.get<AdminItem[]>('/admin/configuracoes/admins');
+  return data;
+}
+
+/** POST /admin/configuracoes/admins */
+export async function criarAdmin(payload: CriarAdminPayload): Promise<AdminItem> {
+  const { data } = await api.post<AdminItem>('/admin/configuracoes/admins', payload);
+  return data;
+}
+
+/** DELETE /admin/configuracoes/admins/:id */
+export async function excluirAdmin(
+  id: string,
+): Promise<{ deleted: boolean; id: string; email: string }> {
+  const { data } = await api.delete(`/admin/configuracoes/admins/${id}`);
+  return data;
+}
+

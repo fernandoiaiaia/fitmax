@@ -1,7 +1,10 @@
 //@ts-nocheck
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import useSWR from 'swr';
+import { api } from '@/lib/api';
+import { useRouter } from 'next/navigation';
 
 type Aba = "dados" | "plano" | "notificacoes" | "senha";
 
@@ -195,20 +198,37 @@ function Toggle({ id, label, desc, value, onChange }: {
 }
 
 /* ── Abas ── */
-function AbaDados() {
+function AbaDados({ me, mutate }: { me: any; mutate: any }) {
   const avatarRef = useRef<HTMLInputElement>(null);
-  const [nome,  setNome]  = useState("Dr. Rafael Costa");
-  const [tel,   setTel]   = useState("(11) 98765-4321");
-  const [email, setEmail] = useState("rafael@fitmax.com");
-  const [user,  setUser]  = useState("@rafaelcosta");
-  const [obj,   setObj]   = useState("Cardiologia");
-  const [profissao, setProfissao] = useState("medico");
-  const [registro, setRegistro] = useState("54321");
-  const [uf, setUf] = useState("SP");
-  const [convenios, setConvenios] = useState<string[]>(["Unimed", "Particular (Sem convênio)"]);
+  const router = useRouter();
+
+  let defaultProfissao = "medico";
+  let defaultRegistro = "";
+  if (me.registroProfissional) {
+    const match = me.registroProfissional.match(/^([A-Z]+)\s+(.+)$/);
+    if (match) {
+      const conselho = match[1];
+      defaultRegistro = match[2];
+      const p = PROFISSOES.find(x => x.conselho === conselho);
+      if (p) defaultProfissao = p.id;
+    } else {
+      defaultRegistro = me.registroProfissional;
+    }
+  }
+
+  const [nome,  setNome]  = useState(me.name || "");
+  const [tel,   setTel]   = useState(me.telefone || "");
+  const [email, setEmail] = useState(me.email || "");
+  const [user,  setUser]  = useState(me.username || "");
+  const [obj,   setObj]   = useState(me.especialidade || "Cardiologia");
+  const [profissao, setProfissao] = useState(defaultProfissao);
+  const [registro, setRegistro] = useState(defaultRegistro);
+  const [uf, setUf] = useState(me.uf || "");
+  const [convenios, setConvenios] = useState<string[]>(me.convenios || []);
   const [convenioCustom, setConvenioCustom] = useState("");
   const [saved, setSaved] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [loading, setLoading] = useState(false);
 
   function toggleConvenio(nome: string) {
     setConvenios((prev) =>
@@ -226,14 +246,44 @@ function AbaDados() {
 
   const selectedProf = PROFISSOES.find(p => p.id === profissao);
 
-  function handleSave() {
+  async function handleSave() {
     if (!profissao || !registro || !uf) {
       setErrorMsg("Preencha sua profissão e o registro do conselho profissional (Conselho, Número e UF) antes de salvar.");
       return;
     }
     setErrorMsg("");
-    setSaved(true); 
-    setTimeout(() => setSaved(false), 2500); 
+    setLoading(true);
+    try {
+      const regProf = selectedProf ? `${selectedProf.conselho} ${registro}` : registro;
+      await api.put('/pro/config/perfil', {
+        name: nome,
+        email,
+        telefone: tel,
+        username: user,
+        especialidade: obj,
+        registroProfissional: regProf,
+        uf,
+        convenios
+      });
+      await mutate();
+      setSaved(true); 
+      setTimeout(() => setSaved(false), 2500); 
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.error || "Erro ao salvar perfil");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleExcluir() {
+    if (confirm("Tem certeza que deseja excluir sua conta? Esta ação desativará seu acesso permanentemente.")) {
+      try {
+        await api.delete('/pro/config/conta');
+        router.push('/login');
+      } catch (err) {
+        setErrorMsg("Erro ao inativar conta");
+      }
+    }
   }
 
   return (
@@ -409,9 +459,9 @@ function AbaDados() {
             Termos de Uso e Política de Privacidade
           </span>
           <div style={{ display: "flex", gap: 8 }}>
-            <button className="cfg-btn cfg-btn-danger" style={{ borderRadius: 99 }} id="btn-excluir-conta">Excluir conta</button>
-            <button onClick={handleSave} className="cfg-btn cfg-btn-primary" style={{ borderRadius: 99, background: saved ? "#059669" : undefined }} id="btn-salvar-dados">
-              {saved ? "✓ Salvo!" : "Salvar alterações"}
+            <button onClick={handleExcluir} className="cfg-btn cfg-btn-danger" style={{ borderRadius: 99 }} id="btn-excluir-conta">Excluir conta</button>
+            <button onClick={handleSave} disabled={loading} className="cfg-btn cfg-btn-primary" style={{ borderRadius: 99, background: saved ? "#059669" : undefined, opacity: loading ? 0.7 : 1 }} id="btn-salvar-dados">
+              {loading ? "Salvando..." : saved ? "✓ Salvo!" : "Salvar alterações"}
             </button>
           </div>
         </div>
@@ -420,37 +470,89 @@ function AbaDados() {
   );
 }
 
-function AbaPlano() {
-  const [selectedPlan, setSelectedPlan] = useState("plus");
+function AbaPlano({ me, mutate }: { me: any; mutate: any }) {
+  const currentPlanId = !me?.plano ? null : me.plano.toLowerCase().includes("enterprise") ? "premium" : "plus";
+  const [selectedPlan, setSelectedPlan] = useState(currentPlanId || "plus");
+  const activePlan = currentPlanId ? PLANOS.find(p => p.id === currentPlanId) : null;
+  const [loading, setLoading] = useState(false);
+
+  async function handleSelecionarPlano(planoId: string) {
+    const planoName = PLANOS.find(p => p.id === planoId)?.nome;
+    if (!planoName) return;
+    
+    setLoading(true);
+    try {
+      await api.patch('/pro/config/plano', { plano: planoName });
+      await mutate();
+      setSelectedPlan(planoId);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleCancelar() {
+    if (confirm("Tem certeza que deseja cancelar sua assinatura? Você perderá o acesso aos recursos premium no fim do ciclo.")) {
+      setLoading(true);
+      try {
+        await api.patch('/pro/config/plano', { plano: null });
+        await mutate();
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Plano Atual */}
-      <div className="cfg-card" style={{ background: "rgba(16,185,129,0.05)", borderColor: "rgba(16,185,129,0.3)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ padding: "2px 8px", borderRadius: 99, background: "rgba(16,185,129,0.15)" }}>
-                <span style={{ color: "#10b981", fontSize: 10, fontWeight: "bold" }}>ATIVO</span>
+      {activePlan ? (
+        <div className="cfg-card" style={{ background: "rgba(16,185,129,0.05)", borderColor: "rgba(16,185,129,0.3)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ padding: "2px 8px", borderRadius: 99, background: "rgba(16,185,129,0.15)" }}>
+                  <span style={{ color: "#10b981", fontSize: 10, fontWeight: "bold" }}>ATIVO</span>
+                </div>
+                <span style={{ color: "#fafafa", fontSize: 22, fontWeight: "bold" }}>{activePlan.nome}</span>
               </div>
-              <span style={{ color: "#fafafa", fontSize: 22, fontWeight: "bold" }}>Pro</span>
+              <span style={{ color: "#10b981", fontSize: 18, fontWeight: "bold" }}>
+                {activePlan.preco}<span style={{ color: "#a1a1aa", fontSize: 13 }}>{activePlan.periodo}</span>
+              </span>
             </div>
-            <span style={{ color: "#10b981", fontSize: 18, fontWeight: "bold" }}>
-              R$ 89<span style={{ color: "#a1a1aa", fontSize: 13 }}>/mês</span>
-            </span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
-            <span style={{ color: "#a1a1aa", fontSize: 13 }}>Renovação em <span style={{ color: "#fafafa", fontWeight: "bold" }}>21 dias</span></span>
-            <span style={{ color: "#a1a1aa", fontSize: 13 }}>Próxima cobrança: <span style={{ color: "#fafafa", fontWeight: "bold" }}>17/05/2026</span></span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+              <span style={{ color: "#a1a1aa", fontSize: 13 }}>Renovação em <span style={{ color: "#fafafa", fontWeight: "bold" }}>21 dias</span></span>
+              <span style={{ color: "#a1a1aa", fontSize: 13 }}>Próxima cobrança: <span style={{ color: "#fafafa", fontWeight: "bold" }}>17/05/2026</span></span>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="cfg-card" style={{ background: "rgba(244,63,94,0.05)", borderColor: "rgba(244,63,94,0.3)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ padding: "2px 8px", borderRadius: 99, background: "rgba(244,63,94,0.15)" }}>
+                  <span style={{ color: "#f43f5e", fontSize: 10, fontWeight: "bold" }}>CANCELADO</span>
+                </div>
+                <span style={{ color: "#fafafa", fontSize: 22, fontWeight: "bold" }}>Sem Assinatura Ativa</span>
+              </div>
+              <span style={{ color: "#a1a1aa", fontSize: 14 }}>
+                Você não possui um plano ativo no momento. Escolha uma das opções abaixo para assinar.
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Comparar */}
       <SectionTitle>Comparar planos</SectionTitle>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
         {PLANOS.map((p) => {
           const isSelected = selectedPlan === p.id;
+          const isCurrentPlan = currentPlanId === p.id;
           return (
             <div key={p.id} className="cfg-card" onClick={() => setSelectedPlan(p.id)} style={{ flex: 1, minWidth: 250, cursor: "pointer", borderColor: isSelected ? "#10b981" : undefined, borderWidth: isSelected ? 2 : 1, background: isSelected ? "rgba(16,185,129,0.04)" : undefined, display: "flex", flexDirection: "column", gap: 12 }}>
               {p.destaque && (
@@ -473,8 +575,8 @@ function AbaPlano() {
                 ))}
               </div>
               <div style={{ marginTop: "auto", paddingTop: 16 }}>
-                <button className={`cfg-btn ${isSelected ? "cfg-btn-primary" : "cfg-btn-outline"}`} style={{ width: "100%", borderRadius: 99, borderColor: isSelected ? "transparent" : p.color, color: isSelected ? "white" : p.color }} id={`btn-plano-${p.id}`} onClick={(e) => { e.stopPropagation(); setSelectedPlan(p.id); }}>
-                  {isSelected ? "Selecionado" : (p.ativo ? "Plano atual" : "Selecionar")}
+                <button disabled={loading} className={`cfg-btn ${isCurrentPlan ? "cfg-btn-primary" : "cfg-btn-outline"}`} style={{ width: "100%", borderRadius: 99, borderColor: isCurrentPlan ? "transparent" : p.color, color: isCurrentPlan ? "white" : p.color, opacity: loading ? 0.7 : 1 }} id={`btn-plano-${p.id}`} onClick={(e) => { e.stopPropagation(); handleSelecionarPlano(p.id); }}>
+                  {isCurrentPlan ? "Plano atual" : "Selecionar"}
                 </button>
               </div>
             </div>
@@ -482,23 +584,39 @@ function AbaPlano() {
         })}
       </div>
 
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button className="cfg-btn cfg-btn-danger" style={{ borderRadius: 99 }} id="btn-cancelar-assinatura">
-          Cancelar assinatura
-        </button>
-      </div>
+      {activePlan && (
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button disabled={loading} onClick={handleCancelar} className="cfg-btn cfg-btn-danger" style={{ borderRadius: 99, opacity: loading ? 0.7 : 1 }} id="btn-cancelar-assinatura">
+            Cancelar assinatura
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
-function AbaNotificacoes() {
-  const [notifs, setNotifs] = useState({
+function AbaNotificacoes({ me, mutate }: { me: any; mutate: any }) {
+  const [notifs, setNotifs] = useState(me.notificacoes || {
     confirmacao: true, lembrete: true, cancelamento: true,
     novosProfissionais: false, dicas: false,
     email: true, whatsapp: false, push: true,
   });
-  const toggle = (key: keyof typeof notifs) => setNotifs((p) => ({ ...p, [key]: !p[key] }));
+  const toggle = (key: keyof typeof notifs) => setNotifs((p: any) => ({ ...p, [key]: !p[key] }));
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSave() {
+    setLoading(true);
+    try {
+      await api.put('/pro/config/notificacoes', { notificacoes: notifs });
+      await mutate();
+      setSaved(true); setTimeout(() => setSaved(false), 2500);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 640 }}>
@@ -523,8 +641,40 @@ function AbaNotificacoes() {
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button className="cfg-btn cfg-btn-primary" style={{ borderRadius: 99, background: saved ? "#059669" : undefined }} onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2500); }} id="btn-salvar-notificacoes">
-          {saved ? "✓ Salvo!" : "Salvar preferências"}
+        <button disabled={loading} className="cfg-btn cfg-btn-primary" style={{ borderRadius: 99, background: saved ? "#059669" : undefined, opacity: loading ? 0.7 : 1 }} onClick={handleSave} id="btn-salvar-notificacoes">
+          {loading ? "Salvando..." : saved ? "✓ Salvo!" : "Salvar preferências"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PwdInput({ id, label, value, onChange, show, onToggleShow }: {
+  id: string; label: string;
+  value: string; onChange: (v: string) => void;
+  show: boolean; onToggleShow: () => void;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <label style={{ color: "#a1a1aa", fontSize: 12 }}>{label}</label>
+      <div style={{ position: "relative", width: "100%" }}>
+        <input
+          id={id}
+          type={show ? "text" : "password"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="cfg-input"
+          style={{ paddingRight: 40 }}
+        />
+        <button
+          id={`toggle-${id}`}
+          onClick={onToggleShow}
+          style={{ position: "absolute", right: 0, top: 0, bottom: 0, background: "transparent", border: "none", color: "#10b981", padding: "0 12px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          {show
+            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+            : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
+          }
         </button>
       </div>
     </div>
@@ -537,6 +687,8 @@ function AbaSenha() {
   const [confirmar,  setConfirmar]  = useState("");
   const [show, setShow] = useState({ atual: false, nova: false, confirmar: false });
   const [saved, setSaved] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [loading, setLoading] = useState(false);
 
   let strength = 0;
   if (novaSenha.length >= 8)  strength++;
@@ -547,43 +699,33 @@ function AbaSenha() {
   const strengthColors = ["#ef4444", "#f97316", "#eab308", "#10b981"];
   const strengthLabel  = ["Muito curta", "Fraca", "Razoável", "Forte"];
 
-  function PwdInput({ id, label, field, value, onChange }: {
-    id: string; label: string;
-    field: "atual" | "nova" | "confirmar";
-    value: string; onChange: (v: string) => void;
-  }) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <label style={{ color: "#a1a1aa", fontSize: 12 }}>{label}</label>
-        <div style={{ position: "relative", width: "100%" }}>
-          <input
-            id={id}
-            type={show[field] ? "text" : "password"}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="cfg-input"
-            style={{ paddingRight: 40 }}
-          />
-          <button
-            id={`toggle-${id}`}
-            onClick={() => setShow((p) => ({ ...p, [field]: !p[field] }))}
-            style={{ position: "absolute", right: 0, top: 0, bottom: 0, background: "transparent", border: "none", color: "#10b981", padding: "0 12px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-          >
-            {show[field]
-              ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
-            }
-          </button>
-        </div>
-      </div>
-    );
+  async function handleSave() {
+    if (novaSenha !== confirmar) {
+      setErrorMsg("A nova senha e a confirmação não batem.");
+      return;
+    }
+    if (strength === 0) {
+      setErrorMsg("A nova senha é muito fraca.");
+      return;
+    }
+    setErrorMsg("");
+    setLoading(true);
+    try {
+      await api.patch('/pro/config/senha', { senhaAtual, novaSenha });
+      setSenhaAtual(""); setNovaSenha(""); setConfirmar("");
+      setSaved(true); setTimeout(() => setSaved(false), 2500);
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.error || "Erro ao trocar senha");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 480 }}>
-      <div className="cfg-card" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <PwdInput id="input-senha-atual"    label="Senha atual"         field="atual"     value={senhaAtual} onChange={setSenhaAtual} />
-        <PwdInput id="input-nova-senha"     label="Nova senha"          field="nova"      value={novaSenha}  onChange={setNovaSenha} />
+      <div className="cfg-card" style={{ display: "flex", flexDirection: "column", gap: 16, borderColor: errorMsg ? "#ef4444" : undefined }}>
+        <PwdInput id="input-senha-atual"    label="Senha atual"         value={senhaAtual} onChange={setSenhaAtual} show={show.atual} onToggleShow={() => setShow(p => ({ ...p, atual: !p.atual }))} />
+        <PwdInput id="input-nova-senha"     label="Nova senha"          value={novaSenha}  onChange={setNovaSenha}  show={show.nova} onToggleShow={() => setShow(p => ({ ...p, nova: !p.nova }))} />
 
         {novaSenha.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -598,13 +740,16 @@ function AbaSenha() {
           </div>
         )}
 
-        <PwdInput id="input-confirmar-senha" label="Confirmar nova senha" field="confirmar" value={confirmar}  onChange={setConfirmar} />
+        <PwdInput id="input-confirmar-senha" label="Confirmar nova senha" value={confirmar}  onChange={setConfirmar} show={show.confirmar} onToggleShow={() => setShow(p => ({ ...p, confirmar: !p.confirmar }))} />
       </div>
 
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button className="cfg-btn cfg-btn-primary" style={{ borderRadius: 99, background: saved ? "#059669" : undefined }} onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2500); }} id="btn-salvar-senha">
-          {saved ? "✓ Salvo!" : "Salvar senha"}
-        </button>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {errorMsg && <span style={{ color: "#ef4444", fontSize: 13, fontWeight: "bold", textAlign: "right" }}>{errorMsg}</span>}
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button disabled={loading} className="cfg-btn cfg-btn-primary" style={{ borderRadius: 99, background: saved ? "#059669" : undefined, opacity: loading ? 0.7 : 1 }} onClick={handleSave} id="btn-salvar-senha">
+            {loading ? "Salvando..." : saved ? "✓ Salvo!" : "Salvar senha"}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -613,6 +758,11 @@ function AbaSenha() {
 /* ── Page ── */
 export default function ConfigPage() {
   const [aba, setAba] = useState<Aba>("dados");
+  const { data: me, mutate, error } = useSWR('/pro/me', async (url) => (await api.get(url)).data);
+
+  if (!me && !error) {
+    return <div style={{flex:1, display:'flex', alignItems:'center', justifyContent:'center', height: '100vh', backgroundColor:'#09090b', color:'#a1a1aa'}}>Carregando preferências...</div>;
+  }
 
   return (
     <>
@@ -676,9 +826,9 @@ export default function ConfigPage() {
           <div style={{ height: 1, backgroundColor: "rgba(255,255,255,0.08)", width: "100%" }} />
 
           {/* Conteúdo */}
-          {aba === "dados"        && <AbaDados />}
-          {aba === "plano"        && <AbaPlano />}
-          {aba === "notificacoes" && <AbaNotificacoes />}
+          {aba === "dados"        && <AbaDados me={me} mutate={mutate} />}
+          {aba === "plano"        && <AbaPlano me={me} mutate={mutate} />}
+          {aba === "notificacoes" && <AbaNotificacoes me={me} mutate={mutate} />}
           {aba === "senha"        && <AbaSenha />}
 
         </div>

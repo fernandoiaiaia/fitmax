@@ -2,39 +2,9 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
+import { api } from "@/lib/api";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface ConsultaDia {
-  id: number;
-  data: string;       // "YYYY-MM-DD"
-  horario: string;
-  paciente: string;
-  especialidade: string;
-  modalidade: "Presencial" | "Online";
-  valor: number;
-  status: "realizada" | "cancelada";
-}
-
-// ─── Mock Data — consultas do mês ────────────────────────────────────────────
-
-const consultasMock: ConsultaDia[] = [
-  { id: 1,  data: "2026-04-23", horario: "09:00", paciente: "Fernanda Lima",     especialidade: "Cardiologia",        modalidade: "Presencial", valor: 350, status: "realizada" },
-  { id: 2,  data: "2026-04-23", horario: "11:00", paciente: "Guilherme Augusto", especialidade: "Cardiologia",        modalidade: "Presencial", valor: 350, status: "realizada" },
-  { id: 3,  data: "2026-04-23", horario: "13:00", paciente: "Mariana Ferreira",  especialidade: "Cardiologia",        modalidade: "Online",     valor: 280, status: "cancelada" },
-  { id: 4,  data: "2026-04-23", horario: "15:30", paciente: "Ricardo Nunes",     especialidade: "Check-up Cardíaco",  modalidade: "Presencial", valor: 420, status: "realizada" },
-  { id: 5,  data: "2026-04-22", horario: "09:00", paciente: "Beatriz Santos",    especialidade: "Cardiologia",        modalidade: "Online",     valor: 280, status: "realizada" },
-  { id: 6,  data: "2026-04-22", horario: "11:30", paciente: "Carlos Eduardo",    especialidade: "Avaliação Cardíaca", modalidade: "Presencial", valor: 500, status: "realizada" },
-  { id: 7,  data: "2026-04-21", horario: "10:00", paciente: "Lucas Mendes",      especialidade: "Check-up",           modalidade: "Presencial", valor: 420, status: "cancelada" },
-  { id: 8,  data: "2026-04-20", horario: "14:00", paciente: "Ana Paula Ramos",   especialidade: "Cardiologia",        modalidade: "Online",     valor: 280, status: "realizada" },
-  { id: 9,  data: "2026-04-19", horario: "09:30", paciente: "Thiago Oliveira",   especialidade: "Cardiologia",        modalidade: "Presencial", valor: 350, status: "realizada" },
-  { id: 10, data: "2026-04-18", horario: "16:00", paciente: "Camila Torres",     especialidade: "Avaliação Cardíaca", modalidade: "Presencial", valor: 500, status: "realizada" },
-  { id: 11, data: "2026-04-17", horario: "08:30", paciente: "Paulo Ramos",       especialidade: "Cardiologia",        modalidade: "Presencial", valor: 350, status: "realizada" },
-  { id: 12, data: "2026-04-16", horario: "10:00", paciente: "Sofia Mendes",      especialidade: "Cardiologia",        modalidade: "Online",     valor: 280, status: "cancelada" },
-  { id: 13, data: "2026-04-15", horario: "14:30", paciente: "Roberto Lima",      especialidade: "Check-up Cardíaco",  modalidade: "Presencial", valor: 420, status: "realizada" },
-  { id: 14, data: "2026-04-14", horario: "11:00", paciente: "Lara Cardoso",      especialidade: "Cardiologia",        modalidade: "Online",     valor: 280, status: "realizada" },
-  { id: 15, data: "2026-04-10", horario: "09:00", paciente: "Diego Souza",       especialidade: "Avaliação Cardíaca", modalidade: "Presencial", valor: 500, status: "realizada" },
-];
+// Removed mock data
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -72,7 +42,7 @@ function useOutsideClick(ref: React.RefObject<HTMLElement>, cb: () => void) {
   }, [ref, cb]);
 }
 
-const TODAY = "2026-04-23";
+// Removed TODAY
 
 function formatCurrency(val: number) {
   return `R$ ${val.toLocaleString("pt-BR")}`;
@@ -110,54 +80,77 @@ function StatCard({ icon, label, value, sub, accent = false }: { icon: React.Rea
 const PRESETS = ["Hoje", "7 dias", "15 dias", "Mês", "Personalizado"];
 
 export default function RelatoriosPage() {
+  const today = new Date().toISOString().slice(0, 10);
+  const firstOfMonth = `${today.slice(0,7)}-01`;
+
   const [preset, setPreset] = useState("Mês");
-  const [dataInicio, setDataInicio] = useState("2026-04-01");
-  const [dataFim, setDataFim] = useState(TODAY);
+  const [dataInicio, setDataInicio] = useState(firstOfMonth);
+  const [dataFim, setDataFim] = useState(today);
 
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const headerMenuRef = useRef<HTMLDivElement>(null);
   useOutsideClick(headerMenuRef, useCallback(() => setHeaderMenuOpen(false), []));
 
+  // Estado real da API
+  const [kpis,         setKpis]         = useState<any>(null);
+  const [diaData,      setDiaData]      = useState<any>(null);
+  const [modalidadeData, setModalidadeData] = useState<any>(null);
+  const [especialidadeData, setEspecialidadeData] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.get(`/pro/relatorios/kpis?from=${dataInicio}&to=${dataFim}`).then(r => setKpis(r.data)).catch(() => {});
+    api.get(`/pro/relatorios/dia`).then(r => setDiaData(r.data)).catch(() => {});
+    api.get(`/pro/relatorios/modalidade?from=${dataInicio}&to=${dataFim}`).then(r => setModalidadeData(r.data)).catch(() => {});
+    api.get(`/pro/relatorios/especialidade?from=${dataInicio}&to=${dataFim}`).then(r => setEspecialidadeData(r.data)).catch(() => {});
+  }, [dataInicio, dataFim]);
+
   function applyPreset(p: string) {
     setPreset(p);
-    const today = new Date(TODAY);
+    const d = new Date();
     if (p === "Hoje") {
-      setDataInicio(TODAY); setDataFim(TODAY);
+      setDataInicio(today); setDataFim(today);
     } else if (p === "7 dias") {
-      const d = new Date(today); d.setDate(d.getDate() - 6);
-      setDataInicio(d.toISOString().slice(0, 10)); setDataFim(TODAY);
+      const s = new Date(d); s.setDate(d.getDate() - 6);
+      setDataInicio(s.toISOString().slice(0, 10)); setDataFim(today);
     } else if (p === "15 dias") {
-      const d = new Date(today); d.setDate(d.getDate() - 14);
-      setDataInicio(d.toISOString().slice(0, 10)); setDataFim(TODAY);
+      const s = new Date(d); s.setDate(d.getDate() - 14);
+      setDataInicio(s.toISOString().slice(0, 10)); setDataFim(today);
     } else if (p === "Mês") {
-      setDataInicio("2026-04-01"); setDataFim(TODAY);
+      setDataInicio(firstOfMonth); setDataFim(today);
     }
   }
 
-  const filtered = useMemo(() =>
-    consultasMock.filter((c) => c.data >= dataInicio && c.data <= dataFim),
-    [dataInicio, dataFim]
-  );
+  // Valores derivados estritamente da API
+  const faturamento      = kpis ? Number(kpis.faturamentoReais) : 0;
+  const lucroLiquido     = kpis ? Number(kpis.lucroLiquidoReais) : 0;
+  const ticketMedio      = kpis ? Number(kpis.ticketMedioReais) : 0;
+  const taxaCancelamento = kpis ? kpis.taxaCancelamentoPct : 0;
+  const totalRealizadas  = kpis ? kpis.totalRealizadas : 0;
+  const totalCanceladas  = kpis ? kpis.totalCanceladas : 0;
+  const totalPeriodo     = totalRealizadas + totalCanceladas;
 
-  const realizadas   = filtered.filter((c) => c.status === "realizada");
-  const canceladas   = filtered.filter((c) => c.status === "cancelada");
-  const faturamento  = realizadas.reduce((s, c) => s + c.valor, 0);
-  const lucroLiquido = Math.round(faturamento * 0.72);
-  const ticketMedio  = realizadas.length > 0 ? Math.round(faturamento / realizadas.length) : 0;
-  const taxaCancelamento = filtered.length > 0 ? Math.round((canceladas.length / filtered.length) * 100) : 0;
+  const hojeFeit  = diaData ? diaData.realizadas : 0;
+  const hojeCanc  = diaData ? diaData.canceladas : 0;
+  const hojeTotal = diaData ? diaData.total : 0;
+  const hojeList = diaData?.consultas?.map((c: any) => ({
+    id: c.id,
+    horario: new Date(c.dataHora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    paciente: c.paciente?.nome || 'Desconhecido',
+    especialidade: c.especialidade,
+    modalidade: c.modalidade === 'PRESENCIAL' ? 'Presencial' : 'Online',
+    valor: Number(c.valorReais),
+    status: c.status
+  })) ?? [];
 
-  const hoje         = consultasMock.filter((c) => c.data === TODAY);
-  const hojeFeit     = hoje.filter((c) => c.status === "realizada");
-  const hojeCanc     = hoje.filter((c) => c.status === "cancelada");
+  // Especialidade: API
+  const porEspecialidadeAPI = especialidadeData.length > 0
+    ? Object.fromEntries(especialidadeData.map((e: any) => [e.especialidade, Number(e.faturamento)]))
+    : {};
+  const maxEsp = Object.values(porEspecialidadeAPI).length > 0 ? Math.max(...Object.values(porEspecialidadeAPI) as number[]) : 1;
 
-  const porEspecialidade = realizadas.reduce<Record<string, number>>((acc, c) => {
-    acc[c.especialidade] = (acc[c.especialidade] ?? 0) + c.valor;
-    return acc;
-  }, {});
-  const maxEsp = Math.max(...Object.values(porEspecialidade), 1);
-
-  const presencial = realizadas.filter((c) => c.modalidade === "Presencial").length;
-  const online     = realizadas.filter((c) => c.modalidade === "Online").length;
+  // Modalidade: API
+  const presencial = modalidadeData ? modalidadeData.presencial.total : 0;
+  const online     = modalidadeData ? modalidadeData.online.total : 0;
   const totalMod   = presencial + online;
 
   return (
@@ -235,7 +228,7 @@ export default function RelatoriosPage() {
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                 <span style={{ color:"#a1a1aa" }}><CalIcon /></span>
                 <span style={{ color:"#a1a1aa", fontSize:12 }}>Até</span>
-                <input className="rel-input-date" type="date" value={dataFim} min={dataInicio} max={TODAY} onChange={(e) => { setDataFim(e.target.value); setPreset("Personalizado"); }} />
+                <input className="rel-input-date" type="date" value={dataFim} min={dataInicio} max={today} onChange={(e) => { setDataFim(e.target.value); setPreset("Personalizado"); }} />
               </div>
             </div>
           </div>
@@ -253,10 +246,10 @@ export default function RelatoriosPage() {
                   <p style={{ color:"#a1a1aa", fontSize:12, margin:"4px 0 0" }}>{formatDateBR(dataInicio)} — {formatDateBR(dataFim)}</p>
                 </div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:12 }}>
-                  <StatCard icon={<TrendUpIcon />} label="Faturamento Total" value={formatCurrency(faturamento)} sub={`${realizadas.length} consultas realizadas`} accent />
+                  <StatCard icon={<TrendUpIcon />} label="Faturamento Total" value={formatCurrency(faturamento)} sub={`${totalRealizadas} consultas realizadas`} accent />
                   <StatCard icon={<MoneyIcon />} label="Lucro Líquido" value={formatCurrency(lucroLiquido)} sub="72% do faturamento bruto" accent />
                   <StatCard icon={<CheckCircleIcon />} label="Ticket Médio" value={formatCurrency(ticketMedio)} sub="por consulta realizada" />
-                  <StatCard icon={<XCircleIcon />} label="Taxa Cancelamento" value={`${taxaCancelamento}%`} sub={`${canceladas.length} consultas canceladas`} />
+                  <StatCard icon={<XCircleIcon />} label="Taxa Cancelamento" value={`${taxaCancelamento}%`} sub={`${totalCanceladas} consultas canceladas`} />
                 </div>
               </div>
 
@@ -264,7 +257,7 @@ export default function RelatoriosPage() {
               <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
                 <div>
                   <h2 style={{ color:"#fafafa", fontSize:20, fontWeight:"bold", margin:0 }}>Operação do Dia</h2>
-                  <p style={{ color:"#a1a1aa", fontSize:12, margin:"4px 0 0" }}>Hoje, {formatDateBR(TODAY)}</p>
+                  <p style={{ color:"#a1a1aa", fontSize:12, margin:"4px 0 0" }}>Hoje, {formatDateBR(today)}</p>
                 </div>
 
                 <div style={{ display:"flex", flexWrap:"wrap", gap:12 }}>
@@ -276,8 +269,8 @@ export default function RelatoriosPage() {
                       <div style={{ width:32, height:32, borderRadius:"50%", background:"rgba(16,185,129,0.15)", display:"flex", alignItems:"center", justifyContent:"center" }}><CheckCircleIcon /></div>
                       <span style={{ color:"#10b981", fontSize:13, fontWeight:"bold" }}>Realizadas</span>
                     </div>
-                    <span style={{ color:"#10b981", fontSize:24, fontWeight:"bold", display:"block" }}>{hojeFeit.length}</span>
-                    <span style={{ color:"rgba(16,185,129,0.8)", fontSize:11 }}>de {hoje.length} agendadas</span>
+                    <span style={{ color:"#10b981", fontSize:24, fontWeight:"bold", display:"block" }}>{hojeFeit}</span>
+                    <span style={{ color:"rgba(16,185,129,0.8)", fontSize:11 }}>de {hojeTotal} agendadas</span>
                   </div>
 
                   <div style={{ flex:1, minWidth:200, background:"rgba(239,68,68,0.05)", border:"1px solid rgba(239,68,68,0.3)", borderRadius:14, padding:16, cursor:"pointer", transition:"all .15s" }}
@@ -288,16 +281,16 @@ export default function RelatoriosPage() {
                       <div style={{ width:32, height:32, borderRadius:"50%", background:"rgba(239,68,68,0.15)", display:"flex", alignItems:"center", justifyContent:"center" }}><XCircleIcon /></div>
                       <span style={{ color:"#ef4444", fontSize:13, fontWeight:"bold" }}>Canceladas</span>
                     </div>
-                    <span style={{ color:"#ef4444", fontSize:24, fontWeight:"bold", display:"block" }}>{hojeCanc.length}</span>
-                    <span style={{ color:"rgba(239,68,68,0.8)", fontSize:11 }}>taxa: {hoje.length > 0 ? Math.round((hojeCanc.length / hoje.length) * 100) : 0}%</span>
+                    <span style={{ color:"#ef4444", fontSize:24, fontWeight:"bold", display:"block" }}>{hojeCanc}</span>
+                    <span style={{ color:"rgba(239,68,68,0.8)", fontSize:11 }}>taxa: {hojeTotal > 0 ? Math.round((hojeCanc / hojeTotal) * 100) : 0}%</span>
                   </div>
                 </div>
 
                 {/* Lista do Dia */}
-                {hoje.length > 0 && (
+                {hojeTotal > 0 && (
                   <div className="sidebar-card" style={{ marginTop:8, padding:0, display:"flex", flexDirection:"column" }}>
-                    {hoje.map((c, i) => (
-                      <div key={c.id} style={{ display:"flex", alignItems:"center", flexWrap:"wrap", gap:12, padding:12, borderBottom:i<hoje.length-1?`1px solid ${C.border}`:"none" }}>
+                    {hojeList.map((c: any, i: number) => (
+                      <div key={c.id} style={{ display:"flex", alignItems:"center", flexWrap:"wrap", gap:12, padding:12, borderBottom:i<hojeList.length-1?`1px solid ${C.border}`:"none" }}>
                         <div style={{ display:"flex", alignItems:"center", gap:8, width:80 }}>
                            <span style={{ color:"#a1a1aa" }}><ClockIcon /></span>
                            <span style={{ color:"#fafafa", fontSize:13 }}>{c.horario}</span>
@@ -329,7 +322,7 @@ export default function RelatoriosPage() {
               <div className="sidebar-card">
                  <p style={{ color:"#a1a1aa", fontSize:11, fontWeight:"bold", letterSpacing:1, textTransform:"uppercase", margin:"0 0 16px" }}>Faturamento por Especialidade</p>
                  <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-                   {Object.entries(porEspecialidade).sort(([, a], [, b]) => b - a).map(([esp, val]) => (
+                   {Object.entries(porEspecialidadeAPI).sort(([, a], [, b]) => (b as number) - (a as number)).map(([esp, val]) => (
                      <div key={esp} style={{ display:"flex", flexDirection:"column", gap:4 }}>
                        <div style={{ display:"flex", justifyContent:"space-between" }}>
                          <span style={{ color:"#fafafa", fontSize:13 }}>{esp}</span>
@@ -369,9 +362,9 @@ export default function RelatoriosPage() {
                  <p style={{ color:"#a1a1aa", fontSize:11, fontWeight:"bold", letterSpacing:1, textTransform:"uppercase", margin:"0 0 12px" }}>Período Selecionado</p>
                  <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                    {[
-                     { label: "Consultas no período", value: String(filtered.length), color: "#fafafa" },
-                     { label: "Realizadas", value: String(realizadas.length), color: "#10b981" },
-                     { label: "Canceladas", value: String(canceladas.length), color: "#f87171" },
+                     { label: "Consultas no período", value: String(totalPeriodo), color: "#fafafa" },
+                     { label: "Realizadas", value: String(totalRealizadas), color: "#10b981" },
+                     { label: "Canceladas", value: String(totalCanceladas), color: "#f87171" },
                      { label: "Faturamento bruto", value: formatCurrency(faturamento), color: "#10b981" },
                      { label: "Lucro líquido", value: formatCurrency(lucroLiquido), color: "#10b981" },
                    ].map((item, i) => (

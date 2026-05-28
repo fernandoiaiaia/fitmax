@@ -20,8 +20,8 @@ app.use((_req, res, next) => {
 });
 
 // ─── Core Parsers ─────────────────────────────────────────────────────────────
-app.use(express.json({ limit: '1mb' }));     // 1MB limit prevents large payload attacks
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(express.json({ limit: '10mb' }));     // 10MB limit prevents large payload attacks but allows 5MB images
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());                      // needed for httpOnly refresh token cookie
 
 // ─── Rate Limiting (OWASP A07) ───────────────────────────────────────────────
