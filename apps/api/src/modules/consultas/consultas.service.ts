@@ -238,6 +238,7 @@ export class ConsultasService {
           where: { id: c.id },
           data: {
             status: 'PAGO',
+            statusAgenda: 'CONFIRMADA', // confirma na visão de agenda ao processar repasse
             repasseEm: agora,
             repasses: {
               create: {
@@ -288,7 +289,11 @@ export class ConsultasService {
 
     const atualizada = await prisma.consulta.update({
       where: { id },
-      data: { status: 'ESTORNO', estornoMotivo: motivo },
+      data: {
+        status: 'ESTORNO',
+        estornoMotivo: motivo,
+        statusAgenda: 'CANCELADA', // marca cancelamento na visão de agenda (independente do financeiro)
+      },
       select: { id: true, status: true, estornoMotivo: true },
     });
 

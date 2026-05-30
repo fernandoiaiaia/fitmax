@@ -52,8 +52,8 @@ function formatConvenio(c: {
 export interface UpdatePerfilDTO {
   adminId:   string;
   name?:     string;
-  phone?:    string;
-  username?: string;
+  phone?:    string | null;
+  username?: string | null;
   ip:        string;
   userAgent: string;
 }
@@ -130,20 +130,23 @@ export class ConfiguracoesService {
   async updatePerfil(dto: UpdatePerfilDTO) {
     const { adminId, name, phone, username, ip, userAgent } = dto;
 
+    const finalPhone = phone === '' ? null : phone;
+    const finalUsername = username === '' ? null : username;
+
     // Verifica se o username já está em uso por outro admin (OWASP A03)
-    if (username) {
+    if (finalUsername) {
       const existente = await prisma.admin.findFirst({
-        where: { username, id: { not: adminId } },
+        where: { username: finalUsername, id: { not: adminId } },
       });
-      if (existente) throw new AppError(`Username "@${username}" já está em uso`, 409);
+      if (existente) throw new AppError(`Username "@${finalUsername}" já está em uso`, 409);
     }
 
     const admin = await prisma.admin.update({
       where: { id: adminId },
       data: {
         ...(name     !== undefined && { name }),
-        ...(phone    !== undefined && { phone }),
-        ...(username !== undefined && { username }),
+        ...(phone    !== undefined && { phone: finalPhone }),
+        ...(username !== undefined && { username: finalUsername }),
       },
       select: {
         id: true, email: true, name: true,
@@ -152,7 +155,7 @@ export class ConfiguracoesService {
     });
 
     logger.info(
-      { event: 'perfil_atualizado', adminId, campos: { name, phone, username }, ip, userAgent },
+      { event: 'perfil_atualizado', adminId, campos: { name, phone: finalPhone, username: finalUsername }, ip, userAgent },
       `✅ Perfil do admin ${adminId} atualizado`
     );
 

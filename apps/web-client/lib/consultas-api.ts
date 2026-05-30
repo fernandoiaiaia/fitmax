@@ -132,15 +132,18 @@ export async function listarEspecialidades(): Promise<string[]> {
  * @param profissionalId UUID do profissional
  * @param data string no formato YYYY-MM-DD
  */
-export async function buscarDisponibilidade(profissionalId: string, data: string): Promise<string[]> {
+export async function buscarDisponibilidade(
+  profissionalId: string,
+  data: string,
+  tipo?: 'Presencial' | 'Online',
+): Promise<{ hora: string; modalidade: string; endereco: string; ocupado: boolean }[]> {
   const { data: res } = await api.get(`/client-portal/profissionais/${profissionalId}/disponibilidade`, {
-    params: { data },
+    params: { data, ...(tipo ? { tipo } : {}) },
   });
-  return res.data; // string[] de horas ocupadas ex: ["11:00","14:00"]
+  return res.data;
 }
 
 export async function listarConvenios(): Promise<{ id: string | number; nome: string; categoria: string; ativo: boolean }[]> {
   const { data } = await api.get('/client-portal/convenios');
   return data;
 }
-

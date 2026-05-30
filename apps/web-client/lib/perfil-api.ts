@@ -6,6 +6,8 @@ export interface PerfilCliente {
   id:        string;
   name:      string;
   email:     string;
+  telefone:  string | null;
+  username:  string | null;
   avatarUrl: string | null;
   objetivo:  string | null;
   plano:     string | null;
@@ -52,8 +54,8 @@ export interface NotifPrefs {
 export interface UpdatePerfilPayload {
   name?:     string;
   email?:    string;
-  phone?:    string;
-  username?: string;
+  telefone?: string | null;
+  username?: string | null;
   objetivo?: string;
 }
 

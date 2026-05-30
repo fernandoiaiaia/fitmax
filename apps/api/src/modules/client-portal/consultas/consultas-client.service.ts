@@ -2,22 +2,20 @@ import { z } from 'zod';
 import { prisma } from '../../../lib/prisma';
 import { logger } from '../../../lib/logger';
 import { AppError } from '../../../middlewares/errorHandler';
+import { ConsultaStatusAgenda } from '@prisma/client';
 
-// ─── Mapeamento de Status ─────────────────────────────────────────────────────
-// O banco usa status financeiro (PENDENTE | PAGO | ESTORNO).
-// A UX do cliente usa um fluxo mais legível. O mapeamento é feito aqui.
+// ─── Mapeamento de Status ─────────────────────────────────────────────────
+// statusAgenda é o campo que controla a visão do paciente.
+// status (PENDENTE|PAGO|ESTORNO) é financeiro e permanece separado.
+// A UX do cliente usa um fluxo mais legível mapeado a partir do statusAgenda.
 
-const STATUS_FLUXO = {
-  PENDENTE: 'pagamento_pendente',
-  PAGO:     'consulta_confirmada',
-  ESTORNO:  'consulta_cancelada',
+const STATUS_FLUXO: Record<ConsultaStatusAgenda, string> = {
+  AGENDADA:   'consulta_confirmada',
+  CONFIRMADA: 'consulta_confirmada',
+  CANCELADA:  'consulta_cancelada',
+  CONCLUIDA:  'consulta_concluida',
+  AUSENTE:    'consulta_ausente',   // cliente não compareceu
 } as const;
-
-type StatusBD = keyof typeof STATUS_FLUXO;
-
-function mapStatus(s: string): string {
-  return STATUS_FLUXO[s as StatusBD] ?? s.toLowerCase();
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -48,6 +46,7 @@ function formatConsulta(c: {
   valorCentavos: number;
   taxaPlataforma: number;
   status: string;
+  statusAgenda: ConsultaStatusAgenda;
   repasseEm: Date | null;
   estornoMotivo: string | null;
   createdAt: Date;
@@ -67,7 +66,8 @@ function formatConsulta(c: {
     dataHora:       c.dataHora.toISOString(),
     valorReais:     centavosParaReais(c.valorCentavos),
     taxaPlataforma: c.taxaPlataforma,
-    statusFluxo:    mapStatus(c.status),
+    // statusFluxo agora derivado do statusAgenda (campo de agenda), não do financeiro
+    statusFluxo:    STATUS_FLUXO[c.statusAgenda],
     repasseEm:      c.repasseEm?.toISOString() ?? null,
     estornoMotivo:  c.estornoMotivo,
     criadoEm:       c.createdAt.toISOString(),
@@ -169,6 +169,7 @@ export class ConsultasClientService {
           valorCentavos: true,
           taxaPlataforma: true,
           status:        true,
+          statusAgenda:  true,
           repasseEm:     true,
           estornoMotivo: true,
           createdAt:     true,
@@ -247,6 +248,7 @@ export class ConsultasClientService {
     for (const g of grupos) {
       totalConsultas += g._count.id;
       totalInvestidoCentavos += g._sum.valorCentavos ?? 0;
+      // usa statusAgenda para contar, não o status financeiro
       if (g.status === 'PENDENTE') pendentes  = g._count.id;
       if (g.status === 'PAGO')     confirmadas = g._count.id;
     }
@@ -289,6 +291,7 @@ export class ConsultasClientService {
         valorCentavos: true,
         taxaPlataforma: true,
         status:        true,
+        statusAgenda:  true,
         repasseEm:     true,
         estornoMotivo: true,
         createdAt:     true,
@@ -351,6 +354,7 @@ export class ConsultasClientService {
         valorCentavos,
         taxaPlataforma: 10, // default da plataforma
         status:       'PENDENTE',
+        statusAgenda: 'AGENDADA', // status de agenda inicial ao agendar
       },
       select: {
         id:            true,
@@ -360,6 +364,7 @@ export class ConsultasClientService {
         valorCentavos: true,
         taxaPlataforma: true,
         status:        true,
+        statusAgenda:  true,
         repasseEm:     true,
         estornoMotivo: true,
         createdAt:     true,
@@ -410,8 +415,12 @@ export class ConsultasClientService {
 
     const atualizada = await prisma.consulta.update({
       where: { id: consultaId },
-      data:  { status: 'ESTORNO', estornoMotivo: motivo },
-      select: { id: true, status: true, estornoMotivo: true },
+      data:  {
+        status:       'ESTORNO',
+        estornoMotivo: motivo,
+        statusAgenda: 'CANCELADA', // marca cancelamento na visão de agenda (independente do financeiro)
+      },
+      select: { id: true, status: true, statusAgenda: true, estornoMotivo: true },
     });
 
     // OWASP A09 — audit log
@@ -424,7 +433,7 @@ export class ConsultasClientService {
       userAgent:  meta.userAgent,
     }, `⚠️  Consulta ${consultaId} cancelada pelo cliente ${clientId}`);
 
-    return { ...atualizada, statusFluxo: mapStatus(atualizada.status) };
+    return { ...atualizada, statusFluxo: STATUS_FLUXO[atualizada.statusAgenda] };
   }
 
   /**
@@ -460,6 +469,7 @@ export class ConsultasClientService {
         valorCentavos: true,
         taxaPlataforma: true,
         status:        true,
+        statusAgenda:  true,
         repasseEm:     true,
         estornoMotivo: true,
         createdAt:     true,

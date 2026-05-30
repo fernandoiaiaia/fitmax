@@ -254,6 +254,12 @@ const STYLES = `
 .modal-input { background:#111; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px 12px; color:#fafafa; font-family:inherit; outline:none; font-size:14px; width:100%; transition:border-color 0.15s; color-scheme:dark; }
 .modal-input:focus { border-color:#10b981; }
 
+.ag-seg { display:flex; border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,0.12); flex-wrap:wrap; width: 100%; }
+.ag-seg-btn {
+  flex:1; padding:9px 0; font-size:13px; font-weight:600; background:transparent;
+  border:none; color:#71717a; cursor:pointer; font-family:inherit; transition:all 0.15s; min-width:80px;
+}
+.ag-seg-btn.active { background:rgba(16,185,129,0.15); color:#10b981; }
 `;
 
 
@@ -392,23 +398,139 @@ function PainelSlots({ iso, slots, setSlots, highlightHora, consultasDia, onSave
   const [novoHor, setNovoHor] = useState("");
   const [saved, setSaved]     = useState(false);
 
+  // Modal states
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeSlotIdx, setActiveSlotIdx] = useState<number | null>(null);
+  const [tempModal, setTempModal] = useState<"Online" | "Presencial">("Online");
+  const [tempCep, setTempCep] = useState("");
+  const [tempLog, setTempLog] = useState("");
+  const [tempNum, setTempNum] = useState("");
+  const [tempComp, setTempComp] = useState("");
+  const [tempBairro, setTempBairro] = useState("");
+  const [tempCid, setTempCid] = useState("");
+  const [tempUf, setTempUf] = useState("");
+  const [tempLoadingCep, setTempLoadingCep] = useState(false);
+
   const d = new Date(iso+"T12:00:00");
   const label = d.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
+
+  function getDetail(hora: string) {
+    if (typeof window === "undefined") return { modalidade: "Online", endereco: "" };
+    const data = localStorage.getItem(`slot_detail_${iso}_${hora}`);
+    if (data) {
+      try {
+        return JSON.parse(data);
+      } catch(e) {
+        return { modalidade: "Online", endereco: "" };
+      }
+    }
+    return { modalidade: "Online", endereco: "" };
+  }
+
+  function handleToggle(i: number) {
+    openConfig(i);
+  }
+
+  function openConfig(i: number) {
+    const s = slots[i];
+    setActiveSlotIdx(i);
+    const detail = getDetail(s.hora);
+    setTempModal(detail.modalidade || "Online");
+    
+    const details = detail.addressDetails || {};
+    setTempCep(details.cep || "");
+    setTempLog(details.logradouro || "");
+    setTempNum(details.numero || "");
+    setTempComp(details.complemento || "");
+    setTempBairro(details.bairro || "");
+    setTempCid(details.cidade || "");
+    setTempUf(details.uf || "");
+    
+    setIsModalOpen(true);
+  }
+
+  async function handleTempCepChange(val: string) {
+    setTempCep(val);
+    const cleanCep = val.replace(/\D/g, "");
+    if (cleanCep.length === 8) {
+      setTempLoadingCep(true);
+      try {
+        const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+        const data = await response.json();
+        if (!data.erro) {
+          setTempLog(data.logradouro || "");
+          setTempBairro(data.bairro || "");
+          setTempCid(data.localidade || "");
+          setTempUf(data.uf || "");
+        }
+      } catch (err) {
+        console.error("Erro ao buscar CEP no modal:", err);
+      } finally {
+        setTempLoadingCep(false);
+      }
+    }
+  }
+
+  function saveSlotConfig() {
+    if (activeSlotIdx === null) return;
+    const s = slots[activeSlotIdx];
+    
+    const detail = {
+      modalidade: tempModal,
+      endereco: tempModal === "Presencial" 
+        ? `${tempLog}, ${tempNum}${tempComp ? ` - ${tempComp}` : ""}, ${tempBairro}, ${tempCid} - ${tempUf.toUpperCase()}`
+        : "",
+      addressDetails: tempModal === "Presencial" ? {
+        cep: tempCep,
+        logradouro: tempLog,
+        numero: tempNum,
+        complemento: tempComp,
+        bairro: tempBairro,
+        cidade: tempCid,
+        uf: tempUf
+      } : null
+    };
+    
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`slot_detail_${iso}_${s.hora}`, JSON.stringify(detail));
+    }
+    
+    setSlots(slots.map((x, idx) => idx === activeSlotIdx ? { ...x, estado: "disponivel" } : x));
+    setIsModalOpen(false);
+    setActiveSlotIdx(null);
+    setSaved(false);
+  }
 
   function toggle(i:number){
     const s = slots[i];
     if(s.estado==="agendado") return;
-    const next = s.estado==="disponivel" ? "bloqueado" : "disponivel";
-    setSlots(slots.map((x,idx)=>idx===i ? {...x,estado:next} : x));
+    setSlots(slots.map((x,idx)=>idx===i ? {...x,estado:"bloqueado"} : x));
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(`slot_detail_${iso}_${s.hora}`);
+    }
     setSaved(false);
   }
-  function bloquearTudo(){ setSlots(slots.map(s=>s.estado==="agendado" ? s : {...s,estado:"bloqueado"})); setSaved(false); }
+  function bloquearTudo(){ 
+    setSlots(slots.map(s=>{
+      if (s.estado === "disponivel" && typeof window !== "undefined") {
+        localStorage.removeItem(`slot_detail_${iso}_${s.hora}`);
+      }
+      return s.estado==="agendado" ? s : {...s,estado:"bloqueado"};
+    })); 
+    setSaved(false); 
+  }
   function liberarTudo(){  setSlots(slots.map(s=>s.estado==="agendado" ? s : {...s,estado:"disponivel"})); setSaved(false); }
   function aplicarPadrao(){ setSlots(HORARIOS_DIA.map(h=>{ const c=consultasDia?.find(x=>x.hora===h.hora); return { hora:h.hora, estado:c?"agendado":h.disponivel?"disponivel":"bloqueado", paciente:c?.paciente }; })); setSaved(false); }
   function addHor(){
     if(!novoHor||slots.find(s=>s.hora===novoHor)) return;
-    setSlots([...slots,{hora:novoHor,estado:"disponivel"}].sort((a,b)=>a.hora.localeCompare(b.hora)));
+    const newSlots = [...slots,{hora:novoHor,estado:"bloqueado"}].sort((a,b)=>a.hora.localeCompare(b.hora));
+    setSlots(newSlots);
     setNovoHor(""); setSaved(false);
+    
+    const newIdx = newSlots.findIndex(s=>s.hora===novoHor);
+    setTimeout(() => {
+      openConfig(newIdx);
+    }, 0);
   }
   async function salvar(){ 
     if(onSaveDia){
@@ -433,24 +555,57 @@ function PainelSlots({ iso, slots, setSlots, highlightHora, consultasDia, onSave
       {saved && <div className="ag-success-flash">✓ Disponibilidade salva!</div>}
 
       {slots.map((s,i)=>(
-        <button key={s.hora} className={`ag-slot-btn ${s.estado}${highlightHora===s.hora?" highlight":""}`} onClick={()=>toggle(i)}>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <span className="ag-slot-hora">{s.hora}</span>
-            {s.estado==="agendado"  && <span className="ag-slot-label-ag">👤 {s.paciente}</span>}
-            {s.estado==="disponivel"&& <span className="ag-slot-label-disp">✓ Disponível</span>}
-            {s.estado==="bloqueado" && <span className="ag-slot-label-blq">Bloqueado</span>}
+        <div key={s.hora} className={`ag-slot-btn ${s.estado}${highlightHora===s.hora?" highlight":""}`} style={{ flexDirection: "column", alignItems: "stretch", gap: 6, padding: "12px 14px", cursor: s.estado === "agendado" ? "not-allowed" : "pointer" }} onClick={()=>{ if(s.estado==="bloqueado") handleToggle(i); else if(s.estado==="disponivel") toggle(i); }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <span className="ag-slot-hora">{s.hora}</span>
+              {s.estado==="agendado"  && <span className="ag-slot-label-ag">👤 {s.paciente}</span>}
+              {s.estado==="disponivel"&& (
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span className="ag-slot-label-disp">✓ Disponível</span>
+                  <span style={{
+                    background: getDetail(s.hora).modalidade === "Presencial" ? "rgba(16,185,129,0.15)" : "rgba(96,165,250,0.15)",
+                    color: getDetail(s.hora).modalidade === "Presencial" ? "#10b981" : "#60a5fa",
+                    fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99
+                  }}>
+                    {getDetail(s.hora).modalidade === "Presencial" ? "📍 Presencial" : "💻 Online"}
+                  </span>
+                </div>
+              )}
+              {s.estado==="bloqueado" && <span className="ag-slot-label-blq">Bloqueado</span>}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {s.estado === "disponivel" && (
+                <span
+                  onClick={(e) => { e.stopPropagation(); openConfig(i); }}
+                  style={{
+                    cursor: "pointer", fontSize: 11, display: "inline-flex",
+                    alignItems: "center", justifyContent: "center", padding: "4px 8px",
+                    background: "rgba(255,255,255,0.06)", borderRadius: 6, color: "#a1a1aa", border: "1px solid rgba(255,255,255,0.08)"
+                  }}
+                >
+                  ✏ Editar
+                </span>
+              )}
+              {s.estado!=="agendado" && (
+                <span className="ag-slot-icon" style={{color:s.estado==="disponivel"?"#10b981":"#3f3f46"}}>
+                  {s.estado==="disponivel"?"🔒":"🔓"}
+                </span>
+              )}
+              {s.estado==="agendado" && (() => {
+                const c = consultasDia?.find(x => x.hora === s.hora);
+                const st = c ? STATUS_CONFIG[c.status] : null;
+                return <div style={{width:10, height:10, borderRadius:5, backgroundColor: st?.dot || "#60a5fa", flexShrink:0, marginLeft:4}}/>;
+              })()}
+            </div>
           </div>
-          {s.estado!=="agendado" && (
-            <span className="ag-slot-icon" style={{color:s.estado==="disponivel"?"#10b981":"#3f3f46"}}>
-              {s.estado==="disponivel"?"🔒":"🔓"}
-            </span>
+          {s.estado === "disponivel" && getDetail(s.hora).modalidade === "Presencial" && getDetail(s.hora).endereco && (
+            <div style={{ color: "#71717a", fontSize: 11, display: "flex", alignItems: "center", gap: 4, paddingLeft: 56, marginTop: -2, width: "100%", textAlign: "left" }}>
+              <span>📍</span>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{getDetail(s.hora).endereco}</span>
+            </div>
           )}
-          {s.estado==="agendado" && (() => {
-            const c = consultasDia?.find(x => x.hora === s.hora);
-            const st = c ? STATUS_CONFIG[c.status] : null;
-            return <div style={{width:10, height:10, borderRadius:5, backgroundColor: st?.dot || "#60a5fa", flexShrink:0, marginLeft:4}}/>;
-          })()}
-        </button>
+        </div>
       ))}
 
       <div className="ag-add-row">
@@ -463,6 +618,154 @@ function PainelSlots({ iso, slots, setSlots, highlightHora, consultasDia, onSave
       <button className="ag-btn-primary" style={{width:"100%",marginTop:4}} onClick={salvar}>
         💾 Salvar Dia
       </button>
+
+      {/* Floating Configuration Modal */}
+      {isModalOpen && activeSlotIdx !== null && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ width: "450px" }}>
+            <div className="modal-header">
+              <h3 style={{ color: "#fafafa", fontSize: 15, fontWeight: 700, margin: 0 }}>
+                Configurar Horário — {slots[activeSlotIdx]?.hora}
+              </h3>
+              <button 
+                onClick={() => setIsModalOpen(false)} 
+                style={{ background: "transparent", border: "none", color: "#a1a1aa", fontSize: 16, cursor: "pointer" }}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <div>
+                <label className="g-label" style={{ display: "block", marginBottom: 8, fontSize: 11, color: "#71717a", textTransform: "uppercase", fontWeight: 600 }}>Modalidade de Atendimento</label>
+                <div className="ag-seg">
+                  <button 
+                    className={`ag-seg-btn${tempModal === "Online" ? " active" : ""}`}
+                    onClick={() => setTempModal("Online")}
+                  >
+                    💻 Online
+                  </button>
+                  <button 
+                    className={`ag-seg-btn${tempModal === "Presencial" ? " active" : ""}`}
+                    onClick={() => setTempModal("Presencial")}
+                  >
+                    📍 Presencial
+                  </button>
+                </div>
+              </div>
+
+              {tempModal === "Presencial" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "agFadeUp 0.2s ease" }}>
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <div style={{ flex: "1 1 110px", position: "relative" }}>
+                      <label className="g-label" style={{ display: "block", marginBottom: 4, fontSize: 10, color: "#71717a", textTransform: "uppercase", fontWeight: 600 }}>CEP</label>
+                      <input
+                        type="text"
+                        value={tempCep}
+                        onChange={e=>handleTempCepChange(e.target.value)}
+                        placeholder={tempLoadingCep ? "..." : "00000-000"}
+                        className="ag-add-input"
+                        style={{ width: "100%" }}
+                        disabled={tempLoadingCep}
+                      />
+                      {tempLoadingCep && (
+                        <div style={{ position: "absolute", right: 10, bottom: 10, width: 14, height: 14, border: "2px solid #10b981", borderTopColor: "transparent", borderRadius: "50%", animation: "agFadeUp 0.6s linear infinite" }} />
+                      )}
+                    </div>
+                    <div style={{ flex: "3 1 180px" }}>
+                      <label className="g-label" style={{ display: "block", marginBottom: 4, fontSize: 10, color: "#71717a", textTransform: "uppercase", fontWeight: 600 }}>Logradouro (Rua, Av.)</label>
+                      <input
+                        type="text"
+                        value={tempLog}
+                        onChange={e=>setTempLog(e.target.value)}
+                        placeholder="Av. Paulista"
+                        className="ag-add-input"
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <div style={{ flex: "1 1 100px" }}>
+                      <label className="g-label" style={{ display: "block", marginBottom: 4, fontSize: 10, color: "#71717a", textTransform: "uppercase", fontWeight: 600 }}>Número</label>
+                      <input
+                        type="text"
+                        value={tempNum}
+                        onChange={e=>setTempNum(e.target.value)}
+                        placeholder="1500"
+                        className="ag-add-input"
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                    <div style={{ flex: "2 1 160px" }}>
+                      <label className="g-label" style={{ display: "block", marginBottom: 4, fontSize: 10, color: "#71717a", textTransform: "uppercase", fontWeight: 600 }}>Complemento</label>
+                      <input
+                        type="text"
+                        value={tempComp}
+                        onChange={e=>setTempComp(e.target.value)}
+                        placeholder="Sala 42"
+                        className="ag-add-input"
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <div style={{ flex: "2 1 120px" }}>
+                      <label className="g-label" style={{ display: "block", marginBottom: 4, fontSize: 10, color: "#71717a", textTransform: "uppercase", fontWeight: 600 }}>Bairro</label>
+                      <input
+                        type="text"
+                        value={tempBairro}
+                        onChange={e=>setTempBairro(e.target.value)}
+                        placeholder="Bela Vista"
+                        className="ag-add-input"
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                    <div style={{ flex: "2 1 120px" }}>
+                      <label className="g-label" style={{ display: "block", marginBottom: 4, fontSize: 10, color: "#71717a", textTransform: "uppercase", fontWeight: 600 }}>Cidade</label>
+                      <input
+                        type="text"
+                        value={tempCid}
+                        onChange={e=>setTempCid(e.target.value)}
+                        placeholder="São Paulo"
+                        className="ag-add-input"
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                    <div style={{ flex: "1 1 50px" }}>
+                      <label className="g-label" style={{ display: "block", marginBottom: 4, fontSize: 10, color: "#71717a", textTransform: "uppercase", fontWeight: 600 }}>UF</label>
+                      <input
+                        type="text"
+                        value={tempUf}
+                        onChange={e=>setTempUf(e.target.value)}
+                        placeholder="SP"
+                        maxLength={2}
+                        className="ag-add-input"
+                        style={{ width: "100%", textTransform: "uppercase" }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="ag-btn-sm" 
+                onClick={() => setIsModalOpen(false)}
+              >
+                Cancelar
+              </button>
+              <button 
+                className="ag-btn-primary" 
+                style={{ padding: "8px 16px", fontSize: 12 }}
+                onClick={saveSlotConfig}
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -472,36 +775,80 @@ function PainelSlots({ iso, slots, setSlots, highlightHora, consultasDia, onSave
 
 // ─── Recorrência Semanal ──────────────────────────────────────────────────────
 
+const DUR_OPTS = ["30min","45min","60min","90min"];
+
 function RecorrenciaSemanal({ onApply }: { onApply?: (data: any) => Promise<void> }){
-  const [dias,    setDias]    = useState<number[]>([1,2,3,4,5]);
   const [inicio,  setInicio]  = useState("08:00");
   const [fim,     setFim]     = useState("17:00");
-  const [duracao, setDuracao] = useState("60min");
   const [saved,   setSaved]   = useState(false);
+  const [loading, setLoading] = useState(false);
+  // null = ambas modalidades, 'Presencial' ou 'Online' = exclusiva
+  const [modalidadePad, setModalidadePad] = useState<'Presencial'|'Online'|null>(null);
 
-  function toggleDia(d:number){ setDias(prev=>prev.includes(d)?prev.filter(x=>x!==d):[...prev,d].sort()); setSaved(false); }
-  async function aplicar(){ 
-    if(onApply){
-      try {
-        await onApply({ diasSemana: dias, horaInicio: inicio, horaFim: fim, duracaoMin: parseInt(duracao) });
-        setSaved(true); setTimeout(()=>setSaved(false),2500);
-      } catch(e) { alert("Erro ao aplicar recorrência"); }
-    }
+  // duração por dia: { 0: "60min", 1: "30min", ... }
+  const [duracaoPorDia, setDuracaoPorDia] = useState<Record<number,string>>({
+    0:"60min", 1:"30min", 2:"30min", 3:"30min", 4:"30min", 5:"30min", 6:"60min"
+  });
+  const [diasAtivos, setDiasAtivos] = useState<number[]>([1,2,3,4,5]);
+
+
+  function toggleDia(d:number){
+    setDiasAtivos(prev=>prev.includes(d)?prev.filter(x=>x!==d):[...prev,d].sort());
+    setSaved(false);
+  }
+  function setDur(dia:number, dur:string){
+    setDuracaoPorDia(prev=>({...prev,[dia]:dur}));
+    setSaved(false);
+  }
+
+  async function aplicar(){
+    if(!onApply || diasAtivos.length===0) return;
+    setLoading(true);
+    try {
+      const grupos: Record<string, number[]> = {};
+      for(const d of diasAtivos){
+        const dur = duracaoPorDia[d] ?? "60min";
+        if(!grupos[dur]) grupos[dur] = [];
+        grupos[dur].push(d);
+      }
+      for(const [dur, dias] of Object.entries(grupos)){
+        await onApply({ diasSemana: dias, horaInicio: inicio, horaFim: fim, duracaoMin: parseInt(dur), modalidade: modalidadePad });
+      }
+      setSaved(true); setTimeout(()=>setSaved(false),3000);
+    } catch(e) { alert("Erro ao aplicar recorrência"); }
+    finally { setLoading(false); }
   }
 
   return (
     <div className="ag-recorr-wrap">
       <p className="ag-recorr-title">🔁 Configurar Horário Semanal Padrão</p>
 
-      <div className="ag-days-row">
-        {DIAS_SEMANA_LABELS.map((lb,i)=>(
-          <button key={i} className={`ag-day-pill${dias.includes(i)?" active":""}`} onClick={()=>toggleDia(i)}>
-            {lb}
-          </button>
-        ))}
+      {/* Modalidade padrão dos slots */}
+      <div className="ag-recorr-row" style={{marginBottom:16,flexDirection:'column',gap:8}}>
+        <span className="ag-recorr-label">Modalidade padrão dos slots</span>
+        <div style={{display:'flex',gap:6}}>
+          {(['Presencial','Online',null] as const).map((m)=>{
+            const label = m === null ? '🌐 Ambas' : m === 'Presencial' ? '🏥 Presencial' : '💻 Online';
+            const active = modalidadePad === m;
+            return (
+              <button key={String(m)} onClick={()=>{setModalidadePad(m);setSaved(false);}} style={{
+                flex:1,padding:'6px 8px',borderRadius:8,fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',transition:'all 0.15s',
+                background:active?'rgba(16,185,129,0.2)':'rgba(255,255,255,0.04)',
+                border:`1.5px solid ${active?'#10b981':'rgba(255,255,255,0.1)'}`,
+                color:active?'#10b981':'#71717a',
+              }}>{label}</button>
+            );
+          })}
+        </div>
+        {modalidadePad !== null && (
+          <span style={{fontSize:11,color:'#a1a1aa',marginTop:2}}>
+            Slots criarão exclusivamente para <strong style={{color:'#10b981'}}>{modalidadePad}</strong> — clientes de outro tipo não verão esses horários.
+          </span>
+        )}
       </div>
 
-      <div className="ag-recorr-row">
+      {/* Hora início / fim — globais */}
+      <div className="ag-recorr-row" style={{marginBottom:16}}>
         <div className="ag-recorr-field-wrap">
           <span className="ag-recorr-label">Início</span>
           <input type="time" value={inicio} onChange={e=>setInicio(e.target.value)} className="ag-recorr-input" />
@@ -512,19 +859,58 @@ function RecorrenciaSemanal({ onApply }: { onApply?: (data: any) => Promise<void
         </div>
       </div>
 
-      <div style={{marginBottom:6}}>
-        <span className="ag-recorr-label" style={{display:"block",marginBottom:8}}>Duração da consulta</span>
-        <div className="ag-dur-row">
-          {["30min","45min","60min","90min"].map(d=>(
-            <button key={d} className={`ag-dur-btn${duracao===d?" active":""}`} onClick={()=>setDuracao(d)}>{d}</button>
-          ))}
-        </div>
+      {/* Dias + duração individual */}
+      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+        <span className="ag-recorr-label">Dias e duração da consulta</span>
+        {DIAS_SEMANA_LABELS.map((lb,i)=>(
+          <div key={i} style={{
+            display:"flex",alignItems:"center",gap:10,padding:"8px 12px",
+            borderRadius:10,border:`1.5px solid ${diasAtivos.includes(i)?"#10b981":"rgba(255,255,255,0.08)"}`,
+            background:diasAtivos.includes(i)?"rgba(16,185,129,0.06)":"rgba(255,255,255,0.02)",
+            transition:"all 0.15s",
+          }}>
+            {/* Toggle dia */}
+            <button
+              onClick={()=>toggleDia(i)}
+              style={{
+                width:56,flexShrink:0,padding:"5px 0",borderRadius:8,fontSize:12,fontWeight:700,
+                cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s",
+                background:diasAtivos.includes(i)?"rgba(16,185,129,0.2)":"rgba(255,255,255,0.05)",
+                border:`1.5px solid ${diasAtivos.includes(i)?"#10b981":"rgba(255,255,255,0.12)"}`,
+                color:diasAtivos.includes(i)?"#10b981":"#52525b",
+              }}
+            >{lb}</button>
+
+            {/* Seletor de duração por dia (visível apenas se ativo) */}
+            {diasAtivos.includes(i) ? (
+              <div style={{display:"flex",gap:4,flex:1,flexWrap:"wrap"}}>
+                {DUR_OPTS.map(d=>(
+                  <button key={d}
+                    onClick={()=>setDur(i,d)}
+                    style={{
+                      padding:"4px 10px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",
+                      fontFamily:"inherit",transition:"all 0.15s",
+                      background:(duracaoPorDia[i]??"60min")===d?"rgba(16,185,129,0.2)":"rgba(255,255,255,0.04)",
+                      border:`1.5px solid ${(duracaoPorDia[i]??"60min")===d?"#10b981":"rgba(255,255,255,0.1)"}`,
+                      color:(duracaoPorDia[i]??"60min")===d?"#10b981":"#71717a",
+                    }}
+                  >{d}</button>
+                ))}
+              </div>
+            ) : (
+              <span style={{color:"#3f3f46",fontSize:12,fontStyle:"italic"}}> Inativo</span>
+            )}
+          </div>
+        ))}
       </div>
 
-      {saved && <div className="ag-success-flash" style={{marginBottom:10}}>✓ Padrão aplicado ao mês!</div>}
+      {saved && <div className="ag-success-flash" style={{marginBottom:10}}>✓ Padrão semanal aplicado ao mês!</div>}
 
-      <button className="ag-btn-primary" style={{width:"100%"}} onClick={aplicar}>
-        Aplicar para o Mês →
+      <button
+        className="ag-btn-primary" style={{width:"100%",opacity:loading?0.7:1}}
+        onClick={aplicar} disabled={loading||diasAtivos.length===0}
+      >
+        {loading ? "Aplicando..." : `Aplicar para o Mês (${diasAtivos.length} dias) →`}
       </button>
     </div>
   );
@@ -555,14 +941,22 @@ function AbaGerenciar({ sel, setSel, cy, setCy, cm, setCm, consulta, setConsulta
 
   function getSlots(iso:string): SlotState[]{
     if (slotsMap[iso]) return slotsMap[iso];
-    if (gerDiaData && gerDiaData.dia === iso) {
-      return HORARIOS_DIA.map(h => {
-        const slot = gerDiaData.slots?.find((s:any) => s.hora === h.hora);
-        if (slot) return { hora: slot.hora, estado: slot.estado, paciente: slot.consulta?.paciente?.nome };
-        return { hora: h.hora, estado: "bloqueado" };
-      });
+    if (gerDiaData && gerDiaData.dia === iso && gerDiaData.slots?.length > 0) {
+      if (typeof window !== "undefined") {
+        for (const s of gerDiaData.slots) {
+          if (s.modalidade) {
+            const key = `slot_detail_${iso}_${s.hora}`;
+            localStorage.setItem(key, JSON.stringify({ modalidade: s.modalidade, endereco: s.endereco ?? "" }));
+          }
+        }
+      }
+      return (gerDiaData.slots as any[]).map(s => ({
+        hora: s.hora as string,
+        estado: s.estado as SlotState["estado"],
+        paciente: s.consulta?.paciente?.nome as string | undefined,
+      }));
     }
-    return HORARIOS_DIA.map(h=>({ hora: h.hora, estado: "bloqueado" }));
+    return HORARIOS_DIA.map(h=>({ hora: h.hora, estado: "bloqueado" as const }));
   }
   function setSlots(iso:string, s:SlotState[]){
     setSlotsMap(prev=>({...prev,[iso]:s}));
@@ -628,8 +1022,11 @@ function AbaGerenciar({ sel, setSel, cy, setCy, cm, setCm, consulta, setConsulta
         </div>
       </div>
 
-      {/* Recorrência */}
-      <RecorrenciaSemanal onApply={onApplyRecorrencia}/>
+      {/* Recorrência — limpa cache local de slots após aplicar */}
+      <RecorrenciaSemanal onApply={async (data) => {
+        await onApplyRecorrencia(data);
+        setSlotsMap({}); // força recarregar slots da API
+      }}/>
     </div>
   );
 }
@@ -764,30 +1161,43 @@ export default function AgendaPage() {
               <div style={{display:"flex",gap:20,alignItems:"flex-start",flexWrap:"wrap"}} className="ag-corpo-grid">
                 {/* Timeline */}
                 <div style={{flex:2,minWidth:300,background:"#141414",borderRadius:14,border:"1px solid rgba(255,255,255,0.08)",overflow:"hidden"}}>
-                  {HORARIOS_DIA.map((h,i)=>{
-                    const c=consultasPorHora[h.hora];
-                    const slotInfo = slotsHoje?.find((s:any) => s.hora === h.hora);
+                  {/* Timeline — usa slots reais da API; fallback para HORARIOS_DIA */}
+                {(() => {
+                  // Constrói a lista de horas a exibir: prioriza slots da API, fallback mock
+                  const horasAPI = slotsHoje.map((s:any) => s.hora);
+                  const horasBase: string[] = horasAPI.length > 0
+                    ? horasAPI
+                    : HORARIOS_DIA.map(h => h.hora);
+                  // Inclui horas de consultas mesmo que não haja slot (segurança)
+                  const horasConsultas = Object.keys(consultasPorHora).filter(h => !horasBase.includes(h));
+                  const todasHoras = [...new Set([...horasBase, ...horasConsultas])].sort();
+
+                  return todasHoras.map((hora, i) => {
+                    const c = consultasPorHora[hora];
+                    const slotInfo = slotsHoje.find((s:any) => s.hora === hora);
                     const isDisponivel = slotInfo?.estado === 'disponivel';
                     return (
-                      <div key={h.hora} style={{display:"flex",borderBottom:i<HORARIOS_DIA.length-1?"1px solid rgba(255,255,255,0.08)":"none"}}>
+                      <div key={hora} style={{display:"flex",borderBottom:i<todasHoras.length-1?"1px solid rgba(255,255,255,0.08)":"none"}} >
                         <div style={{width:80,display:"flex",alignItems:"center",justifyContent:"center",padding:"16px 0",borderRight:"1px solid rgba(255,255,255,0.08)",background:"#09090b"}}>
-                          <span style={{color:"#a1a1aa",fontSize:14,fontWeight:"bold"}}>{h.hora}</span>
+                          <span style={{color:"#a1a1aa",fontSize:14,fontWeight:"bold"}}>{hora}</span>
                         </div>
-                        <div style={{flex:1,padding:8,display:"flex",flexDirection:"column",justifyContent:"center",minHeight:80}}>
+                        <div style={{flex:1,padding:8,display:"flex",flexDirection:"column",justifyContent:"center",minHeight:64}}>
                           {c ? <ConsultaCard c={c} onPress={()=>handleCardClick(iso,c)}/> : isDisponivel ? (
-                            <button onClick={()=>setShowNova(true)} style={{width:"100%",padding:"16px",display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"transparent",border:"1px dashed rgba(255,255,255,0.15)",borderRadius:12,color:"#71717a",fontSize:13,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}
+                            <button onClick={()=>setShowNova(true)} style={{width:"100%",padding:"14px",display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"transparent",border:"1px dashed rgba(255,255,255,0.15)",borderRadius:12,color:"#71717a",fontSize:13,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}
                               onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.03)";e.currentTarget.style.borderColor="rgba(255,255,255,0.25)";}}
-                              onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor="rgba(255,255,255,0.15)";}}>
+                              onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor="rgba(255,255,255,0.15)";}} >
                               <div style={{width:6,height:6,borderRadius:"50%",background:"#52525b"}} />
                               Horário disponível
                             </button>
                           ) : (
-                            <div style={{flex:1,background:"rgba(255,255,255,0.02)",borderRadius:8,minHeight:40}}/>
+                            <div style={{flex:1,background:"rgba(255,255,255,0.02)",borderRadius:8,minHeight:32}}/>
                           )}
                         </div>
                       </div>
                     );
-                  })}
+                  });
+                })()}
+
                 </div>
 
                 {/* Sidebar */}
@@ -841,7 +1251,20 @@ export default function AgendaPage() {
               onSaveDia={async (isoDia, slots) => {
                 await api.put('/pro/agenda/disponibilidade', {
                   dia: isoDia,
-                  slots: slots.map(s => ({ hora: s.hora, estado: s.estado === 'agendado' ? 'DISPONIVEL' : s.estado.toUpperCase() }))
+                  slots: slots.map(s => {
+                    const key = `slot_detail_${isoDia}_${s.hora}`;
+                    let detail = { modalidade: "Online", endereco: "" };
+                    try {
+                      const data = localStorage.getItem(key);
+                      if (data) detail = JSON.parse(data);
+                    } catch (e) {}
+                    return {
+                      hora: s.hora,
+                      estado: s.estado === 'agendado' ? 'DISPONIVEL' : s.estado.toUpperCase(),
+                      modalidade: s.estado === 'disponivel' ? detail.modalidade : null,
+                      endereco: s.estado === 'disponivel' ? detail.endereco : null,
+                    };
+                  })
                 });
                 mutGerMes(); mutAgendaDia(); mutGerDia();
               }}
@@ -903,3 +1326,4 @@ export default function AgendaPage() {
     </>
   );
 }
+

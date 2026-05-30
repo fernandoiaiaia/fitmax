@@ -1,4 +1,7 @@
 import { Router } from 'express';
+import multer from 'multer';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 import { authenticate, authorize } from '../../middlewares/auth';
 import { authLimiter } from '../../middlewares/rateLimiter';
 
@@ -13,6 +16,25 @@ import { ConfigProController }     from './config/config.controller';
 import { prisma } from '@fitmax/database';
 
 const router = Router();
+
+// ─── Multer — Upload de Avatar do Profissional ───────────────────────────────
+const UPLOAD_DIR = path.resolve(process.cwd(), 'uploads', 'avatars');
+const avatarStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
+  filename:    (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${uuidv4()}${ext}`);
+  },
+});
+const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp'];
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits:  { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_MIME.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Tipo de arquivo inválido. Envie uma imagem JPEG, PNG ou WebP.'));
+  },
+});
 
 // ─── Guard global ─────────────────────────────────────────────────────────────
 router.use(authenticate);
@@ -93,5 +115,16 @@ router.patch('/config/senha',      authLimiter, config.atualizarSenha);
 router.patch('/config/plano',      config.atualizarPlano);
 router.put('/config/notificacoes', config.atualizarNotificacoes);
 router.delete('/config/conta',     config.excluirConta);
+
+// Upload de avatar do profissional
+router.post('/config/perfil/avatar', (req, res, next) => {
+  avatarUpload.single('avatar')(req, res, (err) => {
+    if (err) {
+      res.status(400).json({ error: err.message ?? 'Erro no upload do arquivo' });
+      return;
+    }
+    config.uploadAvatar(req, res, next);
+  });
+});
 
 export { router as proRouter };

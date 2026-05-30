@@ -373,6 +373,14 @@ const STYLES = `
   }
   .ag-field::placeholder { color: #52525b; }
   .ag-field:focus { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.12); }
+
+  .ag-seg { display:flex; border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,0.12); flex-wrap:wrap; width: 100%; }
+  .ag-seg-btn {
+    flex:1; padding:9px 0; font-size:13px; font-weight:600; background:transparent;
+    border:none; color:#71717a; cursor:pointer; font-family:inherit; transition:all 0.15s; min-width:80px;
+  }
+  .ag-seg-btn.active { background:rgba(16,185,129,0.15); color:#10b981; }
+
   .ag-field.ag-field-has-error { border-color: #f43f5e; }
   .ag-field-error { font-size: 12px; color: #f43f5e; margin-top: 2px; }
   .ag-field-loading { font-size: 12px; color: #71717a; margin-top: 2px; }
@@ -624,6 +632,30 @@ function AgendarConsultaInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  function getSlotDetail(proId: string | number, dateIso: string, hora: string) {
+    // 1. Busca prioritária nos slots carregados da API
+    const slot = slotsAPI.find(s => s.hora === hora);
+    if (slot) {
+      return { modalidade: slot.modalidade, endereco: slot.endereco };
+    }
+    // 2. Fallback de migração/desenvolvimento
+    if (typeof window !== "undefined") {
+      const data = localStorage.getItem(`slot_detail_${dateIso}_${hora}`);
+      if (data) {
+        try {
+          return JSON.parse(data);
+        } catch(e) {}
+      }
+    }
+    const pro = profissionais.find(p => p.id === Number(proId));
+    if (pro && pro.clinica) {
+      const c = pro.clinica;
+      const end = `${c.logradouro}, ${c.numero}${c.complemento ? ` - ${c.complemento}` : ""}, ${c.bairro}, ${c.cidade} - ${c.uf}`;
+      return { modalidade: pro.modalidades.includes("Presencial") ? "Presencial" : "Online", endereco: end };
+    }
+    return { modalidade: "Online", endereco: "" };
+  }
+
   // ── Detectar modo de gestão ──────────────────────────────────────────────────
   const consultaId    = searchParams.get("id");
   const consultaNome  = searchParams.get("nome") ?? "";
@@ -717,16 +749,17 @@ function AgendarConsultaInner() {
   const [daysSel, setDaySel]   = useState<number | null>(null);
   const [horSel, setHorSel]    = useState<string | null>(null);
 
-  // ── Horários já ocupados para o profissional/data selecionados ───────────────
+  // ── Horários e slots de disponibilidade vindos da API do profissional ───────────
   // Deve ficar DEPOIS de proSel, daysSel, calYear e calMonth (Rules of Hooks)
-  const [horariosOcupadosAPI, setHorariosOcupadosAPI] = useState<string[]>([]);
+  const [slotsAPI, setSlotsAPI] = useState<{ hora: string; modalidade: string; endereco: string; ocupado: boolean }[]>([]);
   useEffect(() => {
-    if (!proSel || !daysSel) { setHorariosOcupadosAPI([]); return; }
+    if (!proSel || !daysSel) { setSlotsAPI([]); return; }
     const dataStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(daysSel).padStart(2, '0')}`;
-    buscarDisponibilidade(String(proSel), dataStr)
-      .then(horas => setHorariosOcupadosAPI(horas))
-      .catch(() => setHorariosOcupadosAPI([]));
-  }, [proSel, daysSel, calMonth, calYear]);
+    // Passa o tipo selecionado → API filtra: null-modalidade (universal) + slots do tipo exato
+    buscarDisponibilidade(String(proSel), dataStr, tipoConsulta ?? undefined)
+      .then(slots => setSlotsAPI(slots))
+      .catch(() => setSlotsAPI([]));
+  }, [proSel, daysSel, calMonth, calYear, tipoConsulta]);
 
   // Step 5 — Observação + Submissão
   const [observacao,        setObservacao]        = useState("");
@@ -841,7 +874,6 @@ function AgendarConsultaInner() {
                   >
                     <div className="mg-action-icon" style={{ background: "rgba(244,63,94,0.1)" }}>🗑️</div>
                     <p className="mg-action-title" style={{ color: "#f43f5e" }}>Cancelar Consulta</p>
-                    <p className="mg-action-sub">Solicite o cancelamento desta consulta agendada</p>
                   </div>
                 </div>
               </YStack>
@@ -1035,8 +1067,10 @@ function AgendarConsultaInner() {
       }
 
       // Novo agendamento real
+      const dateIso = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(daysSel).padStart(2, '0')}`;
+      const slotDetail = getSlotDetail(proSel, dateIso, horSel);
       const espNome = espAtual?.nome ?? especialidades[0] ?? "Consulta";
-      const tipo = tipoConsulta === "Online" ? "ONLINE" : "PRESENCIAL";
+      const tipo = slotDetail.modalidade === "Online" ? "ONLINE" : "PRESENCIAL";
 
       await agendarConsulta({
         profissionalId: String(proSel),
@@ -1351,7 +1385,7 @@ function AgendarConsultaInner() {
                     <div
                       key={pro.id}
                       className={`ag-pro-card${isActive ? " active" : ""}`}
-                      onClick={() => { setProSel(pro.id); setModalidade(pro.modalidades[0] as "Presencial" | "Online"); }}
+                      onClick={() => { setProSel(pro.id); setModalidade((tipoConsulta ?? pro.modalidades[0]) as "Presencial" | "Online"); }}
                     >
                       <img src={pro.avatar} alt={pro.nome} className="ag-pro-avatar" />
                       <div className="ag-pro-info">
@@ -1359,7 +1393,9 @@ function AgendarConsultaInner() {
                         <span className="ag-pro-rating">{stars} <span style={{ color: "#a1a1aa", fontWeight: 400 }}>{pro.avaliacao}</span></span>
                       </div>
                       <XStack gap="$2">
-                        {pro.modalidades.map(m => (
+                        {pro.modalidades
+                          .filter(m => !tipoConsulta || m === tipoConsulta)
+                          .map(m => (
                           <button
                             key={m}
                             className={`ag-modal-pill${isActive && modalidade === m ? " active" : ""}`}
@@ -1407,9 +1443,22 @@ function AgendarConsultaInner() {
           {/* ═══ ETAPA 4 — Data e Horário ═══ */}
           {step === 4 && (
             <div className="ag-step-card">
-              <Text color="$color12" fontSize={16} fontWeight="bold" display="block" marginBottom="$4">
-                Escolha a data e horário
-              </Text>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 20 }}>
+                <Text color="$color12" fontSize={16} fontWeight="bold">Escolha a data e horário</Text>
+                {tipoConsulta && (
+                  <div style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    background: tipoConsulta === "Online" ? "rgba(96,165,250,0.12)" : "rgba(16,185,129,0.12)",
+                    border: `1.5px solid ${tipoConsulta === "Online" ? "rgba(96,165,250,0.4)" : "rgba(16,185,129,0.4)"}`,
+                    borderRadius: 24, padding: "6px 16px",
+                  }}>
+                    <span style={{ fontSize: 16 }}>{tipoConsulta === "Online" ? "🌐" : "📍"}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: tipoConsulta === "Online" ? "#60a5fa" : "#10b981", letterSpacing: "0.01em" }}>
+                      Atendimento {tipoConsulta}
+                    </span>
+                  </div>
+                )}
+              </div>
 
               {/* Calendário */}
               <div style={{ marginBottom: 24 }}>
@@ -1442,57 +1491,152 @@ function AgendarConsultaInner() {
               {daysSel && (
                 <div>
                   <Text color="$color11" fontSize={13} fontWeight="bold" display="block" marginBottom="$2">
-                    Horários disponíveis — {String(daysSel).padStart(2,"0")}/{String(calMonth+1).padStart(2,"0")}/{calYear}
+                    Horários disponíveis ({tipoConsulta}) — {String(daysSel).padStart(2,"0")}/{String(calMonth+1).padStart(2,"0")}/{calYear}
                   </Text>
                   <div className="ag-hor-grid">
-                    {horarios.map(h => {
-                      // Bloqueia horas passadas se o dia selecionado é hoje
-                      const isToday = daysSel === today.getDate()
-                        && calMonth === today.getMonth()
-                        && calYear  === today.getFullYear();
-                      const [hh] = h.split(":").map(Number);
-                      const isPast    = isToday && hh <= today.getHours();
-                      const isBooked  = horariosOcupadosAPI.includes(h); // já agendado no banco
-                      const isBlocked = isPast || isBooked;
-                      const isActive  = horSel === h;
-                      return (
-                        <button
-                          key={h}
-                          className={`ag-hor-btn${isBlocked ? " occupied" : ""}${isActive ? " active" : ""}`}
-                          onClick={() => { if (!isBlocked) setHorSel(h); }}
-                          title={isPast ? "Horário já passou" : isBooked ? "Horário já agendado" : undefined}
-                        >
-                          {h}
-                        </button>
+                    {(() => {
+                      // Filtra slots pela modalidade escolhida pelo cliente no passo 0.
+                      // Slots sem modalidade definida (null/"") são exibidos para qualquer tipo
+                      // (compatibilidade com slots antigos salvos antes do campo existir).
+                      const slotsFiltrados = tipoConsulta
+                        ? slotsAPI.filter(s => {
+                            const mod = s.modalidade?.trim();
+                            if (!mod) return true; // sem modalidade definida → exibe sempre
+                            return mod.toLowerCase() === tipoConsulta.toLowerCase();
+                          })
+                        : slotsAPI;
+                      if (slotsAPI.length === 0) return (
+                        <div style={{ gridColumn: "span 4", textAlign: "center", padding: 16, color: "#71717a", fontSize: 13 }}>
+                          Nenhum horário disponível para esta data.
+                        </div>
                       );
-                    })}
+                      if (slotsFiltrados.length === 0) {
+                        // Mostra horários da outra modalidade como referência (não selecionáveis)
+                        const outraModalidade = tipoConsulta === "Presencial" ? "Online" : "Presencial";
+                        const slotsOutra = slotsAPI.filter(s => {
+                          const mod = s.modalidade?.trim();
+                          return mod?.toLowerCase() === outraModalidade.toLowerCase();
+                        });
+                        return (
+                          <div style={{ gridColumn: "span 4" }}>
+                            <div style={{
+                              background: "rgba(244,63,94,0.07)", border: "1px solid rgba(244,63,94,0.2)",
+                              borderRadius: 12, padding: "14px 16px", marginBottom: 16,
+                              display: "flex", alignItems: "flex-start", gap: 10,
+                            }}>
+                              <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
+                              <div>
+                                <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700, color: "#f87171" }}>
+                                  Nenhum horário {tipoConsulta === "Presencial" ? "presencial" : "online"} disponível nesta data.
+                                </p>
+                                <p style={{ margin: 0, fontSize: 12, color: "#71717a" }}>
+                                  Tente outra data ou{" "}
+                                  <button
+                                    onClick={() => setStep(0)}
+                                    style={{ background: "none", border: "none", color: "#60a5fa", cursor: "pointer", fontSize: 12, padding: 0, textDecoration: "underline", fontFamily: "inherit" }}
+                                  >
+                                    volte à etapa 1 para alterar o tipo de atendimento
+                                  </button>.
+                                </p>
+                              </div>
+                            </div>
+                            {slotsOutra.length > 0 && (
+                              <>
+                                <p style={{ margin: "0 0 8px", fontSize: 12, color: "#52525b", fontWeight: 600 }}>
+                                  {outraModalidade === "Online" ? "🌐" : "📍"} Horários {outraModalidade.toLowerCase()} disponíveis nesta data (não selecionáveis):
+                                </p>
+                                <div className="ag-hor-grid" style={{ opacity: 0.4, pointerEvents: "none" }}>
+                                  {slotsOutra.map(s => (
+                                    <button key={s.hora} className="ag-hor-btn" disabled>{s.hora}</button>
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      }
+                      return slotsFiltrados.map(s => {
+                        // Bloqueia horas passadas se o dia selecionado é hoje
+                        const isToday = daysSel === today.getDate()
+                          && calMonth === today.getMonth()
+                          && calYear  === today.getFullYear();
+                        const [hh, mm] = s.hora.split(":").map(Number);
+                        // Slot é passado apenas se sua hora de INÍCIO já passou
+                        const isPast = isToday && (
+                          hh < today.getHours() ||
+                          (hh === today.getHours() && mm < today.getMinutes())
+                        );
+
+                        const isBooked  = s.ocupado; // já agendado no banco
+                        const isBlocked = isPast || isBooked;
+                        const isActive  = horSel === s.hora;
+                        return (
+                          <button
+                            key={s.hora}
+                            className={`ag-hor-btn${isBlocked ? " occupied" : ""}${isActive ? " active" : ""}`}
+                            onClick={() => { if (!isBlocked) setHorSel(s.hora); }}
+                            title={isPast ? "Horário já passou" : isBooked ? "Horário já agendado" : undefined}
+                          >
+                            {s.hora}
+                          </button>
+                        );
+                      });
+                    })()}
                   </div>
 
-
+                  {horSel && (() => {
+                    const dateIso = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(daysSel).padStart(2, '0')}`;
+                    const slotDetail = getSlotDetail(proSel, dateIso, horSel);
+                    return (
+                      <div style={{
+                        marginTop: 16, padding: "10px 14px",
+                        background: slotDetail.modalidade === "Presencial" ? "rgba(16,185,129,0.06)" : "rgba(96,165,250,0.06)",
+                        border: slotDetail.modalidade === "Presencial" ? "1px solid rgba(16,185,129,0.2)" : "1px solid rgba(96,165,250,0.2)",
+                        borderRadius: 10, fontSize: 13, display: "flex", flexDirection: "column", gap: 4
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 14 }}>{slotDetail.modalidade === "Presencial" ? "📍" : "💻"}</span>
+                          <strong style={{ color: slotDetail.modalidade === "Presencial" ? "#10b981" : "#60a5fa" }}>
+                            Consulta {slotDetail.modalidade === "Presencial" ? "Presencial" : "Online"}
+                          </strong>
+                        </div>
+                        {slotDetail.modalidade === "Presencial" && (
+                          <span style={{ color: "#a1a1aa", fontSize: 12 }}>
+                            {slotDetail.endereco}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
               {/* Resumo */}
-              {proAtual && daysSel && horSel && (
-                <div style={{ marginTop: 20, background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 12, padding: "14px 16px" }}>
-                  <Text color="#10b981" fontSize={12} fontWeight="bold" display="block" marginBottom="$2">RESUMO DO AGENDAMENTO</Text>
-                  <Text color="$color12" fontSize={13} display="block">👨‍⚕️ {proAtual.nome}</Text>
-                  <Text color="$color11" fontSize={13} display="block">📅 {String(daysSel).padStart(2,"0")}/{String(calMonth+1).padStart(2,"0")}/{calYear} às {horSel}</Text>
-                  <Text color="$color11" fontSize={13} display="block">{tipoConsulta === "Online" ? "🌐" : "📍"} {tipoConsulta}</Text>
-                  {espAtual && <Text color="$color11" fontSize={13} display="block">🏥 {espAtual.icon} {espAtual.nome}</Text>}
-                  {tipoConsulta === "Presencial" && proAtual?.clinica && (
-                    <Text color="$color11" fontSize={13} display="block">
-                      📍 {proAtual.clinica.nome} — {proAtual.clinica.logradouro}, {proAtual.clinica.numero} · {proAtual.clinica.cidade}/{proAtual.clinica.uf}
-                    </Text>
-                  )}
-                  {CONFIG_ACEITA_CONVENIO && usaConvenio === true && convenioSel && (
-                    <Text color="$color11" fontSize={13} display="block">💳 {convenioSel === CONVENIO_OUTROS_ID ? convenioOutros || "Outros" : conveniosAPI.find(c => c.id === convenioSel)?.nome}</Text>
-                  )}
-                  {CONFIG_ACEITA_CONVENIO && usaConvenio === false && (
-                    <Text color="$color11" fontSize={13} display="block">💵 Particular</Text>
-                  )}
-                </div>
-              )}
+              {proAtual && daysSel && horSel && (() => {
+                const dateIso = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(daysSel).padStart(2, '0')}`;
+                const slotDetail = getSlotDetail(proSel, dateIso, horSel);
+                const isPresencial = slotDetail.modalidade === "Presencial";
+                return (
+                  <div style={{ marginTop: 20, background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 12, padding: "14px 16px" }}>
+                    <Text color="#10b981" fontSize={12} fontWeight="bold" display="block" marginBottom="$2">RESUMO DO AGENDAMENTO</Text>
+                    <Text color="$color12" fontSize={13} display="block">👨‍⚕️ {proAtual.nome}</Text>
+                    <Text color="$color11" fontSize={13} display="block">📅 {String(daysSel).padStart(2,"0")}/{String(calMonth+1).padStart(2,"0")}/{calYear} às {horSel}</Text>
+                    <Text color="$color11" fontSize={13} display="block">{isPresencial ? "📍 Presencial" : "💻 Online"}</Text>
+                    {espAtual && <Text color="$color11" fontSize={13} display="block">🏥 {espAtual.icon} {espAtual.nome}</Text>}
+                    {isPresencial && (
+                      <Text color="$color11" fontSize={13} display="block">
+                        📍 Endereço: {slotDetail.endereco || (proAtual?.clinica ? `${proAtual.clinica.logradouro}, ${proAtual.clinica.numero}` : "Não informado")}
+                      </Text>
+                    )}
+                    {CONFIG_ACEITA_CONVENIO && usaConvenio === true && convenioSel && (
+                      <Text color="$color11" fontSize={13} display="block">💳 {convenioSel === CONVENIO_OUTROS_ID ? convenioOutros || "Outros" : conveniosAPI.find(c => c.id === convenioSel)?.nome}</Text>
+                    )}
+                    {CONFIG_ACEITA_CONVENIO && usaConvenio === false && (
+                      <Text color="$color11" fontSize={13} display="block">💵 Particular</Text>
+                    )}
+                  </div>
+                );
+              })()}
 
               <XStack justifyContent="space-between" marginTop="$5">
                 <button className="ag-btn-ghost" onClick={() => setStep(3)}>← Voltar</button>
@@ -1515,40 +1659,45 @@ function AgendarConsultaInner() {
               </Text>
 
               {/* Resumo completo */}
-              <div className="ag-review-card">
-                <Text color="#10b981" fontSize={11} fontWeight="800" display="block"
-                  style={{ letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}
-                >Resumo do Agendamento</Text>
-                <div className="ag-review-row"><span>👨‍⚕️</span><span><strong>{proAtual?.nome}</strong></span></div>
-                {espAtual && <div className="ag-review-row"><span>🏥</span><span>{espAtual.icon} {espAtual.nome}</span></div>}
-                <div className="ag-review-row">
-                  <span>📅</span>
-                  <span>{String(daysSel).padStart(2,"0")}/{String(calMonth+1).padStart(2,"0")}/{calYear} às {horSel}</span>
-                </div>
-                <div className="ag-review-row">
-                  <span>{tipoConsulta === "Online" ? "🌐" : "📍"}</span>
-                  <span>{tipoConsulta}</span>
-                </div>
-                {tipoConsulta === "Presencial" && proAtual?.clinica && (
-                  <div className="ag-review-row">
-                    <span>📍</span>
-                    <span>
-                      <strong>{proAtual.clinica.nome}</strong> — {proAtual.clinica.logradouro}, {proAtual.clinica.numero}
-                      {proAtual.clinica.complemento ? ` — ${proAtual.clinica.complemento}` : ""}
-                      {" · "}{proAtual.clinica.bairro} · {proAtual.clinica.cidade}/{proAtual.clinica.uf}
-                    </span>
+              {(() => {
+                const dateIso = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(daysSel).padStart(2, '0')}`;
+                const slotDetail = getSlotDetail(proSel, dateIso, horSel);
+                const isPresencial = slotDetail.modalidade === "Presencial";
+                return (
+                  <div className="ag-review-card">
+                    <Text color="#10b981" fontSize={11} fontWeight="800" display="block"
+                      style={{ letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}
+                    >Resumo do Agendamento</Text>
+                    <div className="ag-review-row"><span>👨‍⚕️</span><span><strong>{proAtual?.nome}</strong></span></div>
+                    {espAtual && <div className="ag-review-row"><span>🏥</span><span>{espAtual.icon} {espAtual.nome}</span></div>}
+                    <div className="ag-review-row">
+                      <span>📅</span>
+                      <span>{String(daysSel).padStart(2,"0")}/{String(calMonth+1).padStart(2,"0")}/{calYear} às {horSel}</span>
+                    </div>
+                    <div className="ag-review-row">
+                      <span>{isPresencial ? "📍" : "💻"}</span>
+                      <span>{isPresencial ? "Presencial" : "Online"}</span>
+                    </div>
+                    {isPresencial && (
+                      <div className="ag-review-row">
+                        <span>📍</span>
+                        <span>
+                          <strong>Endereço de Atendimento</strong> — {slotDetail.endereco || (proAtual?.clinica ? `${proAtual.clinica.logradouro}, ${proAtual.clinica.numero}` : "Não informado")}
+                        </span>
+                      </div>
+                    )}
+                    {CONFIG_ACEITA_CONVENIO && usaConvenio === true && convenioSel && (
+                      <div className="ag-review-row">
+                        <span>💳</span>
+                        <span>{convenioSel === CONVENIO_OUTROS_ID ? (convenioOutros || "Outros") : conveniosAPI.find(c => c.id === convenioSel)?.nome}</span>
+                      </div>
+                    )}
+                    {CONFIG_ACEITA_CONVENIO && usaConvenio === false && (
+                      <div className="ag-review-row"><span>💵</span><span>Particular</span></div>
+                    )}
                   </div>
-                )}
-                {CONFIG_ACEITA_CONVENIO && usaConvenio === true && convenioSel && (
-                  <div className="ag-review-row">
-                    <span>💳</span>
-                    <span>{convenioSel === CONVENIO_OUTROS_ID ? (convenioOutros || "Outros") : conveniosAPI.find(c => c.id === convenioSel)?.nome}</span>
-                  </div>
-                )}
-                {CONFIG_ACEITA_CONVENIO && usaConvenio === false && (
-                  <div className="ag-review-row"><span>💵</span><span>Particular</span></div>
-                )}
-              </div>
+                );
+              })()}
 
               {/* ObservacaoField */}
               <div style={{ marginBottom: 8 }}>
@@ -1603,35 +1752,45 @@ function AgendarConsultaInner() {
           )}
 
           {/* ═══ ETAPA 6 — Sucesso ═══ */}
-          {step === 6 && (
-            <div className="ag-step-card ag-success">
-              <div style={{ textAlign: "center", marginBottom: 4 }}>
-                <span className="ag-status-badge">
-                  🟡 consulta_solicitada
-                </span>
+          {step === 6 && (() => {
+            const dateIso = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(daysSel).padStart(2, '0')}`;
+            const slotDetail = getSlotDetail(proSel, dateIso, horSel);
+            const isPresencial = slotDetail.modalidade === "Presencial";
+            return (
+              <div className="ag-step-card ag-success">
+                <div style={{ textAlign: "center", marginBottom: 4 }}>
+                  <span className="ag-status-badge">
+                    🟡 consulta_solicitada
+                  </span>
+                </div>
+                <div className="ag-success-icon">✅</div>
+                <Text color="$color12" fontSize={22} fontWeight="bold" display="block" marginBottom="$2">
+                  Consulta Solicitada!
+                </Text>
+                <Text color="$color11" fontSize={14} display="block" marginBottom="$2">
+                  Sua solicitação com <strong style={{ color: "#f4f4f5" }}>{proAtual?.nome}</strong> foi enviada e aguarda confirmação.
+                </Text>
+                <Text color="$color11" fontSize={13} display="block" marginBottom="$2">
+                  📅 {String(daysSel).padStart(2,"0")}/{String(calMonth+1).padStart(2,"0")}/{calYear} às {horSel}
+                </Text>
+                <Text color="$color11" fontSize={13} display="block" marginBottom={isPresencial ? "$2" : "$6"}>
+                  {isPresencial ? "📍 Consulta Presencial" : "💻 Consulta Online"}
+                </Text>
+                {isPresencial && (
+                  <Text color="$color11" fontSize={12} display="block" marginBottom="$6" style={{ fontStyle: "italic" }}>
+                    Endereço: {slotDetail.endereco || (proAtual?.clinica ? `${proAtual.clinica.logradouro}, ${proAtual.clinica.numero}` : "Não informado")}
+                  </Text>
+                )}
+                <button
+                  className="ag-btn-primary"
+                  style={{ margin: "0 auto" }}
+                  onClick={() => router.push("/painel/consultas")}
+                >
+                  Ver Minhas Consultas →
+                </button>
               </div>
-              <div className="ag-success-icon">✅</div>
-              <Text color="$color12" fontSize={22} fontWeight="bold" display="block" marginBottom="$2">
-                Consulta Solicitada!
-              </Text>
-              <Text color="$color11" fontSize={14} display="block" marginBottom="$2">
-                Sua solicitação com <strong style={{ color: "#f4f4f5" }}>{proAtual?.nome}</strong> foi enviada e aguarda confirmação.
-              </Text>
-              <Text color="$color11" fontSize={13} display="block" marginBottom="$2">
-                📅 {String(daysSel).padStart(2,"0")}/{String(calMonth+1).padStart(2,"0")}/{calYear} às {horSel}
-              </Text>
-              <Text color="$color11" fontSize={13} display="block" marginBottom="$6">
-                {tipoConsulta === "Online" ? "🌐 Consulta Online" : "📍 Consulta Presencial"}
-              </Text>
-              <button
-                className="ag-btn-primary"
-                style={{ margin: "0 auto" }}
-                onClick={() => router.push("/painel/consultas")}
-              >
-                Ver Minhas Consultas →
-              </button>
-            </div>
-          )}
+            );
+          })()}
 
         </YStack>
       </ScrollView>

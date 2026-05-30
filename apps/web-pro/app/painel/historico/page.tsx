@@ -30,7 +30,7 @@ function agruparPorMes(items: ConsultaHistorico[]) {
 const pagConfig: Record<StatusPagamento, { label:string; bg:string; color:string; border:string }> = {
   pago:        { label:"PAGO",        bg:"rgba(16,185,129,0.12)",  color:"#10b981", border:"rgba(16,185,129,0.3)" },
   pendente:    { label:"PENDENTE",    bg:"rgba(234,179,8,0.12)",   color:"#facc15", border:"rgba(234,179,8,0.3)" },
-  reembolsado: { label:"REEMBOLSADO", bg:"rgba(161,161,170,0.1)",  color:"#a1a1aa", border:"rgba(161,161,170,0.25)" },
+  reembolsado: { label:"NÃO REALIZADA", bg:"rgba(244,63,94,0.12)",  color:"#f43f5e", border:"rgba(244,63,94,0.25)" },
 };
 
 function useOutsideClick(ref: React.RefObject<HTMLElement>, cb: () => void) {
@@ -84,15 +84,6 @@ function ConsultaCard({ c }: { c:ConsultaHistorico }) {
           <span style={{ color:"#71717a", fontSize:11 }}>Valor</span>
           <span style={{ color:"#fafafa", fontSize:16, fontWeight:"bold" }}>{c.valor}</span>
         </div>
-      </div>
-      {/* Footer */}
-      <div style={{ padding:"6px 14px", borderTop:`1px solid ${C.border}` }}>
-        <button style={{ display:"flex", alignItems:"center", gap:5, background:"none", border:"none", cursor:"pointer", padding:"4px 8px", borderRadius:6, color:"#71717a", fontSize:12, fontFamily:"inherit", transition:"background .15s" }}
-          onMouseEnter={e=>{ (e.currentTarget as HTMLElement).style.background=C.card2; }}
-          onMouseLeave={e=>{ (e.currentTarget as HTMLElement).style.background="none"; }}
-        >
-          <ExternalLinkIcon /> Ver detalhes
-        </button>
       </div>
     </div>
   );

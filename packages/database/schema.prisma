@@ -15,6 +15,16 @@ enum ConsultaStatus {
   ESTORNO
 }
 
+/// Status de agenda da consulta — separado do status financeiro.
+/// Permite que consultas canceladas continuem visíveis ao paciente.
+enum ConsultaStatusAgenda {
+  AGENDADA
+  CONFIRMADA
+  CANCELADA
+  CONCLUIDA
+  AUSENTE     // cliente não compareceu ao atendimento
+}
+
 enum ConsultaTipo {
   PRESENCIAL
   ONLINE
@@ -102,6 +112,8 @@ model Client {
   id          String     @id @default(uuid())
   email       String     @unique
   name        String
+  telefone    String?
+  username    String?    @unique
   password    String
   avatarUrl   String?
   cpf         String?    @unique
@@ -122,19 +134,20 @@ model Client {
 }
 
 model Consulta {
-  id             String         @id @default(uuid())
+  id             String               @id @default(uuid())
   profissionalId String
   clienteId      String
   especialidade  String
   tipo           ConsultaTipo
   dataHora       DateTime
-  valorCentavos  Int            // valor em centavos — evita erros de float (OWASP A02)
-  taxaPlataforma Int            @default(10) // percentual retido pela plataforma
-  status         ConsultaStatus @default(PENDENTE)
-  repasseEm      DateTime?      // data/hora em que o repasse foi processado
-  estornoMotivo  String?        // motivo do estorno, se aplicável
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  valorCentavos  Int                  // valor em centavos — evita erros de float (OWASP A02)
+  taxaPlataforma Int                  @default(10) // percentual retido pela plataforma
+  status         ConsultaStatus       @default(PENDENTE)  // status financeiro: PENDENTE | PAGO | ESTORNO
+  statusAgenda   ConsultaStatusAgenda @default(AGENDADA)  // status de agenda: AGENDADA | CONFIRMADA | CANCELADA | CONCLUIDA
+  repasseEm      DateTime?            // data/hora em que o repasse foi processado
+  estornoMotivo  String?              // motivo do estorno, se aplicável
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
 
   profissional Professional      @relation(fields: [profissionalId], references: [id])
   cliente      Client            @relation(fields: [clienteId], references: [id])
@@ -239,6 +252,8 @@ model Disponibilidade {
   dia            String               // "2026-04-23" (ISO date)
   hora           String               // "09:00"
   estado         DisponibilidadeEstado @default(DISPONIVEL)
+  modalidade     String?              // "Online" ou "Presencial"
+  endereco       String?              // Endereço completo
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
 

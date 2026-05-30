@@ -54,6 +54,7 @@ router.get('/', readLimit, async (req: Request, res: Response, next: NextFunctio
  */
 const disponibilidadeSchema = z.object({
   data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'data deve ser YYYY-MM-DD'),
+  tipo: z.enum(['Presencial', 'Online']).optional(),
 });
 
 router.get('/:id/disponibilidade', readLimit, async (req: Request, res: Response, next: NextFunction) => {
@@ -65,13 +66,27 @@ router.get('/:id/disponibilidade', readLimit, async (req: Request, res: Response
     }
 
     const { id } = req.params;
-    const { data } = parsed.data;
+    const { data, tipo } = parsed.data;
 
-    // O app é Brazil-only (UTC-3, sem horário de verão desde 2019).
-    // O usuário vê "14:00" como hora local → salvo no banco como 17:00 UTC.
-    // A janela de consulta cobre o dia local completo no fuso UTC-3:
-    //   2026-05-28 00:00 BRT = 2026-05-28T03:00:00Z
-    //   2026-05-28 23:59 BRT = 2026-05-29T02:59:59Z
+    // 1. Buscar disponibilidades ativas no banco para esse profissional no dia
+    //    - Slots sem modalidade (null) são universais → aparecem para qualquer tipo
+    //    - Slots com modalidade explícita → filtrados pelo tipo solicitado pelo cliente
+    const disponibilidades = await prisma.disponibilidade.findMany({
+      where: {
+        profissionalId: id,
+        dia: data,
+        estado: 'DISPONIVEL',
+        ...(tipo ? {
+          OR: [
+            { modalidade: null },
+            { modalidade: tipo },
+          ],
+        } : {}),
+      },
+      orderBy: { hora: 'asc' },
+    });
+
+    // 2. Buscar consultas agendadas
     const BRT_OFFSET_HOURS = 3; // UTC-3
     const inicio = new Date(`${data}T00:00:00.000Z`);
     inicio.setUTCHours(inicio.getUTCHours() + BRT_OFFSET_HOURS);
@@ -87,15 +102,23 @@ router.get('/:id/disponibilidade', readLimit, async (req: Request, res: Response
       select: { dataHora: true },
     });
 
-    // Converte UTC → horário local BRT (UTC-3) para casar com os slots da UI
-    const horariosOcupados = consultas.map(c => {
+    // Converte UTC → horário local BRT (UTC-3)
+    const horariosOcupados = new Set(consultas.map(c => {
       const utcH = c.dataHora.getUTCHours();
       const utcM = c.dataHora.getUTCMinutes();
       const localH = ((utcH - BRT_OFFSET_HOURS) + 24) % 24;
       return `${localH.toString().padStart(2, '0')}:${utcM.toString().padStart(2, '0')}`;
-    });
+    }));
 
-    res.json({ data: horariosOcupados });
+    // 3. Montar a resposta com slots reais
+    const slots = disponibilidades.map(d => ({
+      hora: d.hora,
+      modalidade: d.modalidade ?? null,
+      endereco: d.endereco ?? '',
+      ocupado: horariosOcupados.has(d.hora),
+    }));
+
+    res.json({ data: slots });
   } catch (err) {
     next(err);
   }

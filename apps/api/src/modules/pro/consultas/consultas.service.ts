@@ -1,5 +1,5 @@
 import { prisma } from '@fitmax/database';
-import { ConsultaStatus } from '@prisma/client';
+import { ConsultaStatus, ConsultaStatusAgenda } from '@prisma/client';
 import { z } from 'zod';
 import { logger } from '../../../lib/logger';
 
@@ -12,8 +12,17 @@ export const STATUS_PRO_MAP: Record<string, string> = {
   ESTORNO:  'cancelada',
 };
 
+/** Mapeia statusAgenda do banco para a visão do profissional */
+export const STATUS_AGENDA_PRO_MAP: Record<string, string> = {
+  AGENDADA:   'agendada',
+  CONFIRMADA: 'agendada',
+  CANCELADA:  'cancelada',
+  CONCLUIDA:  'concluida',
+  AUSENTE:    'ausente',
+};
+
 /** Status aceitáveis para atualização pelo profissional */
-export const statusProSchema = z.enum(['agendada', 'em_andamento', 'concluida', 'cancelada']);
+export const statusProSchema = z.enum(['agendada', 'em_andamento', 'concluida', 'cancelada', 'ausente']);
 export type StatusPro = z.infer<typeof statusProSchema>;
 
 /** Mapa reverso: visão do profissional → status financeiro DB */
@@ -22,6 +31,16 @@ const STATUS_DB_MAP: Record<StatusPro, ConsultaStatus> = {
   em_andamento: ConsultaStatus.PENDENTE, // ainda pendente financeiramente
   concluida:    ConsultaStatus.PAGO,
   cancelada:    ConsultaStatus.ESTORNO,
+  ausente:      ConsultaStatus.ESTORNO,  // ausente → estorno financeiro (não houve atendimento)
+};
+
+/** Mapa: visão do profissional → statusAgenda DB (visão do paciente) */
+const STATUS_AGENDA_MAP: Record<StatusPro, ConsultaStatusAgenda> = {
+  agendada:     ConsultaStatusAgenda.AGENDADA,
+  em_andamento: ConsultaStatusAgenda.AGENDADA,   // ainda agendada para o paciente
+  concluida:    ConsultaStatusAgenda.CONCLUIDA,
+  cancelada:    ConsultaStatusAgenda.CANCELADA,
+  ausente:      ConsultaStatusAgenda.AUSENTE,    // cliente não compareceu
 };
 
 // ─── Filters ─────────────────────────────────────────────────────────────────
@@ -42,7 +61,7 @@ function centavosParaReais(v: number) {
 
 function formatConsultaPro(c: {
   id: string; especialidade: string; tipo: string; dataHora: Date;
-  valorCentavos: number; status: string;
+  valorCentavos: number; status: string; statusAgenda: string;
   cliente: { id: string; name: string; avatarUrl: string | null };
 }) {
   return {
@@ -51,7 +70,8 @@ function formatConsultaPro(c: {
     modalidade:    c.tipo,
     dataHora:      c.dataHora.toISOString(),
     valorReais:    centavosParaReais(c.valorCentavos),
-    status:        STATUS_PRO_MAP[c.status] ?? c.status,
+    // usa statusAgenda para exibir corretamente concluida/ausente/cancelada
+    status:        STATUS_AGENDA_PRO_MAP[c.statusAgenda] ?? STATUS_PRO_MAP[c.status] ?? c.status,
     paciente: {
       id:        c.cliente.id,
       nome:      c.cliente.name,
@@ -85,7 +105,7 @@ export class ConsultasProService {
         where,
         select: {
           id: true, especialidade: true, tipo: true,
-          dataHora: true, valorCentavos: true, status: true,
+          dataHora: true, valorCentavos: true, status: true, statusAgenda: true,
           cliente: { select: { id: true, name: true, avatarUrl: true } },
         },
         orderBy: { dataHora: 'desc' },
@@ -133,7 +153,7 @@ export class ConsultasProService {
       where: { id, profissionalId }, // dupla verificação de ownership
       select: {
         id: true, especialidade: true, tipo: true, dataHora: true,
-        valorCentavos: true, taxaPlataforma: true, status: true,
+        valorCentavos: true, taxaPlataforma: true, status: true, statusAgenda: true,
         estornoMotivo: true, createdAt: true,
         cliente: { select: { id: true, name: true, avatarUrl: true, email: true } },
       },
@@ -174,12 +194,14 @@ export class ConsultasProService {
     const dbStatus = STATUS_DB_MAP[novoStatus];
     const statusAnterior = STATUS_PRO_MAP[consulta.status] ?? consulta.status;
 
-    // Regras de transição permitidas
+    // Regras de transição permitidas.
+    // agendada → concluida/ausente: Pro registra resultado direto após o horário (sem passar por em_andamento)
     const allowed: Record<string, string[]> = {
-      agendada:     ['em_andamento', 'cancelada'],
-      em_andamento: ['concluida', 'cancelada'],
+      agendada:     ['em_andamento', 'cancelada', 'concluida', 'ausente'],
+      em_andamento: ['concluida', 'cancelada', 'ausente'],
       concluida:    [],
       cancelada:    [],
+      ausente:      [],
     };
 
     if (!allowed[statusAnterior]?.includes(novoStatus)) {
@@ -191,7 +213,10 @@ export class ConsultasProService {
 
     const atualizada = await prisma.consulta.update({
       where: { id },
-      data: { status: dbStatus },
+      data: {
+        status: dbStatus,
+        statusAgenda: STATUS_AGENDA_MAP[novoStatus], // atualiza visão do paciente junto
+      },
       select: { id: true, status: true },
     });
 

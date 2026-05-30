@@ -22,18 +22,35 @@ export class ConfigProController {
   atualizarPerfil = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const profissionalId = req.user!.sub;
+
+      // Pré-processa: converte strings vazias em null/undefined para campos opcionais
+      const body = { ...req.body };
+      if (body.telefone === '') body.telefone = null;
+      if (body.username  === '') body.username  = null;
+      if (body.uf        === '') body.uf        = undefined;
+      if (body.cidade    === '') body.cidade    = undefined;
+
       const schema = z.object({
-        name: z.string().min(1).optional(),
-        email: z.string().email().optional(),
-        telefone: z.string().optional(),
-        username: z.string().optional(),
-        especialidade: z.string().optional(),
+        name:                 z.string().min(2, 'Nome deve ter ao menos 2 caracteres').max(100).trim().optional(),
+        email:                z.string().email('E-mail inválido').max(254).toLowerCase().trim().optional(),
+        telefone:             z.string()
+                               .regex(/^\(?\d{2}\)?\s?\d{4,5}[-\s]?\d{4}$/, 'Telefone inválido. Ex: (11) 99000-0000')
+                               .optional()
+                               .nullable(),
+        username:             z.string()
+                               .min(3, 'Username deve ter ao menos 3 caracteres')
+                               .max(30)
+                               .regex(/^[a-z0-9_]+$/, 'Username só pode conter letras minúsculas, números e _')
+                               .optional()
+                               .nullable(),
+        especialidade:        z.string().optional(),
         registroProfissional: z.string().optional(),
-        cidade: z.string().optional(),
-        uf: z.string().length(2).optional(),
-        convenios: z.array(z.string()).optional(),
+        cidade:               z.string().optional(),
+        uf:                   z.string().length(2, 'UF deve ter exatamente 2 caracteres').optional(),
+        convenios:            z.array(z.string()).optional(),
       });
-      const dados = schema.parse(req.body);
+
+      const dados = schema.parse(body);
 
       const result = await this.svc.atualizarPerfil(
         profissionalId,
@@ -49,7 +66,7 @@ export class ConfigProController {
       const profissionalId = req.user!.sub;
       const schema = z.object({
         senhaAtual: z.string(),
-        novaSenha: z.string().min(8),
+        novaSenha:  z.string().min(8),
       });
       const { senhaAtual, novaSenha } = schema.parse(req.body);
 
@@ -104,6 +121,18 @@ export class ConfigProController {
         plano,
         { ip: req.ip ?? '', userAgent: req.headers['user-agent'] ?? '' }
       );
+      res.json(result);
+    } catch (err) { next(err); }
+  };
+
+  uploadAvatar = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const profissionalId = req.user!.sub;
+      if (!req.file) {
+        res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+        return;
+      }
+      const result = await this.svc.uploadAvatar(profissionalId, req.file.path);
       res.json(result);
     } catch (err) { next(err); }
   };

@@ -39,12 +39,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data } = await api.get('/professionals/me', {
         headers: { Authorization: `Bearer ${token}` },
       });
+      const avatarUrl = data.avatarUrl
+        ? `${data.avatarUrl}?t=${Date.now()}`
+        : null;
       setUser({
         id:                   data.id,
         nome:                 data.name,
         especialidade:        data.especialidade ?? null,
         registroProfissional: data.registroProfissional ?? null,
-        avatarUrl:            data.avatarUrl ?? null,
+        avatarUrl,
         totalPacientes:       data._count?.pacientes ?? 0,
         totalConsultas:       data._count?.consultas ?? 0,
       });
@@ -75,6 +78,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loadUser(accessToken);
     }
   }, [accessToken, user, loadUser]);
+
+  // Escuta o evento perfil-atualizado para recarregar informações do profissional
+  useEffect(() => {
+    const handler = () => {
+      const token = tokenStore.get() || accessToken;
+      if (token) loadUser(token);
+    };
+    window.addEventListener("perfil-atualizado", handler);
+    return () => window.removeEventListener("perfil-atualizado", handler);
+  }, [loadUser, accessToken]);
 
   const logout = useCallback(async () => {
     try { await api.post('/auth/pro/logout'); } catch { /* ignora */ }

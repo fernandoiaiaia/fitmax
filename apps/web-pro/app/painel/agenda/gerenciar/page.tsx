@@ -1,7 +1,7 @@
 //@ts-nocheck
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 
 const S = `
@@ -97,6 +97,56 @@ const S = `
   border-radius:12px; padding:14px 16px; text-align:center;
   animation: gfadeUp 0.3s ease;
 }
+.g-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.g-modal-content {
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  width: 500px;
+  max-width: 100%;
+  z-index: 10000;
+  animation: gfadeUp 0.25s ease;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.g-modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.g-modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.g-modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.15);
+}
 `;
 
 const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -146,28 +196,149 @@ function AbaDisponibilidade() {
   const [cy, setCy] = useState(today.getFullYear());
   const [cm, setCm] = useState(today.getMonth());
   const [selDay, setSelDay] = useState<number|null>(today.getDate());
-  const [slots, setSlots] = useState(DEFAULT_SLOTS.map(s=>({...s})));
+  const [slots, setSlots] = useState<any[]>([]);
   const [novoHor, setNovoHor] = useState("");
   const [saved, setSaved] = useState(false);
 
+  // Modal states
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeSlotIdx, setActiveSlotIdx] = useState<number | null>(null);
+  const [tempModal, setTempModal] = useState<"Online" | "Presencial">("Online");
+  const [tempCep, setTempCep] = useState("");
+  const [tempLog, setTempLog] = useState("");
+  const [tempNum, setTempNum] = useState("");
+  const [tempComp, setTempComp] = useState("");
+  const [tempBairro, setTempBairro] = useState("");
+  const [tempCid, setTempCid] = useState("");
+  const [tempUf, setTempUf] = useState("");
+  const [tempLoadingCep, setTempLoadingCep] = useState(false);
+
   const days = buildCal(cy, cm);
 
-  function toggleSlot(i:number) {
-    setSlots(prev => prev.map((s,idx) => idx===i ? {...s,on:!s.on} : s));
+  useEffect(() => {
+    if (typeof window !== "undefined" && selDay !== null) {
+      const savedKey = `slots_${cy}_${cm}_${selDay}`;
+      const savedData = localStorage.getItem(savedKey);
+      if (savedData) {
+        try {
+          setSlots(JSON.parse(savedData));
+        } catch (e) {
+          setSlots(DEFAULT_SLOTS.map(s => ({ ...s, modalidade: s.modalidade || "Online" })));
+        }
+      } else {
+        setSlots(DEFAULT_SLOTS.map(s => ({ ...s, modalidade: s.modalidade || "Online" })));
+      }
+    }
+  }, [cy, cm, selDay]);
+
+  function handleToggleSlot(i: number) {
+    const s = slots[i];
+    if (s.on) {
+      // Toggle off: block slot and clear modality/address
+      setSlots(prev => prev.map((item, idx) => idx === i ? { ...item, on: false, modalidade: undefined, endereco: undefined, addressDetails: undefined } : item));
+      setSaved(false);
+    } else {
+      // Toggle on: open configuration modal
+      openConfigModal(i);
+    }
+  }
+
+  function openConfigModal(i: number) {
+    const s = slots[i];
+    setActiveSlotIdx(i);
+    setTempModal(s.modalidade || "Online");
+    
+    const details = s.addressDetails || {};
+    setTempCep(details.cep || "");
+    setTempLog(details.logradouro || "");
+    setTempNum(details.numero || "");
+    setTempComp(details.complemento || "");
+    setTempBairro(details.bairro || "");
+    setTempCid(details.cidade || "");
+    setTempUf(details.uf || "");
+    
+    setIsModalOpen(true);
+  }
+
+  async function handleTempCepChange(val: string) {
+    setTempCep(val);
+    const cleanCep = val.replace(/\D/g, "");
+    if (cleanCep.length === 8) {
+      setTempLoadingCep(true);
+      try {
+        const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+        const data = await response.json();
+        if (!data.erro) {
+          setTempLog(data.logradouro || "");
+          setTempBairro(data.bairro || "");
+          setTempCid(data.localidade || "");
+          setTempUf(data.uf || "");
+        }
+      } catch (err) {
+        console.error("Erro ao buscar CEP no modal:", err);
+      } finally {
+        setTempLoadingCep(false);
+      }
+    }
+  }
+
+  function saveSlotConfig() {
+    if (activeSlotIdx === null) return;
+    
+    setSlots(prev => prev.map((s, idx) => idx === activeSlotIdx ? {
+      ...s,
+      on: true,
+      modalidade: tempModal,
+      endereco: tempModal === "Presencial" 
+        ? `${tempLog}, ${tempNum}${tempComp ? ` - ${tempComp}` : ""}, ${tempBairro}, ${tempCid} - ${tempUf.toUpperCase()}`
+        : "",
+      addressDetails: tempModal === "Presencial" ? {
+        cep: tempCep,
+        logradouro: tempLog,
+        numero: tempNum,
+        complemento: tempComp,
+        bairro: tempBairro,
+        cidade: tempCid,
+        uf: tempUf
+      } : null
+    } : s));
+    
+    setIsModalOpen(false);
+    setActiveSlotIdx(null);
     setSaved(false);
   }
+
   function addHorario() {
     if(!novoHor) return;
-    if(slots.find(s=>s.hora===novoHor)) return;
-    setSlots(prev => [...prev, {hora:novoHor,on:true,consulta:null}].sort((a,b)=>a.hora.localeCompare(b.hora)));
+    const existingIdx = slots.findIndex(s=>s.hora===novoHor);
+    if(existingIdx !== -1) return;
+    
+    const newSlot = { hora: novoHor, on: false, consulta: null, modalidade: "Online" };
+    const nextSlots = [...slots, newSlot].sort((a,b)=>a.hora.localeCompare(b.hora));
+    setSlots(nextSlots);
+    
+    const newIdx = nextSlots.findIndex(s=>s.hora===novoHor);
     setNovoHor("");
     setSaved(false);
+    
+    setTimeout(() => {
+      openConfigModal(newIdx);
+    }, 0);
   }
+
   function applyPadrao() {
-    setSlots(DEFAULT_SLOTS.map(s=>({...s})));
+    setSlots(DEFAULT_SLOTS.map(s=>({...s, modalidade: s.modalidade || "Online"})));
     setSaved(false);
   }
-  function save() { setSaved(true); setTimeout(()=>setSaved(false),2500); }
+
+  function save() {
+    if (typeof window !== "undefined" && selDay !== null) {
+      const savedKey = `slots_${cy}_${cm}_${selDay}`;
+      localStorage.setItem(savedKey, JSON.stringify(slots));
+    }
+    setSaved(true);
+    setTimeout(()=>setSaved(false), 2500);
+  }
 
   return (
     <div>
@@ -225,21 +396,51 @@ function AbaDisponibilidade() {
           )}
 
           {slots.map((s,i)=>(
-            <div key={s.hora} className="g-slot">
-              <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <span style={{color:"#a1a1aa",fontSize:13,fontWeight:600,minWidth:50}}>{s.hora}</span>
-                {s.consulta ? (
-                  <span style={{
-                    background:"rgba(96,165,250,0.12)",border:"1px solid rgba(96,165,250,0.3)",
-                    borderRadius:99,padding:"2px 10px",fontSize:11,fontWeight:700,color:"#60a5fa"
-                  }}>👤 {s.consulta}</span>
-                ) : s.on ? (
-                  <span style={{color:"#10b981",fontSize:12,fontWeight:600}}>Disponível</span>
-                ) : (
-                  <span style={{color:"#52525b",fontSize:12}}>Bloqueado</span>
-                )}
+            <div key={s.hora} className="g-slot" style={{ flexDirection: "column", alignItems: "stretch", gap: 6, padding: "12px 14px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{color:"#a1a1aa",fontSize:13,fontWeight:600,minWidth:50}}>{s.hora}</span>
+                  {s.consulta ? (
+                    <span style={{
+                      background:"rgba(96,165,250,0.12)",border:"1px solid rgba(96,165,250,0.3)",
+                      borderRadius:99,padding:"2px 10px",fontSize:11,fontWeight:700,color:"#60a5fa"
+                    }}>👤 {s.consulta}</span>
+                  ) : s.on ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{color:"#10b981",fontSize:12,fontWeight:600}}>Disponível</span>
+                      <span style={{
+                        background: s.modalidade === "Presencial" ? "rgba(16,185,129,0.15)" : "rgba(96,165,250,0.15)",
+                        color: s.modalidade === "Presencial" ? "#10b981" : "#60a5fa",
+                        fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99
+                      }}>
+                        {s.modalidade === "Presencial" ? "📍 Presencial" : "💻 Online"}
+                      </span>
+                    </div>
+                  ) : (
+                    <span style={{color:"#52525b",fontSize:12}}>Bloqueado</span>
+                  )}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {s.on && !s.consulta && (
+                    <button
+                      onClick={() => openConfigModal(i)}
+                      style={{ background: "transparent", border: "none", color: "#71717a", cursor: "pointer", fontSize: 13 }}
+                      onMouseEnter={e => e.currentTarget.style.color = "#10b981"}
+                      onMouseLeave={e => e.currentTarget.style.color = "#71717a"}
+                    >
+                      ✏️
+                    </button>
+                  )}
+                  <Toggle on={s.on} disabled={!!s.consulta} onToggle={()=>handleToggleSlot(i)} />
+                </div>
               </div>
-              <Toggle on={s.on} disabled={!!s.consulta} onToggle={()=>toggleSlot(i)} />
+              
+              {s.on && s.modalidade === "Presencial" && s.endereco && (
+                <div style={{ color: "#71717a", fontSize: 11, display: "flex", alignItems: "center", gap: 4, paddingLeft: 60, marginTop: -2 }}>
+                  <span>📍</span>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.endereco}</span>
+                </div>
+              )}
             </div>
           ))}
 
@@ -254,9 +455,153 @@ function AbaDisponibilidade() {
           </div>
         </div>
       )}
+
+      {/* Floating Configuration Modal */}
+      {isModalOpen && activeSlotIdx !== null && (
+        <div className="g-modal-overlay">
+          <div className="g-modal-content">
+            <div className="g-modal-header">
+              <h3 style={{ color: "#fafafa", fontSize: 16, fontWeight: 700, margin: 0 }}>
+                Configurar Horário — {slots[activeSlotIdx]?.hora}
+              </h3>
+              <button 
+                onClick={() => setIsModalOpen(false)} 
+                style={{ background: "transparent", border: "none", color: "#a1a1aa", fontSize: 18, cursor: "pointer" }}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="g-modal-body">
+              <div>
+                <label className="g-label">Modalidade de Atendimento</label>
+                <div className="g-seg">
+                  <button 
+                    className={`g-seg-btn${tempModal === "Online" ? " active" : ""}`}
+                    onClick={() => setTempModal("Online")}
+                  >
+                    💻 Online
+                  </button>
+                  <button 
+                    className={`g-seg-btn${tempModal === "Presencial" ? " active" : ""}`}
+                    onClick={() => setTempModal("Presencial")}
+                  >
+                    📍 Presencial
+                  </button>
+                </div>
+              </div>
+
+              {tempModal === "Presencial" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "gfadeUp 0.2s ease" }}>
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <div style={{ flex: "1 1 120px", position: "relative" }}>
+                      <label className="g-label">CEP</label>
+                      <input
+                        type="text"
+                        value={tempCep}
+                        onChange={e=>handleTempCepChange(e.target.value)}
+                        placeholder={tempLoadingCep ? "Buscando..." : "00000-000"}
+                        className="g-field"
+                        disabled={tempLoadingCep}
+                      />
+                      {tempLoadingCep && (
+                        <div style={{ position: "absolute", right: 10, bottom: 10, width: 14, height: 14, border: "2px solid #10b981", borderTopColor: "transparent", borderRadius: "50%", animation: "gfadeUp 0.6s linear infinite" }} />
+                      )}
+                    </div>
+                    <div style={{ flex: "3 1 200px" }}>
+                      <label className="g-label">Logradouro (Rua, Av.)</label>
+                      <input
+                        type="text"
+                        value={tempLog}
+                        onChange={e=>setTempLog(e.target.value)}
+                        placeholder="Av. Paulista"
+                        className="g-field"
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <div style={{ flex: "1 1 100px" }}>
+                      <label className="g-label">Número</label>
+                      <input
+                        type="text"
+                        value={tempNum}
+                        onChange={e=>setTempNum(e.target.value)}
+                        placeholder="1500"
+                        className="g-field"
+                      />
+                    </div>
+                    <div style={{ flex: "2 1 180px" }}>
+                      <label className="g-label">Complemento</label>
+                      <input
+                        type="text"
+                        value={tempComp}
+                        onChange={e=>setTempComp(e.target.value)}
+                        placeholder="Sala 42"
+                        className="g-field"
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <div style={{ flex: "2 1 130px" }}>
+                      <label className="g-label">Bairro</label>
+                      <input
+                        type="text"
+                        value={tempBairro}
+                        onChange={e=>setTempBairro(e.target.value)}
+                        placeholder="Bela Vista"
+                        className="g-field"
+                      />
+                    </div>
+                    <div style={{ flex: "2 1 130px" }}>
+                      <label className="g-label">Cidade</label>
+                      <input
+                        type="text"
+                        value={tempCid}
+                        onChange={e=>setTempCid(e.target.value)}
+                        placeholder="São Paulo"
+                        className="g-field"
+                      />
+                    </div>
+                    <div style={{ flex: "1 1 50px" }}>
+                      <label className="g-label">UF</label>
+                      <input
+                        type="text"
+                        value={tempUf}
+                        onChange={e=>setTempUf(e.target.value)}
+                        placeholder="SP"
+                        maxLength={2}
+                        className="g-field"
+                        style={{ textTransform: "uppercase" }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="g-modal-footer">
+              <button 
+                className="g-btn-ghost" 
+                style={{ padding: "8px 16px", fontSize: 13 }}
+                onClick={() => setIsModalOpen(false)}
+              >
+                Cancelar
+              </button>
+              <button 
+                className="g-btn-primary" 
+                style={{ padding: "8px 18px", fontSize: 13 }}
+                onClick={saveSlotConfig}
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
 
 function AbaBloqueios() {
   const [bloqueios, setBloqueios] = useState([
@@ -352,7 +697,24 @@ function AbaConfiguracoes() {
   const [fim, setFim] = useState("18:00");
   const [saved, setSaved] = useState(false);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setDuracao(localStorage.getItem("agenda_duracao") || "60min");
+      setIntervalo(localStorage.getItem("agenda_intervalo") || "10min");
+      setModal(localStorage.getItem("agenda_modal") || "Ambas");
+      setInicio(localStorage.getItem("agenda_inicio") || "08:00");
+      setFim(localStorage.getItem("agenda_fim") || "18:00");
+    }
+  }, []);
+
   function save() {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("agenda_duracao", duracao);
+      localStorage.setItem("agenda_intervalo", intervalo);
+      localStorage.setItem("agenda_modal", modal);
+      localStorage.setItem("agenda_inicio", inicio);
+      localStorage.setItem("agenda_fim", fim);
+    }
     setSaved(true);
     setTimeout(()=>setSaved(false), 2500);
   }

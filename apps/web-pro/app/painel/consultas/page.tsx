@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type ConsultaStatus = "agendada" | "pendente" | "a_confirmar" | "em_andamento";
+type ConsultaStatus = "agendada" | "pendente" | "a_confirmar" | "em_andamento" | "concluida" | "ausente" | "cancelada";
 
 interface Consulta {
   id: number; horario: string; nome: string; especialidade: string;
@@ -30,6 +30,9 @@ const statusConfig: Record<ConsultaStatus, { label: string; bg: string; color: s
   pendente:     { label:"PENDENTE",     bg:"rgba(234,179,8,0.12)",   color:"#facc15" },
   a_confirmar:  { label:"A CONFIRMAR",  bg:"rgba(161,161,170,0.1)",  color:"#a1a1aa" },
   em_andamento: { label:"EM ANDAMENTO", bg:"rgba(96,165,250,0.12)",  color:"#60a5fa" },
+  concluida:    { label:"CONCLUÍDA",    bg:"rgba(139,92,246,0.12)",  color:"#8b5cf6" },
+  ausente:      { label:"AUSENTE",      bg:"rgba(251,146,60,0.12)",  color:"#fb923c" },
+  cancelada:    { label:"CANCELADA",    bg:"rgba(244,63,94,0.12)",   color:"#f43f5e" },
 };
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -75,6 +78,7 @@ function ConsultaRow({ c }: { c: Consulta }) {
       id: String(c.id), nome: c.nome, especialidade: c.especialidade,
       data: c.data, horario: c.horario, modalidade: c.modalidade,
       status: c.status, avatar: c.avatar,
+      dataHoraISO: c.dataISO, // usado para detectar se a consulta já passou
     });
     router.push(`/painel/consultas/agendar?${params.toString()}`);
   }
@@ -146,14 +150,15 @@ export default function ConsultasPage() {
       .then(r => {
         const mapped = r.data.data.map((c: any) => ({
           id:           c.id,
-          horario:      new Date(c.dataHora).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }),
+          horario:      new Date(c.dataHora).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', timeZone:'America/Sao_Paulo' }),
           nome:         c.paciente.nome,
           especialidade: c.especialidade,
           modalidade:   c.modalidade === 'PRESENCIAL' ? 'Presencial' : 'Online',
           data:         new Date(c.dataHora).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }),
-          dataISO:      c.dataHora.slice(0, 10),
+          dataISO:      c.dataHora,  // ISO completo (inclui hora) para detectar se já passou
           avatar:       c.paciente.avatarUrl || `https://picsum.photos/200/200?random=${Math.floor(Math.random()*90)+10}`,
-          status:       (c.status === 'agendada' ? 'agendada' : c.status === 'em_andamento' ? 'em_andamento' : c.status === 'concluida' ? 'agendada' : 'pendente') as ConsultaStatus,
+          // usa o status que a API já mapeou corretamente via statusAgenda
+          status: (c.status as ConsultaStatus) ?? 'agendada',
         }));
         setConsultas(mapped);
       }).catch(() => {

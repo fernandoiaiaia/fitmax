@@ -29,13 +29,17 @@ const updatePerfilSchema = z
     phone:    z
       .string()
       .regex(/^\(?\d{2}\)?\s?\d{4,5}[-\s]?\d{4}$/, 'Telefone inválido. Ex: (11) 99000-0000')
-      .optional(),
+      .optional()
+      .or(z.literal(''))
+      .or(z.null()),
     username: z
       .string()
       .min(3, 'Username deve ter ao menos 3 caracteres')
       .max(30)
       .regex(/^[a-z0-9_]+$/, 'Username só pode conter letras minúsculas, números e _')
-      .optional(),
+      .optional()
+      .or(z.literal(''))
+      .or(z.null()),
   })
   .refine(data => Object.keys(data).length > 0, {
     message: 'Envie ao menos um campo para atualizar',

@@ -78,7 +78,7 @@ function AbaDados() {
   const [nome,     setNome]     = useState("");
   const [email,    setEmail]    = useState("");
   const [tel,      setTel]      = useState("");
-  const [user,     setUser]     = useState("");
+  const [username, setUsername] = useState("");
   const [obj,      setObj]      = useState("Hipertrofia");
   const [loading,  setLoading]  = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -97,6 +97,7 @@ function AbaDados() {
     if (loadingUser || !accessToken) return;
     getPerfil().then(p => {
       setPerfil(p); setNome(p.name); setEmail(p.email);
+      setTel(p.telefone ?? ""); setUsername(p.username ?? "");
       setObj(p.objetivo ?? "Hipertrofia");
     }).catch(() => setErro("Erro ao carregar perfil")).finally(() => setLoading(false));
   }, [loadingUser, accessToken]);
@@ -104,8 +105,9 @@ function AbaDados() {
   async function handleSave() {
     setSalvando(true); setErro(null);
     try {
-      const u = await updatePerfil({ name: nome, email, objetivo: obj as any });
+      const u = await updatePerfil({ name: nome, email, telefone: tel, username, objetivo: obj as any });
       setPerfil(u); setSaved(true); setTimeout(() => setSaved(false), 2500);
+      window.dispatchEvent(new Event("perfil-atualizado"));
     } catch(e: any) { setErro(e?.response?.data?.error ?? "Erro ao salvar"); }
     finally { setSalvando(false); }
   }
@@ -113,8 +115,18 @@ function AbaDados() {
   async function handleAvatar(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; if (!file) return;
     setUploadingAvatar(true);
-    try { const r = await uploadAvatar(file); setPerfil(p => p ? {...p, avatarUrl: r.avatarUrl} : p); }
-    catch {} finally { setUploadingAvatar(false); }
+    try {
+      const r = await uploadAvatar(file);
+      // Adiciona cache-busting para forçar o browser a recarregar a nova imagem
+      const urlComCache = r.avatarUrl ? `${r.avatarUrl}?t=${Date.now()}` : r.avatarUrl;
+      setPerfil(p => p ? {...p, avatarUrl: urlComCache} : p);
+      window.dispatchEvent(new Event("perfil-atualizado"));
+    } catch(err: any) {
+      setErro(err?.response?.data?.error ?? "Erro ao enviar foto. Tente novamente.");
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = ""; // permite reselecionar o mesmo arquivo
+    }
   }
 
   async function handleExcluir() {
@@ -176,8 +188,8 @@ function AbaDados() {
           <InputField id="input-email" label="E-mail"        value={email} onChange={setEmail} type="email" />
         </div>
         <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
-          <InputField id="input-tel"  label="Telefone"        value={tel}  onChange={setTel}  type="tel" />
-          <InputField id="input-user" label="Nome de usuário" value={user} onChange={setUser} />
+          <InputField id="input-tel"   label="Telefone"      value={tel}   onChange={setTel} type="tel" />
+          <InputField id="input-username" label="Nome de usuário" value={username} onChange={setUsername} />
         </div>
       </HCard>
 
@@ -449,6 +461,45 @@ function AbaNotificacoes() {
   );
 }
 
+function PwdInput({ id, label, field, value, onChange, show, onToggle }: {
+  id: string; label: string;
+  field: "atual" | "nova" | "confirmar";
+  value: string; onChange: (v: string) => void;
+  show: boolean; onToggle: () => void;
+}) {
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+      <span style={{ color:C.color10, fontSize:12 }}>{label}</span>
+      <div style={{ position: "relative" }}>
+        <input
+          id={id}
+          type={show ? "text" : "password"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          style={{
+            background: "#141414", border: "1px solid #262626", borderRadius: 10,
+            height: 42, padding: "0 40px 0 12px", color: "#fafafa",
+            fontSize: 14, fontFamily: "inherit", outline: "none", width: "100%",
+          }}
+        />
+        <button
+          type="button"
+          id={`toggle-${id}`}
+          onClick={onToggle}
+          style={{
+            position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+            background: "none", border: "none", cursor: "pointer", color: "#10b981",
+          }}>
+          {show
+            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+            : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
+          }
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AbaSenha() {
   const [senhaAtual, setSenhaAtual] = useState("");
   const [novaSenha,  setNovaSenha]  = useState("");
@@ -478,49 +529,11 @@ function AbaSenha() {
   const strengthColors = ["#f43f5e", "#f97316", "#facc15", "#10b981"];
   const strengthLabel  = ["Muito curta", "Fraca", "Razoável", "Forte"];
 
-  function PwdInput({ id, label, field, value, onChange }: {
-    id: string; label: string;
-    field: "atual" | "nova" | "confirmar";
-    value: string; onChange: (v: string) => void;
-  }) {
-    return (
-      <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-        <span style={{ color:C.color10, fontSize:12 }}>{label}</span>
-        <div style={{ position: "relative" }}>
-          <input
-            id={id}
-            type={show[field] ? "text" : "password"}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            style={{
-              background: "#141414", border: "1px solid #262626", borderRadius: 10,
-              height: 42, padding: "0 40px 0 12px", color: "#fafafa",
-              fontSize: 14, fontFamily: "inherit", outline: "none", width: "100%",
-            }}
-          />
-          <button
-            type="button"
-            id={`toggle-${id}`}
-            onClick={() => setShow((p) => ({ ...p, [field]: !p[field] }))}
-            style={{
-              position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-              background: "none", border: "none", cursor: "pointer", color: "#10b981",
-            }}>
-            {show[field]
-              ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
-            }
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16, maxWidth:480 }}>
       <HCard style={{ padding:16, display:"flex", flexDirection:"column", gap:16 }}>
-        <PwdInput id="input-senha-atual"    label="Senha atual"         field="atual"     value={senhaAtual} onChange={setSenhaAtual} />
-        <PwdInput id="input-nova-senha"     label="Nova senha"          field="nova"      value={novaSenha}  onChange={setNovaSenha} />
+        <PwdInput id="input-senha-atual"    label="Senha atual"         field="atual"     value={senhaAtual} onChange={setSenhaAtual} show={show.atual}     onToggle={() => setShow(p => ({ ...p, atual:     !p.atual }))} />
+        <PwdInput id="input-nova-senha"     label="Nova senha"          field="nova"      value={novaSenha}  onChange={setNovaSenha}  show={show.nova}      onToggle={() => setShow(p => ({ ...p, nova:      !p.nova }))} />
         {novaSenha.length>0&&(
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             <div style={{ display:"flex", gap:4 }}>
@@ -529,7 +542,7 @@ function AbaSenha() {
             <span style={{ fontSize:12, color:strength>0?strengthColors[strength-1]:"#52525b" }}>{strength===0?"Senha muito curta":strengthLabel[strength-1]}</span>
           </div>
         )}
-        <PwdInput id="input-confirmar-senha" label="Confirmar nova senha" field="confirmar" value={confirmar}  onChange={setConfirmar} />
+        <PwdInput id="input-confirmar-senha" label="Confirmar nova senha" field="confirmar" value={confirmar}  onChange={setConfirmar}  show={show.confirmar} onToggle={() => setShow(p => ({ ...p, confirmar: !p.confirmar }))} />
       </HCard>
       {erro && <p style={{ color:"#f43f5e", fontSize:13, margin:"8px 0 0" }}>{erro}</p>}
       <div style={{ display:"flex", justifyContent:"flex-end" }}>

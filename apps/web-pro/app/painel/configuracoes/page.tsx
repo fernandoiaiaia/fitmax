@@ -5,6 +5,21 @@ import { useState, useRef, useEffect } from "react";
 import useSWR from 'swr';
 import { api } from '@/lib/api';
 import { useRouter } from 'next/navigation';
+import { AxiosError } from 'axios';
+
+/** Extrai mensagem de erro de respostas da API */
+function apiErr(err: unknown, fallback = "Erro inesperado. Tente novamente."): string {
+  if (err instanceof AxiosError) {
+    const data = err.response?.data;
+    if (data?.error === "Validation error" && data?.details) {
+      const details = data.details as Record<string, string[]>;
+      const messages = Object.values(details).flat();
+      if (messages.length > 0) return messages.join("; ");
+    }
+    return data?.error ?? fallback;
+  }
+  return fallback;
+}
 
 type Aba = "dados" | "plano" | "notificacoes" | "senha";
 
@@ -248,29 +263,29 @@ function AbaDados({ me, mutate }: { me: any; mutate: any }) {
   const selectedProf = PROFISSOES.find(p => p.id === profissao);
 
   async function handleSave() {
-    if (!profissao || !registro || !uf) {
-      setErrorMsg("Preencha sua profissão e o registro do conselho profissional (Conselho, Número e UF) antes de salvar.");
-      return;
-    }
     setErrorMsg("");
     setLoading(true);
     try {
-      const regProf = selectedProf ? `${selectedProf.conselho} ${registro}` : registro;
+      const regProf = registro.trim()
+        ? (selectedProf ? `${selectedProf.conselho} ${registro.trim()}` : registro.trim())
+        : undefined;
+
       await api.put('/pro/config/perfil', {
-        name: nome,
-        email,
-        telefone: tel,
-        username: user,
-        especialidade: obj,
+        name:                 nome       || undefined,
+        email:                email      || undefined,
+        telefone:             tel.trim() || null,
+        username:             user.trim() || null,
+        especialidade:        obj        || undefined,
         registroProfissional: regProf,
-        uf,
-        convenios
+        uf:                   uf         || undefined,
+        convenios,
       });
       await mutate();
-      setSaved(true); 
-      setTimeout(() => setSaved(false), 2500); 
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+      window.dispatchEvent(new Event("perfil-atualizado"));
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.error || "Erro ao salvar perfil");
+      setErrorMsg(apiErr(err));
     } finally {
       setLoading(false);
     }
@@ -292,7 +307,11 @@ function AbaDados({ me, mutate }: { me: any; mutate: any }) {
       {/* Profile Card */}
       <div className="cfg-card" style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
         <div style={{ position: "relative", width: 80, height: 80 }}>
-          <img src="https://picsum.photos/200/200?random=30" alt="Avatar" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", backgroundColor: "rgba(255,255,255,0.05)" }} />
+          <img
+            src={(me?.avatarUrl ? `${me.avatarUrl}${me.avatarUrl.includes('?') ? '&' : '?'}cb=${Date.now()}` : null) || "https://picsum.photos/200/200?random=30"}
+            alt="Avatar"
+            style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", backgroundColor: "rgba(255,255,255,0.05)" }}
+          />
           <button
             onClick={() => avatarRef.current?.click()}
             style={{ position: "absolute", bottom: 0, right: 0, width: 28, height: 28, borderRadius: "50%", background: "#10b981", border: "2px solid #141414", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}
@@ -302,7 +321,28 @@ function AbaDados({ me, mutate }: { me: any; mutate: any }) {
               <circle cx="12" cy="13" r="4" />
             </svg>
           </button>
-          <input ref={avatarRef} type="file" accept="image/*" style={{ display: "none" }} />
+          <input
+            ref={avatarRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            style={{ display: "none" }}
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const formData = new FormData();
+              formData.append("avatar", file);
+              try {
+                await api.post("/pro/config/perfil/avatar", formData, {
+                  headers: { "Content-Type": "multipart/form-data" },
+                });
+                await mutate();
+                window.dispatchEvent(new Event("perfil-atualizado"));
+              } catch (err: any) {
+                setErrorMsg(err?.response?.data?.error ?? "Erro ao enviar foto.");
+              }
+              e.target.value = "";
+            }}
+          />
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={{ color: "#fafafa", fontSize: 18, fontWeight: "bold" }}>{nome}</span>
@@ -322,7 +362,7 @@ function AbaDados({ me, mutate }: { me: any; mutate: any }) {
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
           <InputField id="input-tel"  label="Telefone"        value={tel}  onChange={setTel}  type="tel" />
-          <InputField id="input-user" label="Nome de usuário" value={user} onChange={setUser} />
+          <InputField id="input-user" label="Nome de usuário" value={user} onChange={v => setUser(v.toLowerCase())} />
         </div>
       </div>
 

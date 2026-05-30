@@ -1,6 +1,8 @@
+import path from 'path';
 import { prisma } from '@fitmax/database';
 import bcrypt from 'bcryptjs';
 import { logger } from '../../../lib/logger';
+import { AppError } from '../../../middlewares/errorHandler';
 
 export class ConfigProService {
   async listarConvenios() {
@@ -45,13 +47,32 @@ export class ConfigProService {
   }
 
   async atualizarPerfil(profissionalId: string, dados: any, meta: { ip: string; userAgent: string }) {
+    const finalTelefone = dados.telefone === '' ? null : dados.telefone;
+    const finalUsername = dados.username === '' ? null : dados.username;
+
+    // Valida unicidade de username (OWASP A03)
+    if (finalUsername) {
+      const existente = await prisma.professional.findFirst({
+        where: { username: finalUsername, id: { not: profissionalId } },
+      });
+      if (existente) throw new AppError(`Username "@${finalUsername}" já está em uso`, 409);
+    }
+
+    // Valida unicidade de email se enviado (OWASP A03)
+    if (dados.email) {
+      const existente = await prisma.professional.findFirst({
+        where: { email: dados.email, id: { not: profissionalId } },
+      });
+      if (existente) throw new AppError('E-mail já está em uso', 409);
+    }
+
     const prof = await prisma.professional.update({
       where: { id: profissionalId },
       data: {
         name: dados.name,
         email: dados.email,
-        telefone: dados.telefone,
-        username: dados.username,
+        telefone: finalTelefone,
+        username: finalUsername,
         especialidade: dados.especialidade,
         registroProfissional: dados.registroProfissional,
         cidade: dados.cidade,
@@ -160,5 +181,19 @@ export class ConfigProService {
     }, 'Plano de assinatura do profissional atualizado');
 
     return { sucesso: true, plano: prof.plano };
+  }
+
+  /**
+   * Salva o caminho do arquivo de avatar enviado via multer e atualiza o banco.
+   */
+  async uploadAvatar(profissionalId: string, filePath: string) {
+    const avatarUrl = `/uploads/avatars/${path.basename(filePath)}`;
+    const prof = await prisma.professional.update({
+      where: { id: profissionalId },
+      data: { avatarUrl },
+      select: { id: true, name: true, email: true, avatarUrl: true },
+    });
+    logger.info({ event: 'avatar_pro_atualizado', profissionalId }, 'Avatar do profissional atualizado');
+    return { avatarUrl: prof.avatarUrl };
   }
 }

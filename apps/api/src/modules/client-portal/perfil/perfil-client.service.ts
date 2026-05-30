@@ -34,21 +34,12 @@ export const updatePerfilSchema = z
     name:     z.string().min(2, 'Nome deve ter ao menos 2 caracteres').max(100).trim().optional(),
     // OWASP A03 — email normalizado e validado
     email:    z.string().email('E-mail inválido').max(254).toLowerCase().trim().optional(),
-    // OWASP A03 — telefone formato brasileiro
-    phone:    z
-      .string()
-      .regex(/^\(?\d{2}\)?\s?\d{4,5}[-\s]?\d{4}$/, 'Telefone inválido. Ex: (11) 99000-0000')
-      .optional(),
-    // OWASP A03 — username: sem caracteres especiais que permitam injeção
-    username: z
-      .string()
-      .min(3, 'Username deve ter ao menos 3 caracteres')
-      .max(30)
-      .regex(/^[a-z0-9_]+$/, 'Username só pode conter letras minúsculas, números e _')
-      .optional(),
+    telefone: z.string().regex(/^\(?\d{2}\)?\s?\d{4,5}[-\s]?\d{4}$/, 'Telefone inválido. Ex: (11) 99000-0000').or(z.literal("")).transform(v => v === "" ? null : v).optional().nullable(),
+    username: z.string().min(3, 'Username deve ter ao menos 3 caracteres').max(30).regex(/^[a-zA-Z0-9_]+$/, 'Username só pode conter letras, números e underline').or(z.literal("")).transform(v => v === "" ? null : v).optional().nullable(),
     // OWASP A03 — objetivo restrito a valores conhecidos
     objetivo: z.enum(OBJETIVOS).optional(),
   })
+  .strip()  // descarta campos extras não reconhecidos
   .refine(d => Object.keys(d).length > 0, {
     message: 'Envie ao menos um campo para atualizar',
   });
@@ -96,6 +87,8 @@ const CLIENT_SELECT = {
   id:        true,
   name:      true,
   email:     true,
+  telefone:  true,
+  username:  true,
   avatarUrl: true,
   objetivo:  true,
   plano:     true,
@@ -134,15 +127,6 @@ export class PerfilClientService {
     campos:   z.infer<typeof updatePerfilSchema>,
     meta:     { ip: string; userAgent: string },
   ) {
-    // OWASP A03 — verifica unicidade do username se foi enviado
-    if (campos.username) {
-      const existente = await prisma.client.findFirst({
-        where: { username: campos.username, NOT: { id: clientId } },
-        select: { id: true },
-      });
-      if (existente) throw new AppError('Username já está em uso', 409);
-    }
-
     // OWASP A03 — verifica unicidade do email se foi enviado
     if (campos.email) {
       const existente = await prisma.client.findFirst({
@@ -150,6 +134,15 @@ export class PerfilClientService {
         select: { id: true },
       });
       if (existente) throw new AppError('E-mail já está em uso', 409);
+    }
+
+    // OWASP A03 — verifica unicidade do username se foi enviado
+    if (campos.username) {
+      const existente = await prisma.client.findFirst({
+        where: { username: { equals: campos.username, mode: 'insensitive' }, NOT: { id: clientId } },
+        select: { id: true },
+      });
+      if (existente) throw new AppError('Nome de usuário já está em uso', 409);
     }
 
     const updated = await prisma.client.update({

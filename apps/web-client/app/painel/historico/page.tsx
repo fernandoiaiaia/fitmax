@@ -88,7 +88,9 @@ function HoverCard({ children, hoverBorder, style }: {
 }
 
 function ConsultaCard({ c, onAvaliar }: { c: ConsultaHistoricoResumo; onAvaliar: (id: string) => void }) {
-  const aval = avalCfg[c.statusAvaliacao];
+  const aval = c.status === "ESTORNO"
+    ? { label: "NÃO REALIZADA", bg: "rgba(244,63,94,0.12)", color: "#f43f5e" }
+    : avalCfg[c.statusAvaliacao];
   return (
     <HoverCard hoverBorder="#10b981">
       {/* Header */}
@@ -135,23 +137,25 @@ function ConsultaCard({ c, onAvaliar }: { c: ConsultaHistoricoResumo; onAvaliar:
         </div>
       </div>
       {/* Footer */}
-      <div style={{ display:"flex", padding:"8px 16px", borderTop:`1px solid ${C.border}` }}>
-        <button id={`btn-detalhes-${c.id}`}
-          style={{ display:"flex", alignItems:"center", gap:4, background:"none", border:"none", cursor:"pointer", padding:"4px 8px", borderRadius:6 }}
-          onClick={() => c.statusAvaliacao === "pendente" && onAvaliar(c.id)}
-          onMouseEnter={e=>(e.currentTarget as HTMLElement).style.backgroundColor=C.color3}
-          onMouseLeave={e=>(e.currentTarget as HTMLElement).style.backgroundColor="transparent"}>
-          <span style={{ color:C.color10 }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-              <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-            </svg>
-          </span>
-          <span style={{ color: c.statusAvaliacao === "pendente" ? "#a78bfa" : C.color11, fontSize:12 }}>
-            {c.statusAvaliacao === "pendente" ? "Avaliar consulta" : "Ver detalhes"}
-          </span>
-        </button>
-      </div>
+      {c.statusAvaliacao === "pendente" && (
+        <div style={{ display:"flex", padding:"8px 16px", borderTop:`1px solid ${C.border}` }}>
+          <button id={`btn-detalhes-${c.id}`}
+            style={{ display:"flex", alignItems:"center", gap:4, background:"none", border:"none", cursor:"pointer", padding:"4px 8px", borderRadius:6 }}
+            onClick={() => onAvaliar(c.id)}
+            onMouseEnter={e=>(e.currentTarget as HTMLElement).style.backgroundColor=C.color3}
+            onMouseLeave={e=>(e.currentTarget as HTMLElement).style.backgroundColor="transparent"}>
+            <span style={{ color:C.color10 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+            </span>
+            <span style={{ color: "#a78bfa", fontSize:12 }}>
+              Avaliar consulta
+            </span>
+          </button>
+        </div>
+      )}
     </HoverCard>
   );
 }

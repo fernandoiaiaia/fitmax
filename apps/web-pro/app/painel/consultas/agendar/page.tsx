@@ -83,6 +83,12 @@ const STYLES = `
   .pro-mg-action-card.confirmar::before { background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, transparent 100%); }
   .pro-mg-action-card.confirmar:hover { border-color: rgba(16,185,129,0.4); box-shadow: 0 6px 28px rgba(16,185,129,0.12); }
 
+  .pro-mg-action-card.atendimento::before { background: linear-gradient(135deg, rgba(16,185,129,0.1) 0%, transparent 100%); }
+  .pro-mg-action-card.atendimento:hover { border-color: rgba(16,185,129,0.5); box-shadow: 0 6px 28px rgba(16,185,129,0.18); }
+
+  .pro-mg-action-card.ausencia::before { background: linear-gradient(135deg, rgba(251,146,60,0.08) 0%, transparent 100%); }
+  .pro-mg-action-card.ausencia:hover { border-color: rgba(251,146,60,0.45); box-shadow: 0 6px 28px rgba(251,146,60,0.14); }
+
   .pro-mg-action-card.reagendar::before { background: linear-gradient(135deg, rgba(96,165,250,0.07) 0%, transparent 100%); }
   .pro-mg-action-card.reagendar:hover { border-color: rgba(96,165,250,0.4); box-shadow: 0 6px 28px rgba(96,165,250,0.12); }
 
@@ -158,8 +164,16 @@ function ConsultaDetalheInner() {
   const [view, setView]               = useState<string>("menu");
   const [cancelDone, setCancelDone]   = useState(false);
   const [confirmDone, setConfirmDone] = useState(false);
+  const [atendDone,  setAtendDone]    = useState(false);
+  const [ausenteDone,setAusenteDone]  = useState(false);
   const [loading, setLoading]         = useState(false);
   const [apiError, setApiError]       = useState<string | null>(null);
+
+  // Consulta já passou? (para exibir os botões de resultado)
+  const consultaDataHoraParam = searchParams.get("dataHoraISO") ?? "";
+  const consultaJaPassou = consultaDataHoraParam
+    ? new Date(consultaDataHoraParam) < new Date()
+    : false;
 
   // Reagendar state
   const [novaData,   setNovaData]   = useState("");
@@ -171,6 +185,9 @@ function ConsultaDetalheInner() {
     pendente:     { label:"PENDENTE",     bg:"rgba(234,179,8,0.12)",   color:"#facc15" },
     a_confirmar:  { label:"A CONFIRMAR",  bg:"rgba(161,161,170,0.1)",  color:"#a1a1aa" },
     em_andamento: { label:"EM ANDAMENTO", bg:"rgba(96,165,250,0.12)",  color:"#60a5fa" },
+    concluida:    { label:"CONCLUÍDA",    bg:"rgba(139,92,246,0.12)",  color:"#8b5cf6" },
+    ausente:      { label:"AUSENTE",      bg:"rgba(251,146,60,0.12)",  color:"#fb923c" },
+    cancelada:    { label:"CANCELADA",    bg:"rgba(244,63,94,0.12)",   color:"#f43f5e" },
   };
   const statusCfg = statusLabels[consultaStatus] ?? { label: consultaStatus.toUpperCase(), bg:"rgba(255,255,255,0.08)", color:"#a1a1aa" };
 
@@ -192,6 +209,26 @@ function ConsultaDetalheInner() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleAtendimento() {
+    setLoading(true); setApiError(null);
+    try {
+      await api.patch(`/pro/consultas/${consultaId}/status`, { status: "concluida" });
+      setAtendDone(true);
+    } catch (err: any) {
+      setApiError(err.response?.data?.error ?? "Erro ao confirmar atendimento.");
+    } finally { setLoading(false); }
+  }
+
+  async function handleAusente() {
+    setLoading(true); setApiError(null);
+    try {
+      await api.patch(`/pro/consultas/${consultaId}/status`, { status: "ausente" });
+      setAusenteDone(true);
+    } catch (err: any) {
+      setApiError(err.response?.data?.error ?? "Erro ao registrar ausência.");
+    } finally { setLoading(false); }
   }
 
   async function handleCancelar() {
@@ -278,10 +315,29 @@ function ConsultaDetalheInner() {
           )}
 
           {/* ── MENU ── */}
-          {view === "menu" && !cancelDone && !confirmDone && !reagendDone && (
+          {view === "menu" && !cancelDone && !confirmDone && !reagendDone && !atendDone && !ausenteDone && (
             <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
               <span style={{ color:"#a1a1aa", fontSize:13, fontWeight:600 }}>O que você deseja fazer?</span>
               <div className="pro-mg-actions-grid">
+
+                {/* Confirmar Atendimento — aparece apenas quando a consulta já passou */}
+                {consultaJaPassou && (
+                  <div id="btn-pro-atendimento" className="pro-mg-action-card atendimento" onClick={() => { setApiError(null); setView("atendimento"); }}>
+                    <div className="pro-mg-action-icon" style={{ background:"rgba(16,185,129,0.15)" }}>✅</div>
+                    <p className="pro-mg-action-title" style={{ color:"#10b981" }}>Confirmar Atendimento</p>
+                    <p className="pro-mg-action-sub">Paciente compareceu e foi atendido</p>
+                  </div>
+                )}
+
+                {/* Ausência do Cliente — aparece apenas quando a consulta já passou */}
+                {consultaJaPassou && (
+                  <div id="btn-pro-ausente" className="pro-mg-action-card ausencia" onClick={() => { setApiError(null); setView("ausente"); }}>
+                    <div className="pro-mg-action-icon" style={{ background:"rgba(251,146,60,0.12)" }}>🚫</div>
+                    <p className="pro-mg-action-title" style={{ color:"#fb923c" }}>Ausência do Cliente</p>
+                    <p className="pro-mg-action-sub">Paciente não compareceu ao atendimento</p>
+                  </div>
+                )}
+
                 {(consultaStatus === "a_confirmar" || consultaStatus === "pendente") && (
                   <div id="btn-pro-confirmar" className="pro-mg-action-card confirmar" onClick={() => { setApiError(null); setView("confirmar"); }}>
                     <div className="pro-mg-action-icon" style={{ background:"rgba(16,185,129,0.12)" }}>✅</div>
@@ -308,7 +364,69 @@ function ConsultaDetalheInner() {
             </div>
           )}
 
-          {/* ── CONFIRMAR ── */}
+          {/* ── CONFIRMAR ATENDIMENTO ── */}
+          {view === "atendimento" && !atendDone && (
+            <div className="pro-mg-confirm-box" style={{ background:"rgba(16,185,129,0.07)", border:"1px solid rgba(16,185,129,0.25)" }}>
+              <span style={{ color:"#10b981", fontSize:12, fontWeight:800, display:"block", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:12 }}>✅ Confirmar Atendimento</span>
+              <p style={{ color:"#a1a1aa", fontSize:14, margin:"0 0 8px" }}>Confirmar que <strong style={{ color:"#f4f4f5" }}>{consultaNome}</strong> compareceu e foi atendido?</p>
+              <p style={{ color:"#71717a", fontSize:13, margin:"0 0 20px" }}>📅 {consultaData} às {consultaHor} · {consultaMod}</p>
+              <div style={{ display:"flex", gap:12 }}>
+                <button className="pro-btn-ghost" onClick={() => setView("menu")} style={{ flex:1 }} disabled={loading}>← Voltar</button>
+                <button
+                  id="btn-pro-atendimento-ok"
+                  className="pro-btn-primary"
+                  onClick={handleAtendimento}
+                  disabled={loading}
+                  style={{ flex:2 }}
+                >
+                  {loading ? "Confirmando…" : "Confirmar Atendimento ✅"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {atendDone && (
+            <div className="pro-mg-success">
+              <div className="pro-mg-success-icon" style={{ background:"rgba(16,185,129,0.15)", border:"2px solid #10b981" }}>✅</div>
+              <p style={{ color:"#fafafa", fontSize:20, fontWeight:"bold", margin:"0 0 8px" }}>Atendimento Confirmado!</p>
+              <p style={{ color:"#a1a1aa", fontSize:13, margin:"0 0 20px" }}>O atendimento de <strong style={{ color:"#f4f4f5" }}>{consultaNome}</strong> foi registrado com sucesso.</p>
+              <button className="pro-btn-primary" style={{ margin:"0 auto" }} onClick={() => router.push("/painel/consultas")}>Ver Consultas →</button>
+            </div>
+          )}
+
+          {/* ── AUSÊNCIA DO CLIENTE ── */}
+          {view === "ausente" && !ausenteDone && (
+            <div className="pro-mg-confirm-box" style={{ background:"rgba(251,146,60,0.07)", border:"1px solid rgba(251,146,60,0.25)" }}>
+              <span style={{ color:"#fb923c", fontSize:12, fontWeight:800, display:"block", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:12 }}>🚫 Ausência do Cliente</span>
+              <p style={{ color:"#a1a1aa", fontSize:14, margin:"0 0 8px" }}>Confirmar que <strong style={{ color:"#f4f4f5" }}>{consultaNome}</strong> <strong style={{ color:"#fb923c" }}>não compareceu</strong> ao atendimento?</p>
+              <p style={{ color:"#71717a", fontSize:13, margin:"0 0 8px" }}>📅 {consultaData} às {consultaHor} · {consultaMod}</p>
+              <p style={{ color:"#71717a", fontSize:12, margin:"0 0 20px", background:"rgba(251,146,60,0.06)", borderRadius:8, padding:"10px 12px", border:"1px solid rgba(251,146,60,0.15)" }}>
+                O slot será liberado na sua agenda e o cliente verá o status "Ausênte" na consulta.
+              </p>
+              <div style={{ display:"flex", gap:12 }}>
+                <button className="pro-btn-ghost" onClick={() => setView("menu")} style={{ flex:1 }} disabled={loading}>← Voltar</button>
+                <button
+                  id="btn-pro-ausente-ok"
+                  onClick={handleAusente}
+                  disabled={loading}
+                  style={{ flex:2, padding:"14px 0", borderRadius:12, fontSize:14, fontWeight:700, background:"linear-gradient(135deg, #fb923c 0%, #ea580c 100%)", boxShadow:"0 4px 16px rgba(251,146,60,0.25)", border:"none", color:"#fff", cursor:"pointer", fontFamily:"inherit", opacity: loading ? 0.5 : 1 }}
+                >
+                  {loading ? "Registrando…" : "Registrar Ausência 🚫"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {ausenteDone && (
+            <div className="pro-mg-success">
+              <div className="pro-mg-success-icon" style={{ background:"rgba(251,146,60,0.12)", border:"2px solid #fb923c" }}>🚫</div>
+              <p style={{ color:"#fafafa", fontSize:20, fontWeight:"bold", margin:"0 0 8px" }}>Ausência Registrada</p>
+              <p style={{ color:"#a1a1aa", fontSize:13, margin:"0 0 20px" }}>A ausência de <strong style={{ color:"#f4f4f5" }}>{consultaNome}</strong> foi registrada. O horário está liberado novamente.</p>
+              <button className="pro-btn-primary" style={{ margin:"0 auto" }} onClick={() => router.push("/painel/consultas")}>Ver Consultas →</button>
+            </div>
+          )}
+
+          {/* ── CONFIRMAR (presença antecipada) ── */}
           {view === "confirmar" && !confirmDone && (
             <div className="pro-mg-confirm-box" style={{ background:"rgba(16,185,129,0.06)", border:"1px solid rgba(16,185,129,0.2)" }}>
               <span style={{ color:"#10b981", fontSize:12, fontWeight:800, display:"block", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:12 }}>✅ Confirmar Consulta</span>

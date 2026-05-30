@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { listarConsultas, statsConsultas } from "../../../lib/consultas-api";
 import type { ConsultaStats } from "../../../lib/consultas-api";
 
-type ConsultaStatus = "agendada" | "pendente" | "a_confirmar" | "em_andamento";
+type ConsultaStatus = "agendada" | "pendente" | "a_confirmar" | "em_andamento" | "cancelada" | "concluida" | "ausente";
 interface Consulta {
   id: string; horario: string; nome: string; especialidade: string;
   modalidade: "Presencial" | "Online"; dataISO: string; data: string;
@@ -14,22 +14,28 @@ interface Consulta {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+// App é Brazil-only (America/Sao_Paulo = UTC-3, sem DST desde 2019).
+// Todas as datas vêm da API como UTC ISO → precisam converter para exibição local.
+const TZ = 'America/Sao_Paulo';
 
 function isoToHorario(isoDate: string): string {
-  // ex: "2026-05-20T10:00:00.000Z" → "10:00"
-  return isoDate.substring(11, 16);
+  return new Date(isoDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: TZ });
 }
 
 function isoToDataISO(isoDate: string): string {
-  return isoDate.substring(0, 10);
+  // Converte UTC → data local BRT: "2026-05-29T20:00:00Z" → "2026-05-29" (não "2026-05-30")
+  const s = new Date(isoDate).toLocaleDateString('pt-BR', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: TZ });
+  const [d, m, y] = s.split('/');
+  return `${y}-${m}-${d}`;
 }
 
 function formatDataLabel(isoDate: string): string {
-  const datePart = isoDate.substring(0, 10);
-  const [, m, d] = datePart.split("-");
+  const datePart = isoToDataISO(isoDate);
+  const [, m, d] = datePart.split('-');
   const fmt = `${d}/${m}`;
-  const today = new Date().toISOString().substring(0, 10);
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().substring(0, 10);
+  const now = new Date();
+  const today    = isoToDataISO(now.toISOString());
+  const tomorrow = isoToDataISO(new Date(now.getTime() + 86400000).toISOString());
   if (datePart === today)    return `Hoje, ${fmt}`;
   if (datePart === tomorrow) return `Amanhã, ${fmt}`;
   return fmt;
@@ -37,9 +43,11 @@ function formatDataLabel(isoDate: string): string {
 
 function mapStatusFluxo(statusFluxo: string): ConsultaStatus {
   const map: Record<string, ConsultaStatus> = {
-    pagamento_pendente: "pendente",
+    pagamento_pendente:  "pendente",
     consulta_confirmada: "agendada",
-    consulta_cancelada: "a_confirmar",
+    consulta_cancelada:  "cancelada",
+    consulta_concluida:  "concluida",
+    consulta_ausente:    "ausente",   // cliente não compareceu
   };
   return map[statusFluxo] ?? "a_confirmar";
 }
@@ -51,6 +59,9 @@ const statusConfig = {
   pendente:     { label:"PENDENTE",     bg:"rgba(234,179,8,0.12)",   color:"#facc15", dotColor:"#facc15" },
   a_confirmar:  { label:"A CONFIRMAR",  bg:"rgba(161,161,170,0.1)",  color:"#a1a1aa", dotColor:"#a1a1aa" },
   em_andamento: { label:"EM ANDAMENTO", bg:"rgba(96,165,250,0.12)",  color:"#60a5fa", dotColor:"#60a5fa" },
+  cancelada:    { label:"CANCELADA",    bg:"rgba(244,63,94,0.12)",   color:"#f43f5e", dotColor:"#f43f5e" },
+  concluida:    { label:"CONCLUÍDA",    bg:"rgba(139,92,246,0.12)",  color:"#8b5cf6", dotColor:"#8b5cf6" },
+  ausente:      { label:"AUSENTE",      bg:"rgba(251,146,60,0.12)",  color:"#fb923c", dotColor:"#fb923c" },
 };
 
 function useOutsideClick(ref: React.RefObject<HTMLElement>, cb: ()=>void) {
@@ -166,7 +177,6 @@ export default function ConsultasPage() {
       ]);
       // Mapeia dados da API para o formato da UI
       const mapped = listaRes.data
-        .filter(c => c.statusFluxo !== "consulta_cancelada")
         .map(c => ({
           id:          c.id,
           horario:     isoToHorario(c.dataHora),

@@ -1,10 +1,11 @@
 //@ts-nocheck
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "../../lib/auth-context";
+import { getPerfil } from "../../lib/perfil-api";
 
 const menuItems = [
   { label: "Painel",        href: "/painel",            icon: "grid" },
@@ -33,7 +34,25 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const pathname = usePathname();
   const router   = useRouter();
-  const { accessToken, loadingUser } = useAuth();
+  const { accessToken, loadingUser, user } = useAuth();
+  const [profile, setProfile] = useState<{ name: string; avatarUrl: string | null } | null>(null);
+
+  const loadProfile = useCallback(() => {
+    if (accessToken) {
+      getPerfil()
+        .then(p => {
+          const url = p.avatarUrl ? `${p.avatarUrl}?t=${Date.now()}` : null;
+          setProfile({ name: p.name, avatarUrl: url });
+        })
+        .catch(() => {});
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    loadProfile();
+    window.addEventListener("perfil-atualizado", loadProfile);
+    return () => window.removeEventListener("perfil-atualizado", loadProfile);
+  }, [loadProfile]);
 
   // Auth guard — redireciona para login se não autenticado após refresh silencioso
   useEffect(() => {
@@ -116,7 +135,7 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
             {/* Profile Block */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 8, marginBottom: 20 }}>
               <img
-                src="https://picsum.photos/200/200?random=1"
+                src={profile?.avatarUrl || "https://picsum.photos/200/200?random=1"}
                 alt="Avatar"
                 style={{
                   width: desktopCollapsed ? 40 : 64,
@@ -128,23 +147,7 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
               />
               {!desktopCollapsed && (
                 <>
-                  <p style={{ color: "#fafafa", fontSize: 16, fontWeight: "bold", marginTop: 12, marginBottom: 0 }}>Gabriel Silas</p>
-                  <div style={{ display: "flex", gap: 16, marginTop: 16, alignSelf: "stretch", justifyContent: "center" }}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                      <span style={{ color: "#fafafa", fontSize: 14, fontWeight: "bold" }}>24</span>
-                      <span style={{ color: "#a1a1aa", fontSize: 10 }}>Treinos</span>
-                    </div>
-                    <div style={{ width: 1, background: "#27272a" }} />
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                      <span style={{ color: "#fafafa", fontSize: 14, fontWeight: "bold" }}>3</span>
-                      <span style={{ color: "#a1a1aa", fontSize: 10 }}>Consultas</span>
-                    </div>
-                  </div>
-                  <div style={{ marginTop: 16, alignSelf: "flex-start", paddingLeft: 8, paddingRight: 8 }}>
-                    <p style={{ color: "#a1a1aa", fontSize: 12, marginTop: 4, marginBottom: 0 }}>
-                      Atleta amador | Foco em Hipertrofia 🏋️
-                    </p>
-                  </div>
+                  <p style={{ color: "#fafafa", fontSize: 16, fontWeight: "bold", marginTop: 12, marginBottom: 0 }}>{profile?.name || "Carregando..."}</p>
                 </>
               )}
             </div>

@@ -9,6 +9,8 @@ export const salvarDisponibilidadeSchema = z.object({
   slots: z.array(z.object({
     hora:   z.string().regex(/^\d{2}:\d{2}$/, 'Formato inválido. Use HH:MM'),
     estado: z.enum(['DISPONIVEL', 'BLOQUEADO']),
+    modalidade: z.string().optional().nullable(),
+    endereco:   z.string().optional().nullable(),
   })).min(1).max(48), // máx 48 slots por dia (a cada 30min)
 });
 
@@ -17,9 +19,13 @@ export const recorrenciaSchema = z.object({
   horaInicio: z.string().regex(/^\d{2}:\d{2}$/),
   horaFim:    z.string().regex(/^\d{2}:\d{2}$/),
   duracaoMin: z.number().int().min(15).max(120), // em minutos
-  mes:        z.number().int().min(1).max(12),
-  ano:        z.number().int().min(2024),
+  // modalidade: define o tipo padrão dos slots criados (null = ambos os tipos)
+  modalidade: z.enum(['Presencial', 'Online']).nullable().optional(),
+  // mes e ano são opcionais: se omitidos, usa o mês/ano corrente
+  mes:        z.number().int().min(1).max(12).optional(),
+  ano:        z.number().int().min(2024).optional(),
 });
+
 
 export type SalvarDisponibilidadeDTO = z.infer<typeof salvarDisponibilidadeSchema>;
 export type RecorrenciaDTO = z.infer<typeof recorrenciaSchema>;
@@ -30,6 +36,13 @@ const STATUS_PRO_MAP: Record<string, string> = {
   PENDENTE: 'pendente',
   PAGO:     'confirmada',
   ESTORNO:  'cancelada',
+};
+
+/** Mapa: status do frontend Pro → statusAgenda do banco */
+const STATUS_AGENDA_MAP: Record<string, 'AGENDADA' | 'CONFIRMADA' | 'CANCELADA'> = {
+  pendente:   'AGENDADA',
+  confirmada: 'CONFIRMADA',
+  cancelada:  'CANCELADA',
 };
 
 function gerarHorarios(inicio: string, fim: string, duracaoMin: number): string[] {
@@ -67,6 +80,8 @@ export class AgendaProService {
             gte: new Date(`${dia}T00:00:00`),
             lte: new Date(`${dia}T23:59:59`),
           },
+          // Consultas canceladas liberam o slot automaticamente na agenda do Pro
+          statusAgenda: { not: 'CANCELADA' },
         },
         select: {
           id: true, dataHora: true, especialidade: true, tipo: true, status: true,
@@ -87,6 +102,8 @@ export class AgendaProService {
       return {
         hora:   slot.hora,
         estado: consulta ? 'agendado' : slot.estado.toLowerCase(),
+        modalidade: slot.modalidade,
+        endereco:   slot.endereco,
         consulta: consulta ? {
           id:            consulta.id,
           especialidade: consulta.especialidade,
@@ -194,6 +211,8 @@ export class AgendaProService {
           dia,
           hora:   s.hora,
           estado: s.estado,
+          modalidade: s.modalidade ?? null,
+          endereco:   s.endereco ?? null,
         })),
         skipDuplicates: true,
       });
@@ -213,53 +232,68 @@ export class AgendaProService {
   }
 
   /**
-   * Aplica horário recorrente semanal para todos os dias do mês.
-   * OWASP A08 — transação única para todo o mês.
+   * Aplica horário recorrente semanal para o mês atual + próximos 2 meses.
+   * OWASP A08 — transação única por mês.
    */
   async aplicarRecorrencia(
     profissionalId: string,
     dto: RecorrenciaDTO,
     meta: { ip: string; userAgent: string },
   ) {
-    const { diasSemana, horaInicio, horaFim, duracaoMin, mes, ano } = dto;
+    const now = new Date();
+    const { diasSemana, horaInicio, horaFim, duracaoMin } = dto;
+    const modalidadeSlot = dto.modalidade ?? null; // null = slot universal (ambos os tipos)
     const horarios = gerarHorarios(horaInicio, horaFim, duracaoMin);
 
-    const inicio = new Date(ano, mes - 1, 1);
-    const fim    = new Date(ano, mes, 0); // último dia do mês
+    // Aplica para o mês base + próximos 2 meses (3 meses no total)
+    const mesBas = dto.mes ?? (now.getMonth() + 1);
+    const anoBas = dto.ano ?? now.getFullYear();
 
-    // Coleta todos os dias do mês que batem com os diasSemana selecionados
-    const diasAlvo: { profissionalId: string; dia: string; hora: string; estado: 'DISPONIVEL' }[] = [];
+    let totalSlotsCriados = 0;
 
-    for (let d = new Date(inicio); d <= fim; d.setDate(d.getDate() + 1)) {
-      if (diasSemana.includes(d.getDay())) {
-        const diaStr = d.toISOString().slice(0, 10);
-        for (const hora of horarios) {
-          diasAlvo.push({ profissionalId, dia: diaStr, hora, estado: 'DISPONIVEL' });
+    for (let delta = 0; delta < 3; delta++) {
+      const mesAlvo = ((mesBas - 1 + delta) % 12) + 1;
+      const anoAlvo = anoBas + Math.floor((mesBas - 1 + delta) / 12);
+
+      const inicio = new Date(anoAlvo, mesAlvo - 1, 1);
+      const fim    = new Date(anoAlvo, mesAlvo, 0);
+
+      const diasAlvo: { profissionalId: string; dia: string; hora: string; estado: 'DISPONIVEL'; modalidade: string | null }[] = [];
+
+      for (let d = new Date(inicio); d <= fim; d.setDate(d.getDate() + 1)) {
+        if (diasSemana.includes(d.getDay())) {
+          const diaStr = d.toISOString().slice(0, 10);
+          for (const hora of horarios) {
+            diasAlvo.push({ profissionalId, dia: diaStr, hora, estado: 'DISPONIVEL', modalidade: modalidadeSlot });
+          }
         }
       }
-    }
 
-    await prisma.$transaction(async (tx) => {
-      // Remove slots existentes do mês para não duplicar
-      const diasStr = diasAlvo.map(d => d.dia);
-      if (diasStr.length > 0) {
+
+      if (diasAlvo.length === 0) continue;
+
+      await prisma.$transaction(async (tx) => {
+        const diasStr = [...new Set(diasAlvo.map(d => d.dia))];
+        // Limpa todos os slots dos dias alvo e recria do zero
+        // (Consultas existentes não são afetadas pois ficam na tabela Consulta)
         await tx.disponibilidade.deleteMany({
-          where: { profissionalId, dia: { in: [...new Set(diasStr)] } },
+          where: { profissionalId, dia: { in: diasStr } },
         });
-      }
-      await tx.disponibilidade.createMany({ data: diasAlvo, skipDuplicates: true });
-    });
+        await tx.disponibilidade.createMany({ data: diasAlvo, skipDuplicates: true });
+        totalSlotsCriados += diasAlvo.length;
+      });
+    }
 
     logger.info({
       event: 'recorrencia_aplicada',
       profissionalId,
-      mes, ano, diasSemana, horaInicio, horaFim, duracaoMin,
-      totalSlots: diasAlvo.length,
+      mesBas, anoBas, diasSemana, horaInicio, horaFim, duracaoMin,
+      totalSlots: totalSlotsCriados,
       ip: meta.ip,
       userAgent: meta.userAgent,
-    }, `Recorrência aplicada: ${diasAlvo.length} slots no mês ${mes}/${ano}`);
+    }, `Recorrência aplicada: ${totalSlotsCriados} slots nos próximos 3 meses`);
 
-    return { mes, ano, totalSlotsCriados: diasAlvo.length };
+    return { mes: mesBas, ano: anoBas, totalSlotsCriados };
   }
 
   /**
@@ -293,9 +327,15 @@ export class AgendaProService {
     if (statusFrontend === 'confirmada') dbStatus = 'PAGO';
     if (statusFrontend === 'cancelada') dbStatus = 'ESTORNO';
 
+    // statusAgenda: visão de agenda do paciente (separado do financeiro)
+    const dbStatusAgenda = STATUS_AGENDA_MAP[statusFrontend];
+
     await prisma.consulta.update({
       where: { id: consultaId },
-      data: { status: dbStatus },
+      data: {
+        status: dbStatus,
+        ...(dbStatusAgenda ? { statusAgenda: dbStatusAgenda } : {}),
+      },
     });
 
     logger.info({

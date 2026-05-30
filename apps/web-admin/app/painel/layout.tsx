@@ -5,6 +5,7 @@ import React, { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "../context/auth-context";
+import { fetchPerfil } from "../../lib/configuracoes-api";
 
 const menuItems = [
   { label: "Consultas",     href: "/painel/consultas",    icon: "heart-pulse" },
@@ -97,6 +98,26 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
   const router   = useRouter();
   const { logout, isAuthenticated, isLoading, error } = useAuth();
+  const [profile, setProfile] = useState<{ name: string; avatarUrl: string | null } | null>(null);
+
+  const loadProfile = useCallback(() => {
+    if (isAuthenticated) {
+      fetchPerfil()
+        .then(p => {
+          const url = p.avatarUrl ? `${p.avatarUrl}?t=${Date.now()}` : null;
+          setProfile({ name: p.name ?? "Admin FitMax", avatarUrl: url });
+        })
+        .catch(() => {});
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    loadProfile();
+    window.addEventListener("perfil-atualizado", loadProfile);
+    return () => {
+      window.removeEventListener("perfil-atualizado", loadProfile);
+    };
+  }, [loadProfile]);
 
   const handleLogout = useCallback(async () => {
     setSidebarOpen(false);
@@ -212,13 +233,13 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
             {/* Profile Block */}
             <div className={`pro-profile${desktopCollapsed ? " pro-profile--collapsed" : ""}`}>
               <img
-                src="https://picsum.photos/200/200?random=40"
+                src={profile?.avatarUrl || "https://picsum.photos/200/200?random=40"}
                 alt="Admin FitMax"
                 className="pro-profile__avatar"
               />
               {!desktopCollapsed && (
                 <>
-                  <p className="pro-profile__name">Admin FitMax</p>
+                  <p className="pro-profile__name">{profile?.name || "Admin FitMax"}</p>
                   <p className="pro-profile__role">Acesso total · Nível 5 🔐</p>
                   <div className="pro-profile__stats">
                     <div className="pro-profile__stat">
@@ -306,7 +327,7 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
                 <span className="pro-topbar__notif-dot" />
               </button>
               <img
-                src="https://picsum.photos/200/200?random=40"
+                src={profile?.avatarUrl || "https://picsum.photos/200/200?random=40"}
                 alt="Admin FitMax"
                 className="pro-topbar__avatar"
               />
