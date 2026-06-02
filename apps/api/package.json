@@ -5,7 +5,13 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:contract:verify": "node src/verify-contract.js",
+    "test:contract:verify:pro": "node src/verify-contract-pro.js",
+    "test:recovery": "node src/backend-recovery.js",
+    "test:mutation:backend": "node src/modules/usuarios/__tests__/mutation.js"
   },
   "dependencies": {
     "@fitmax/database": "*",
@@ -39,6 +45,7 @@
     "@types/node": "^22.0.0",
     "@types/uuid": "^10.0.0",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.8"
   }
 }

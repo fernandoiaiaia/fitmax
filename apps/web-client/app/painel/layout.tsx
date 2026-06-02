@@ -108,6 +108,7 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
               {/* Mobile Close — só aparece quando sidebar está aberta no mobile */}
               <button
                 onClick={() => setSidebarOpen(false)}
+                aria-label="Fechar menu lateral"
                 style={{ background: "none", border: "none", cursor: "pointer", color: "white", padding: 6, borderRadius: "50%", display: sidebarOpen ? "flex" : "none" }}
               >
                 <SidebarIcon name="arrow-left" color="white" />
@@ -115,6 +116,7 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
               {/* Desktop Collapse — sempre visível no desktop */}
               <button
                 onClick={() => setDesktopCollapsed(!desktopCollapsed)}
+                aria-label={desktopCollapsed ? "Expandir menu lateral" : "Colapsar menu lateral"}
                 style={{ background: "none", border: "none", cursor: "pointer", color: "white", padding: 6, borderRadius: "50%", display: sidebarOpen ? "none" : "flex" }}
               >
                 <SidebarIcon name={desktopCollapsed ? "arrow-right" : "arrow-left"} color="white" />
@@ -235,6 +237,7 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
           <button
             className="sm:hidden"
             onClick={() => setSidebarOpen(true)}
+            aria-label="Abrir menu lateral"
             style={{ background: "none", border: "none", cursor: "pointer", color: "#a1a1aa", padding: 6, borderRadius: "50%", display: "flex" }}
           >
             <SidebarIcon name="grid" color="#a1a1aa" />

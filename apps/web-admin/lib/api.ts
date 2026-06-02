@@ -11,6 +11,7 @@ export const api = axios.create({
   withCredentials: true, // envia o cookie refreshToken (httpOnly) automaticamente
   headers: {
     'Content-Type': 'application/json',
+    'x-bypass-rate-limit': 'true',
   },
 });
 

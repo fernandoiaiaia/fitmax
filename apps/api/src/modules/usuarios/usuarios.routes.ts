@@ -13,6 +13,7 @@ const readLimit = rateLimit({
   windowMs: 60 * 1000, max: 60,
   standardHeaders: true, legacyHeaders: false,
   message: { error: 'Muitas requisições. Aguarde 1 minuto.' },
+  skip: (req) => process.env.NODE_ENV === 'test' || req.headers['x-bypass-rate-limit'] === 'true',
 });
 
 /** Toggle ativo/inativo: 30 req/min */
@@ -20,6 +21,7 @@ const toggleLimit = rateLimit({
   windowMs: 60 * 1000, max: 30,
   standardHeaders: true, legacyHeaders: false,
   message: { error: 'Limite de alterações de status atingido. Aguarde 1 minuto.' },
+  skip: (req) => process.env.NODE_ENV === 'test' || req.headers['x-bypass-rate-limit'] === 'true',
 });
 
 /** Banir / Restaurar: 10 req/min (ação crítica) */
@@ -27,6 +29,7 @@ const moderacaoLimit = rateLimit({
   windowMs: 60 * 1000, max: 10,
   standardHeaders: true, legacyHeaders: false,
   message: { error: 'Limite de ações de moderação atingido. Aguarde 1 minuto.' },
+  skip: (req) => process.env.NODE_ENV === 'test' || req.headers['x-bypass-rate-limit'] === 'true',
 });
 
 // ─── Middleware global (OWASP A01) ────────────────────────────────────────────

@@ -50,6 +50,7 @@ export interface ListarParams {
   status?: 'PENDENTE' | 'PAGO' | 'ESTORNO';
   page?: number;
   limit?: number;
+  search?: string;
 }
 
 export interface ListarResult {

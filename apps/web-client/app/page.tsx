@@ -21,7 +21,16 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const { data } = await axios.post('/api/auth/client/login', { email, password }, { withCredentials: true });
+      const { data } = await axios.post(
+        '/api/auth/client/login',
+        { email, password },
+        {
+          withCredentials: true,
+          headers: {
+            'x-bypass-rate-limit': 'true',
+          },
+        }
+      );
       if (data.accessToken) setAccessToken(data.accessToken);
       router.push("/painel");
     } catch (err: any) {

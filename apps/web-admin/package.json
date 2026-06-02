@@ -7,7 +7,11 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "test:visual": "node e2e/visual-regression.js",
+    "test:contract:generate": "node e2e/generate-contract.js",
+    "test:a11y": "node e2e/accessibility.js",
+    "test:mutation": "node e2e/mutation.js"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -39,7 +43,10 @@
     "@types/react": "19.0.0",
     "@types/react-dom": "19.0.0",
     "@vitejs/plugin-react": "^6.0.2",
+    "axe-core": "^4.12.0",
     "jsdom": "^29.1.1",
+    "pixelmatch": "^7.2.0",
+    "pngjs": "^7.0.0",
     "typescript": "6.0.2",
     "vitest": "^4.1.7"
   }

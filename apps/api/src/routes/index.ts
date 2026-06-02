@@ -11,8 +11,23 @@ import assinaturasRouter from '../modules/assinaturas/assinaturas.routes';
 import configuracoesRouter from '../modules/configuracoes/configuracoes.routes';
 import { proRouter } from '../modules/pro/pro.routes';
 import { clientPortalRouter } from '../modules/client-portal/client-portal.routes';
+import { chaosRouter } from './chaos.routes';
+import { chaosState } from '../chaos';
 
 const router = Router();
+
+// Middleware to dynamically inject database/network latency under chaos simulation
+router.use((req, res, next) => {
+  if (chaosState.dbLatencyMs > 0 && (req.path.includes('/admin') || req.path.includes('/pro') || req.path.includes('/client-portal'))) {
+    console.log(`⏳ [Caos Sim] Artificial latency of ${chaosState.dbLatencyMs}ms injected on: ${req.path}`);
+    setTimeout(next, chaosState.dbLatencyMs);
+  } else {
+    next();
+  }
+});
+
+// Admin chaos controller route
+router.use('/admin', chaosRouter);
 
 router.use('/auth', authRouter);
 router.use('/admins', adminRouter);

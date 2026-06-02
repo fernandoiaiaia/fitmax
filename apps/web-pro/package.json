@@ -5,7 +5,13 @@
     "dev": "next dev -p 3003",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:contract:generate": "node e2e/generate-contract.js",
+    "test:visual": "node e2e/visual-regression.js",
+    "test:a11y": "node e2e/accessibility.js",
+    "test:mutation": "node e2e/mutation.js"
   },
   "dependencies": {
     "@fitmax/validation": "*",
@@ -22,9 +28,15 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.4",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^22.0.0",
     "@types/react": "19.0.0",
     "@types/react-dom": "19.0.0",
-    "typescript": "6.0.2"
+    "@vitejs/plugin-react": "^6.0.2",
+    "jsdom": "^29.1.1",
+    "typescript": "6.0.2",
+    "vitest": "^4.1.8"
   }
 }

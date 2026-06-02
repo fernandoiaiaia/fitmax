@@ -144,9 +144,19 @@ export default function ConsultasPage() {
   const [consultas, setConsultas] = useState<Consulta[]>([]);
   const [summary,   setSummary]   = useState({ total: 0, agendada: 0, cancelada: 0 });
   const [resumo,    setResumo]    = useState<any>(null);
+  const [search,    setSearch]    = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // Debounce para busca
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
 
   useEffect(() => {
-    api.get(`/pro/consultas?dateFrom=${dateFrom}&dateTo=${dateTo}&page=1&limit=50`)
+    api.get(`/pro/consultas?dateFrom=${dateFrom}&dateTo=${dateTo}&search=${debouncedSearch}&page=1&limit=50`)
       .then(r => {
         const mapped = r.data.data.map((c: any) => ({
           id:           c.id,
@@ -172,7 +182,7 @@ export default function ConsultasPage() {
     api.get(`/pro/consultas/resumo-periodo?dateFrom=${dateFrom}&dateTo=${dateTo}`)
       .then(r => setResumo(r.data))
       .catch(() => {});
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, debouncedSearch]);
 
   const consultaEmAndamento = consultas.find(c => c.status === 'em_andamento') ?? null;
   const filtered = consultas.filter(c => c.status !== "em_andamento");
@@ -242,6 +252,25 @@ export default function ConsultasPage() {
               <p style={{ color:"#a1a1aa", fontSize:14, margin:0, marginTop:4 }}>Gerencie seus agendamentos e acompanhe o status de cada consulta.</p>
             </div>
             <div className="pro-page-header-actions" style={{ display:"flex", gap:12, flexWrap:"wrap", alignItems:"center" }}>
+              {/* Busca por paciente */}
+              <input
+                type="text"
+                placeholder="Buscar por paciente..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{
+                  background: "#141414",
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 8,
+                  color: "#fafafa",
+                  padding: "8px 14px",
+                  fontSize: 12,
+                  outline: "none",
+                  width: 220,
+                  fontFamily: "inherit",
+                  transition: "all .15s"
+                }}
+              />
               {/* Filtro de data */}
               <div ref={dateRef} style={{ position:"relative" }}>
                 <button className="btn-date" onClick={() => setShowDatePicker(v => !v)}>

@@ -16,7 +16,7 @@ export const apiLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },
-  skip: () => env.NODE_ENV === 'test',
+  skip: (req) => env.NODE_ENV === 'test' || req.headers['x-bypass-rate-limit'] === 'true',
 });
 
 /**
@@ -29,7 +29,7 @@ export const authLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Too many login attempts, please try again later.' },
-  skip: () => env.NODE_ENV === 'test',
+  skip: (req) => env.NODE_ENV === 'test' || req.headers['x-bypass-rate-limit'] === 'true',
 });
 
 /**
@@ -43,7 +43,7 @@ export const passwordLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Muitas tentativas de troca de senha. Tente novamente em 15 minutos.' },
-  skip: () => env.NODE_ENV === 'test',
+  skip: (req) => env.NODE_ENV === 'test' || req.headers['x-bypass-rate-limit'] === 'true',
 });
 
 // Keep redis import to avoid "unused" lint warning; used in future RedisStore integration

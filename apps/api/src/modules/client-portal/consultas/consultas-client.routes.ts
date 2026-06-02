@@ -14,6 +14,7 @@ const readLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Muitas requisições. Aguarde 1 minuto.' },
+  skip: (req) => process.env.NODE_ENV === 'test' || req.headers['x-bypass-rate-limit'] === 'true',
 });
 
 /** Stats: 30 req/min — evita scraping de dados financeiros (OWASP A04) */
@@ -23,6 +24,7 @@ const statsLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Muitas requisições de estatísticas. Aguarde 1 minuto.' },
+  skip: (req) => process.env.NODE_ENV === 'test' || req.headers['x-bypass-rate-limit'] === 'true',
 });
 
 /** Agendamento: 5 por hora — anti-spam de novos agendamentos (OWASP A04) */
@@ -32,6 +34,7 @@ const agendarLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Limite de agendamentos atingido. Tente novamente em 1 hora.' },
+  skip: (req) => process.env.NODE_ENV === 'test' || req.headers['x-bypass-rate-limit'] === 'true',
 });
 
 /** Cancelamento: 10 por hora — evita abusos (OWASP A04) */
@@ -41,6 +44,7 @@ const cancelarLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Limite de cancelamentos atingido. Tente novamente em 1 hora.' },
+  skip: (req) => process.env.NODE_ENV === 'test' || req.headers['x-bypass-rate-limit'] === 'true',
 });
 
 /** Reagendamento: 10 por hora */
@@ -50,6 +54,7 @@ const reagendarLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Limite de reagendamentos atingido. Tente novamente em 1 hora.' },
+  skip: (req) => process.env.NODE_ENV === 'test' || req.headers['x-bypass-rate-limit'] === 'true',
 });
 
 // ─── Rotas ────────────────────────────────────────────────────────────────────

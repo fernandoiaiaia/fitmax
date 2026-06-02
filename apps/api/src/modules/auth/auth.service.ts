@@ -38,9 +38,14 @@ export class AuthService {
    * OWASP A07 — Check if account is locked out.
    */
   private async assertNotLockedOut(prefix: string, email: string): Promise<void> {
-    const locked = await redis.get(lockoutKey(prefix, email));
-    if (locked) {
-      throw new AppError('Account temporarily locked. Try again in 15 minutes.', 429);
+    try {
+      const locked = await redis.get(lockoutKey(prefix, email));
+      if (locked) {
+        throw new AppError('Account temporarily locked. Try again in 15 minutes.', 429);
+      }
+    } catch (redisErr) {
+      if (redisErr instanceof AppError) throw redisErr;
+      console.warn('⚠️ Alerta (Resiliência): Redis indisponível para checagem de Lockout. Continuando via banco de dados.', redisErr.message);
     }
   }
 
@@ -48,17 +53,21 @@ export class AuthService {
    * OWASP A07 — Track failed login attempts; lock after MAX_LOGIN_ATTEMPTS.
    */
   private async recordFailedAttempt(prefix: string, email: string): Promise<void> {
-    const key = attemptsKey(prefix, email);
-    const attempts = await redis.incr(key);
+    try {
+      const key = attemptsKey(prefix, email);
+      const attempts = await redis.incr(key);
 
-    // Set expiry on first attempt
-    if (attempts === 1) {
-      await redis.expire(key, LOCKOUT_DURATION_SECONDS);
-    }
+      // Set expiry on first attempt
+      if (attempts === 1) {
+        await redis.expire(key, LOCKOUT_DURATION_SECONDS);
+      }
 
-    if (attempts >= MAX_LOGIN_ATTEMPTS) {
-      await redis.setex(lockoutKey(prefix, email), LOCKOUT_DURATION_SECONDS, '1');
-      await redis.del(key);
+      if (attempts >= MAX_LOGIN_ATTEMPTS) {
+        await redis.setex(lockoutKey(prefix, email), LOCKOUT_DURATION_SECONDS, '1');
+        await redis.del(key);
+      }
+    } catch (redisErr) {
+      console.warn('⚠️ Alerta (Resiliência): Redis indisponível ao gravar falha de login.', redisErr.message);
     }
   }
 
@@ -66,7 +75,11 @@ export class AuthService {
    * Clear failed attempts on successful login.
    */
   private async clearFailedAttempts(prefix: string, email: string): Promise<void> {
-    await redis.del(attemptsKey(prefix, email));
+    try {
+      await redis.del(attemptsKey(prefix, email));
+    } catch (redisErr) {
+      console.warn('⚠️ Alerta (Resiliência): Redis indisponível ao limpar tentativas.', redisErr.message);
+    }
   }
 
   /**
@@ -112,7 +125,11 @@ export class AuthService {
     const refreshToken = signRefreshToken({ sub: admin.id, role: 'admin' }, jti);
 
     // Store refresh token JTI in Redis for revocation (OWASP A04)
-    await redis.setex(refreshKey('admin', jti), REFRESH_TOKEN_TTL_SECONDS, admin.id);
+    try {
+      await redis.setex(refreshKey('admin', jti), REFRESH_TOKEN_TTL_SECONDS, admin.id);
+    } catch (redisErr) {
+      console.warn('⚠️ Alerta (Resiliência): Redis indisponível ao armazenar refresh token.', redisErr.message);
+    }
 
     this.auditLog('login_success', { email: dto.email, adminId: admin.id, ...meta });
 
@@ -153,7 +170,11 @@ export class AuthService {
     const accessToken = signAccessToken({ sub: pro.id, role: 'professional' });
     const refreshToken = signRefreshToken({ sub: pro.id, role: 'professional' }, jti);
 
-    await redis.setex(refreshKey('pro', jti), REFRESH_TOKEN_TTL_SECONDS, pro.id);
+    try {
+      await redis.setex(refreshKey('pro', jti), REFRESH_TOKEN_TTL_SECONDS, pro.id);
+    } catch (redisErr) {
+      console.warn('⚠️ Alerta (Resiliência): Redis indisponível ao armazenar refresh token.', redisErr.message);
+    }
 
     this.auditLog('login_success', { email: dto.email, proId: pro.id, ...meta });
 
@@ -194,7 +215,11 @@ export class AuthService {
     const accessToken = signAccessToken({ sub: client.id, role: 'client' });
     const refreshToken = signRefreshToken({ sub: client.id, role: 'client' }, jti);
 
-    await redis.setex(refreshKey('client', jti), REFRESH_TOKEN_TTL_SECONDS, client.id);
+    try {
+      await redis.setex(refreshKey('client', jti), REFRESH_TOKEN_TTL_SECONDS, client.id);
+    } catch (redisErr) {
+      console.warn('⚠️ Alerta (Resiliência): Redis indisponível ao armazenar refresh token.', redisErr.message);
+    }
 
     this.auditLog('login_success', { email: dto.email, ...meta, reason: 'client_login' });
 
@@ -227,7 +252,11 @@ export class AuthService {
     const accessToken = signAccessToken({ sub: client.id, role: 'client' });
     const refreshTokenStr = signRefreshToken({ sub: client.id, role: 'client' }, jti);
 
-    await redis.setex(refreshKey('client', jti), REFRESH_TOKEN_TTL_SECONDS, client.id);
+    try {
+      await redis.setex(refreshKey('client', jti), REFRESH_TOKEN_TTL_SECONDS, client.id);
+    } catch (redisErr) {
+      console.warn('⚠️ Alerta (Resiliência): Redis indisponível ao armazenar refresh token.', redisErr.message);
+    }
 
     return { accessToken, refreshToken: refreshTokenStr, expiresIn: 15 * 60 };
   }
@@ -258,7 +287,11 @@ export class AuthService {
     const accessToken = signAccessToken({ sub: pro.id, role: 'professional' });
     const refreshTokenStr = signRefreshToken({ sub: pro.id, role: 'professional' }, jti);
 
-    await redis.setex(refreshKey('pro', jti), REFRESH_TOKEN_TTL_SECONDS, pro.id);
+    try {
+      await redis.setex(refreshKey('pro', jti), REFRESH_TOKEN_TTL_SECONDS, pro.id);
+    } catch (redisErr) {
+      console.warn('⚠️ Alerta (Resiliência): Redis indisponível ao armazenar refresh token.', redisErr.message);
+    }
 
     return { accessToken, refreshToken: refreshTokenStr, expiresIn: 15 * 60 };
   }
@@ -289,23 +322,37 @@ export class AuthService {
     const prefix = payload.role === 'admin' ? 'admin' : payload.role === 'client' ? 'client' : 'pro';
 
     // Verify JTI exists in Redis (not revoked)
-    const stored = await redis.get(refreshKey(prefix, payload.jti));
-    if (!stored) {
-      throw new AppError('Refresh token has been revoked', 401);
+    let stored: string | null = payload.sub;
+    try {
+      stored = await redis.get(refreshKey(prefix, payload.jti));
+      if (!stored) {
+        throw new AppError('Refresh token has been revoked', 401);
+      }
+    } catch (redisErr) {
+      if (redisErr instanceof AppError) throw redisErr;
+      console.warn('⚠️ Alerta (Resiliência): Redis indisponível para checagem de JTI. Continuando via criptografia JWT local.', redisErr.message);
     }
 
     // Grace period for rotation (OWASP A04): 
     // Instead of deleting the old token immediately, we set a short 30-second TTL.
     // This prevents the user from being locked out if they hit F5 and the browser 
     // aborts the connection before receiving the new Set-Cookie header.
-    await redis.expire(refreshKey(prefix, payload.jti), 30);
+    try {
+      await redis.expire(refreshKey(prefix, payload.jti), 30);
+    } catch (redisErr) {
+      console.warn('⚠️ Alerta (Resiliência): Redis indisponível ao expirar token antigo.', redisErr.message);
+    }
 
     // Issue new pair
     const newJti = uuidv4();
     const accessToken = signAccessToken({ sub: payload.sub, role: payload.role });
     const refreshTokenStr = signRefreshToken({ sub: payload.sub, role: payload.role }, newJti);
 
-    await redis.setex(refreshKey(prefix, newJti), REFRESH_TOKEN_TTL_SECONDS, payload.sub);
+    try {
+      await redis.setex(refreshKey(prefix, newJti), REFRESH_TOKEN_TTL_SECONDS, payload.sub);
+    } catch (redisErr) {
+      console.warn('⚠️ Alerta (Resiliência): Redis indisponível ao armazenar novo refresh token.', redisErr.message);
+    }
 
     this.auditLog('token_refresh', { 
       [payload.role === 'admin' ? 'adminId' : payload.role === 'client' ? 'clientId' : 'proId']: payload.sub, 

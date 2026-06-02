@@ -99,6 +99,7 @@ export const listarConsultasSchema = z.object({
   status:   z.enum(['PENDENTE', 'PAGO', 'ESTORNO']).optional(),
   page:     z.coerce.number().int().min(1).default(1),
   limit:    z.coerce.number().int().min(1).max(50).default(20),
+  search:   z.string().max(100).optional(),
 });
 
 export const statsSchema = z.object({
@@ -143,13 +144,22 @@ export class ConsultasClientService {
    * OWASP A03 — inputs validados via Zod antes de chegar aqui
    */
   async listar(clientId: string, input: z.infer<typeof listarConsultasSchema>) {
-    const { dateFrom, dateTo, status, page, limit } = input;
+    const { dateFrom, dateTo, status, page, limit, search } = input;
     const skip = (page - 1) * limit;
 
     // OWASP A01 — clienteId fixado pelo JWT, nunca pelo caller
-    const where: Record<string, unknown> = { clienteId: clientId };
+    const where: Record<string, any> = { clienteId: clientId };
 
     if (status) where.status = status;
+
+    if (search) {
+      where.profissional = {
+        name: {
+          contains: search,
+          mode: 'insensitive',
+        },
+      };
+    }
 
     if (dateFrom || dateTo) {
       const dataHora: Record<string, Date> = {};

@@ -167,12 +167,22 @@ export default function ConsultasPage() {
   const [stats, setStats]           = useState(null);
   const [loading, setLoading]       = useState(true);
   const [erro, setErro]             = useState(null);
+  const [search, setSearch]         = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // Debounce para busca
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
 
   const fetchDados = useCallback(async () => {
     setLoading(true); setErro(null);
     try {
       const [listaRes, statsRes] = await Promise.all([
-        listarConsultas({ dateFrom, dateTo }),
+        listarConsultas({ dateFrom, dateTo, search: debouncedSearch }),
         statsConsultas({ dateFrom, dateTo }),
       ]);
       // Mapeia dados da API para o formato da UI
@@ -195,7 +205,7 @@ export default function ConsultasPage() {
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, debouncedSearch]);
 
   useEffect(() => { fetchDados(); }, [fetchDados]);
 
@@ -234,12 +244,52 @@ export default function ConsultasPage() {
               <h2 style={{ color:C.color12, fontSize:20, fontWeight:"bold", margin:0 }}>Consultas</h2>
               <span style={{ color:C.color11, fontSize:14 }}>Gerencie seus agendamentos e acompanhe o status de cada consulta</span>
             </div>
-            <div ref={dateRef} style={{ position:"relative" }}>
-              <button id="btn-filtro-periodo" onClick={()=>setShowDatePicker(v=>!v)} style={{
-                display:"flex", alignItems:"center", gap:8, padding:"6px 12px", borderRadius:8,
-                border:`1px solid ${showDatePicker?"#10b981":C.border}`, backgroundColor:C.color2,
-                cursor:"pointer", transition:"border-color .15s", color:C.color11, fontSize:12,
-              }}
+            
+            <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+              {/* Input de Busca */}
+              <div style={{ position:"relative", display:"flex", alignItems:"center" }}>
+                <input
+                  id="search-consultas"
+                  type="text"
+                  placeholder="Buscar por profissional..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  style={{
+                    background: C.color2,
+                    border: `1px solid ${C.border}`,
+                    borderRadius: 8,
+                    color: "#fff",
+                    padding: "6px 12px 6px 32px",
+                    fontSize: 12,
+                    width: 200,
+                    outline: "none",
+                    transition: "border-color .15s"
+                  }}
+                  onFocus={e => e.currentTarget.style.borderColor = "#10b981"}
+                  onBlur={e => e.currentTarget.style.borderColor = C.border}
+                />
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke={C.color11}
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ position: "absolute", left: 10, pointerEvents: "none" }}
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+              </div>
+
+              <div ref={dateRef} style={{ position:"relative" }}>
+                <button id="btn-filtro-periodo" onClick={()=>setShowDatePicker(v=>!v)} style={{
+                  display:"flex", alignItems:"center", gap:8, padding:"6px 12px", borderRadius:8,
+                  border:`1px solid ${showDatePicker?"#10b981":C.border}`, backgroundColor:C.color2,
+                  cursor:"pointer", transition:"border-color .15s", color:C.color11, fontSize:12,
+                }}
                 onMouseEnter={e=>(e.currentTarget as HTMLElement).style.backgroundColor=C.color3}
                 onMouseLeave={e=>(e.currentTarget as HTMLElement).style.backgroundColor=C.color2}
               >
@@ -265,6 +315,7 @@ export default function ConsultasPage() {
               )}
             </div>
           </div>
+        </div>
 
           {/* Cards de Resumo */}
           <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
