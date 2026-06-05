@@ -115,6 +115,11 @@ const criarAdminSchema = z.object({
     .max(128, 'Senha muito longa'),
 });
 
+const updateAgoraKeysSchema = z.object({
+  appId: z.string().min(1, 'App ID é obrigatório').trim(),
+  appCertificate: z.string().min(1, 'App Certificate é obrigatório').trim(),
+});
+
 // ─── Controller ───────────────────────────────────────────────────────────────
 
 export class ConfiguracoesController {
@@ -306,6 +311,30 @@ export class ConfiguracoesController {
       const requesterId = req.user!.sub;
       const meta        = getMeta(req);
       const result      = await service.excluirAdmin(id, requesterId, meta.ip, meta.userAgent);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  // ── Agora.io ─────────────────────────────────────────────────────────────────
+
+  getAgoraKeys = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const keys = await service.getAgoraKeys();
+      // Em produção, normalmente mascararíamos o certificado, mas como é admin local, podemos retornar.
+      res.json(keys);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  updateAgoraKeys = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const adminId = req.user!.sub;
+      const { appId, appCertificate } = updateAgoraKeysSchema.parse(req.body);
+      const meta = getMeta(req);
+      const result = await service.updateAgoraKeys(appId, appCertificate, adminId, meta.ip, meta.userAgent);
       res.json(result);
     } catch (err) {
       next(err);

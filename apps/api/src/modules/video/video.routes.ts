@@ -26,7 +26,8 @@ const tokenQuerySchema = z.object({
     .min(3)
     .max(64)
     .regex(/^[a-zA-Z0-9_-]+$/, 'Nome de canal inválido')
-    .transform(v => v.replace(/-/g, '_'))
+    .transform(v => v.replace(/-/g, '_')),
+  uid: z.string().optional().transform(v => v ? parseInt(v, 10) : 0),
 });
 
 /**
@@ -61,18 +62,18 @@ router.get(
         return;
       }
 
-      const { canal } = parsed.data;
+      const { canal, uid } = parsed.data;
       const userId = req.user!.sub;
 
       const currentTimestamp = Math.floor(Date.now() / 1000);
       const privilegeExpiredTs = currentTimestamp + 3600;
 
-      // UID 0 allows any client to join and Agora will auto-assign a UID.
+      // Generate token specifically for the requested UID
       const token: string = RtcTokenBuilder.buildTokenWithUid(
         appId,
         appCertificate,
         canal,
-        0, 
+        uid, 
         RtcRole.PUBLISHER,
         privilegeExpiredTs
       );

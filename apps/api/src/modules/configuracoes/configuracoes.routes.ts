@@ -87,6 +87,10 @@ router.get('/admins',         controller.listAdmins);
 router.post('/admins',        passwordLimiter, controller.criarAdmin);
 router.delete('/admins/:id',  controller.excluirAdmin);
 
+// ─── Agora.io ─────────────────────────────────────────────────────────────────
+router.get('/agora-keys',     controller.getAgoraKeys);
+router.put('/agora-keys',     controller.updateAgoraKeys);
+
 export default router;
 
 

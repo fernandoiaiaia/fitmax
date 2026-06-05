@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import AgoraRTC, { IAgoraRTCClient } from "agora-rtc-sdk-ng";
 import {
   AgoraRTCProvider,
-  useLocalMicrophoneTrack,
-  useLocalCameraTrack,
-  usePublish,
+  useRTCClient,
+  useIsConnected,
   useJoin,
   useRemoteUsers,
   RemoteUser,
   LocalVideoTrack,
+  IAgoraRTCRemoteUser,
+  ILocalTrack,
 } from "agora-rtc-react";
 import { api } from "@/lib/api";
 
@@ -26,7 +27,6 @@ export default function VideoRoomModal({ isOpen, onClose, channelName, userName 
   const [rtcToken, setRtcToken]               = useState<string | null>(null);
   const [appId, setAppId]                     = useState<string>("");
   const [canalSanitizado, setCanalSanitizado] = useState<string>("");
-  const [uid]                                 = useState<number>(() => Math.floor(Math.random() * 65534) + 1);
   const [tokenError, setTokenError]           = useState<string | null>(null);
   // O client Agora só é criado quando o modal abre pela primeira vez
   const clientRef = useRef<IAgoraRTCClient | null>(null);
@@ -45,7 +45,7 @@ export default function VideoRoomModal({ isOpen, onClose, channelName, userName 
     setRtcToken(null);
     setTokenError(null);
 
-    api.get("/video/token", { params: { canal: channelName } })
+    api.get("/video/token", { params: { canal: channelName, uid: 2 } })
       .then((res) => {
         setRtcToken(res.data.token);
         setAppId(res.data.appId);
@@ -57,7 +57,7 @@ export default function VideoRoomModal({ isOpen, onClose, channelName, userName 
   const fetchToken = () => {
     setTokenError(null);
     setRtcToken(null);
-    api.get("/video/token", { params: { canal: channelName } })
+    api.get("/video/token", { params: { canal: channelName, uid: 2 } })
       .then((res) => { setRtcToken(res.data.token); setAppId(res.data.appId); setCanalSanitizado(res.data.canal); })
       .catch(() => setTokenError("Não foi possível iniciar a chamada de vídeo. Tente novamente."));
   };
@@ -111,7 +111,7 @@ export default function VideoRoomModal({ isOpen, onClose, channelName, userName 
                     Tentar novamente
                   </button>
                 </div>
-              ) : !rtcToken || !appId || !clientRef.current || !uid ? (
+              ) : !rtcToken || !appId || !clientRef.current ? (
                 <div className="w-full h-full flex items-center justify-center text-zinc-400">
                   <div className="flex flex-col items-center gap-3">
                     <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
@@ -120,7 +120,7 @@ export default function VideoRoomModal({ isOpen, onClose, channelName, userName 
                 </div>
               ) : (
                 <AgoraRTCProvider client={clientRef.current}>
-                  <AgoraRoom channelName={canalSanitizado} appId={appId} token={rtcToken} uid={uid} />
+                  <AgoraRoom channelName={canalSanitizado} appId={appId} token={rtcToken} uid={2} />
                 </AgoraRTCProvider>
               )}
             </div>
@@ -140,12 +140,56 @@ function AgoraRoom({ channelName, appId, token, uid }: {
   const [micOn, setMicOn]       = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
 
-  const { localMicrophoneTrack } = useLocalMicrophoneTrack(micOn);
-  const { localCameraTrack }     = useLocalCameraTrack(cameraOn);
+  const [localMicrophoneTrack, setMicTrack] = useState<any>(null);
+  const [localCameraTrack, setCamTrack] = useState<any>(null);
+
+  useEffect(() => {
+    let mTrack: any;
+    let cTrack: any;
+    
+    async function initTracks() {
+      try {
+        if (micOn) {
+          mTrack = await AgoraRTC.createMicrophoneAudioTrack();
+          setMicTrack(mTrack);
+        }
+        if (cameraOn) {
+          cTrack = await AgoraRTC.createCameraVideoTrack();
+          setCamTrack(cTrack);
+        }
+      } catch (e) {
+        console.error("Error creating tracks:", e);
+      }
+    }
+    
+    initTracks();
+    
+    return () => {
+      mTrack?.close();
+      cTrack?.close();
+    };
+  }, [micOn, cameraOn]);
+
+  const client = useRTCClient();
+  const isConnected = useIsConnected();
 
   useJoin({ appid: appId, channel: channelName, token, uid });
 
-  usePublish([localMicrophoneTrack, localCameraTrack]);
+  // Publish microphone manually when connected
+  useEffect(() => {
+    if (isConnected && client && localMicrophoneTrack) {
+      client.publish(localMicrophoneTrack).catch(e => console.log("Mic publish error:", e));
+      return () => { client.unpublish(localMicrophoneTrack).catch(e => console.log("Mic unpublish error:", e)); };
+    }
+  }, [isConnected, client, localMicrophoneTrack]);
+
+  // Publish camera manually when connected
+  useEffect(() => {
+    if (isConnected && client && localCameraTrack) {
+      client.publish(localCameraTrack).catch(e => console.log("Cam publish error:", e));
+      return () => { client.unpublish(localCameraTrack).catch(e => console.log("Cam unpublish error:", e)); };
+    }
+  }, [isConnected, client, localCameraTrack]);
 
   const remoteUsers    = useRemoteUsers();
   const mainRemoteUser = remoteUsers.length > 0 ? remoteUsers[0] : null;

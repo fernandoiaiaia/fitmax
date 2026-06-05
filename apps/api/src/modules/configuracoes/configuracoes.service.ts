@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import path from 'path';
+import fs from 'fs';
 import { prisma } from '@fitmax/database';
 import { logger } from '../../lib/logger';
 import { AppError } from '../../middlewares/errorHandler';
@@ -492,6 +493,51 @@ export class ConfiguracoesService {
     );
 
     return { deleted: true, id, email: admin.email };
+  }
+
+  // ── Agora.io ──────────────────────────────────────────────────────────────
+
+  async getAgoraKeys() {
+    return {
+      appId: process.env.AGORA_APP_ID || '',
+      appCertificate: process.env.AGORA_APP_CERTIFICATE || '',
+    };
+  }
+
+  async updateAgoraKeys(appId: string, appCertificate: string, adminId: string, ip: string, userAgent: string) {
+    const envPath = path.resolve(process.cwd(), '.env');
+    let envContent = '';
+    
+    if (fs.existsSync(envPath)) {
+      envContent = fs.readFileSync(envPath, 'utf-8');
+    }
+
+    // Update or append AGORA_APP_ID
+    if (envContent.match(/^AGORA_APP_ID=/m)) {
+      envContent = envContent.replace(/^AGORA_APP_ID=.*$/m, `AGORA_APP_ID="${appId}"`);
+    } else {
+      envContent += `\nAGORA_APP_ID="${appId}"`;
+    }
+
+    // Update or append AGORA_APP_CERTIFICATE
+    if (envContent.match(/^AGORA_APP_CERTIFICATE=/m)) {
+      envContent = envContent.replace(/^AGORA_APP_CERTIFICATE=.*$/m, `AGORA_APP_CERTIFICATE="${appCertificate}"`);
+    } else {
+      envContent += `\nAGORA_APP_CERTIFICATE="${appCertificate}"`;
+    }
+
+    fs.writeFileSync(envPath, envContent.trim() + '\n', 'utf-8');
+
+    // Update current process env so it works without restarting
+    process.env.AGORA_APP_ID = appId;
+    process.env.AGORA_APP_CERTIFICATE = appCertificate;
+
+    logger.warn(
+      { event: 'agora_keys_updated', adminId, ip, userAgent },
+      `🔑 Chaves do Agora.io atualizadas pelo admin ${adminId}`
+    );
+
+    return { success: true };
   }
 }
 

@@ -318,29 +318,27 @@ function ConsultaDetalheInner() {
             </div>
           )}
 
-          {consultaMod === "Online" && consultaStatus !== "cancelada" && (
-            <button
-              onClick={() => setIsVideoModalOpen(true)}
-              style={{
-                width: "100%", padding: "16px 0", borderRadius: "14px", fontSize: "16px", fontWeight: 800,
-                background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                boxShadow: "0 6px 20px rgba(16,185,129,0.25)", border: "none", color: "#fff",
-                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
-                transition: "all 0.2s"
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-2px)"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)"; }}
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-              Iniciar Videochamada
-            </button>
-          )}
-
           {/* ── MENU ── */}
           {view === "menu" && !cancelDone && !confirmDone && !reagendDone && !atendDone && !ausenteDone && (
             <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
               <span style={{ color:"#a1a1aa", fontSize:13, fontWeight:600 }}>O que você deseja fazer?</span>
               <div className="pro-mg-actions-grid">
+                
+                {/* Entrar na Chamada */}
+                {consultaMod === "Online" && consultaStatus !== "cancelada" && (
+                  <div
+                    id="btn-manage-video"
+                    className="pro-mg-action-card video-chamada"
+                    onClick={() => setIsVideoModalOpen(true)}
+                    style={{ gridColumn: "span 2", background: "rgba(16,185,129,0.05)", borderColor: "rgba(16,185,129,0.2)" }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "rgba(16,185,129,0.1)"; e.currentTarget.style.borderColor = "#10b981"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "rgba(16,185,129,0.05)"; e.currentTarget.style.borderColor = "rgba(16,185,129,0.2)"; }}
+                  >
+                    <div className="pro-mg-action-icon" style={{ background: "rgba(16,185,129,0.15)" }}>🎥</div>
+                    <p className="pro-mg-action-title" style={{ color: "#10b981" }}>Entrar na Chamada</p>
+                    <p className="pro-mg-action-sub">Acesse a sala de vídeo para o seu atendimento online</p>
+                  </div>
+                )}
 
                 {/* Confirmar Atendimento — aparece apenas quando a consulta já passou */}
                 {consultaJaPassou && (

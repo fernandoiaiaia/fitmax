@@ -9,9 +9,11 @@
     "seed": "ts-node --transpile-only seed.ts"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.7.0",
     "bcryptjs": "^2.4.3",
-    "dotenv": "^16.5.0"
+    "dotenv": "^16.5.0",
+    "pg": "^8.21.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -20,4 +22,3 @@
     "typescript": "^6.0.2"
   }
 }
-
