@@ -24,7 +24,7 @@ const mockSummaryResponse = {
         nome: 'Guilherme Augusto',
         avatarUrl: '/avatar1.png',
       },
-      modalidade: 'PRESENCIAL',
+      modalidade: 'ONLINE',
       dataHora: new Date().toISOString(), // Hoje
       status: 'agendada',
     },
@@ -104,7 +104,7 @@ describe('Web-Pro Painel (Dashboard) Page', () => {
 
     // 2. Consultas Pendentes
     expect(screen.getByText('Guilherme Augusto')).toBeInTheDocument();
-    expect(screen.getByText('Presencial')).toBeInTheDocument();
+    expect(screen.getByText('Online')).toBeInTheDocument();
     expect(screen.getByText('Mariana Ferreira')).toBeInTheDocument();
     expect(screen.getByText('Online')).toBeInTheDocument();
 

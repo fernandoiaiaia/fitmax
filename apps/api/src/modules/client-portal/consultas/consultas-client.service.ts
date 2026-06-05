@@ -112,7 +112,7 @@ export const agendarConsultaSchema = z.object({
   profissionalId: z.string().uuid('profissionalId inválido'),
   especialidade:  z.string().min(2).max(100).trim(),
   // OWASP A04 — tipo restrito a valores conhecidos
-  tipo:           z.enum(['PRESENCIAL', 'ONLINE']),
+  tipo:           z.enum(['ONLINE']),
   // OWASP A04 — dataHora deve ser no futuro
   dataHora:       z.string().datetime({ message: 'dataHora deve ser ISO8601' }).refine(
     v => new Date(v) > new Date(),
@@ -359,7 +359,7 @@ export class ConsultasClientService {
         clienteId:    clientId,
         profissionalId,
         especialidade,
-        tipo:         tipo as 'PRESENCIAL' | 'ONLINE',
+        tipo:         tipo as 'ONLINE',
         dataHora:     new Date(dataHora),
         valorCentavos,
         taxaPlataforma: 10, // default da plataforma

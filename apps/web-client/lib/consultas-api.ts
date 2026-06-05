@@ -81,7 +81,7 @@ export async function detalheConsulta(id: string): Promise<ConsultaDetalhe> {
 export async function agendarConsulta(body: {
   profissionalId: string;
   especialidade: string;
-  tipo: 'PRESENCIAL' | 'ONLINE';
+  tipo: 'ONLINE';
   dataHora: string;
   valorCentavos: number;
   observacao?: string;
@@ -136,7 +136,7 @@ export async function listarEspecialidades(): Promise<string[]> {
 export async function buscarDisponibilidade(
   profissionalId: string,
   data: string,
-  tipo?: 'Presencial' | 'Online',
+  tipo?: 'Online',
 ): Promise<{ hora: string; modalidade: string; endereco: string; ocupado: boolean }[]> {
   const { data: res } = await api.get(`/client-portal/profissionais/${profissionalId}/disponibilidade`, {
     params: { data, ...(tipo ? { tipo } : {}) },

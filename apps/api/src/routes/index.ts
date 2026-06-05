@@ -13,6 +13,7 @@ import { proRouter } from '../modules/pro/pro.routes';
 import { clientPortalRouter } from '../modules/client-portal/client-portal.routes';
 import { chaosRouter } from './chaos.routes';
 import { chaosState } from '../chaos';
+import { videoRouter } from '../modules/video/video.routes';
 
 const router = Router();
 
@@ -41,6 +42,7 @@ router.use('/admin/assinaturas',     assinaturasRouter);
 router.use('/admin/configuracoes',   configuracoesRouter);
 router.use('/pro',                   proRouter);  // Painel do Profissional
 router.use('/client-portal',         clientPortalRouter); // Painel do Paciente
+router.use('/video',                 videoRouter); // Tokens de vídeo (Agora RTC)
 
 export { router as apiRouter };
 

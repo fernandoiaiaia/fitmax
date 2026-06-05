@@ -48,7 +48,7 @@ const generateMockConsultas = (count: number) => {
         avatarUrl: null,
       },
       especialidade: 'Cardiologia',
-      modalidade: 'PRESENCIAL',
+      modalidade: 'ONLINE',
       status: 'agendada',
     });
   }

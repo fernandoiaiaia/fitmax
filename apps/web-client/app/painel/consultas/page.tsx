@@ -209,8 +209,8 @@ export default function ConsultasPage() {
 
   useEffect(() => { fetchDados(); }, [fetchDados]);
 
-  // Não filtra localmente — a API já filtra por período
-  const filtered = consultas;
+  // Não filtra localmente — a API já filtra por período. Ordem: mais recente primeiro.
+  const filtered = [...consultas].reverse();
 
   const fmtDate = (iso) => { const [y,m,d] = iso.split("-"); return `${d}/${m}/${y}`; };
 

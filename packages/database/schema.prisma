@@ -22,11 +22,10 @@ enum ConsultaStatusAgenda {
   CONFIRMADA
   CANCELADA
   CONCLUIDA
-  AUSENTE     // cliente não compareceu ao atendimento
+  AUSENTE // cliente não compareceu ao atendimento
 }
 
 enum ConsultaTipo {
-  PRESENCIAL
   ONLINE
 }
 
@@ -62,75 +61,75 @@ enum DisponibilidadeEstado {
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model Admin {
-  id              String       @id @default(uuid())
-  email           String       @unique
+  id              String           @id @default(uuid())
+  email           String           @unique
   password        String
-  name            String?      // nome completo do admin
-  phone           String?      // telefone
-  username        String?      @unique // @handle
-  avatarUrl       String?      // URL da foto de perfil
-  createdAt       DateTime     @default(now())
+  name            String? // nome completo do admin
+  phone           String? // telefone
+  username        String?          @unique // @handle
+  avatarUrl       String? // URL da foto de perfil
+  createdAt       DateTime         @default(now())
   repasses        Repasse[]
-  moderacoes      Publicacao[] @relation("PublicacaoModerador")
-  clientesBanidos Client[]     @relation("ClientBanidor")
-  profsBanidos    Professional[] @relation("ProfessionalBanidor")
-  planosCreados   Plano[]      @relation("PlanoCriador")
+  moderacoes      Publicacao[]     @relation("PublicacaoModerador")
+  clientesBanidos Client[]         @relation("ClientBanidor")
+  profsBanidos    Professional[]   @relation("ProfessionalBanidor")
+  planosCreados   Plano[]          @relation("PlanoCriador")
   notifPrefs      AdminNotifPrefs?
-  convenios       Convenio[]   @relation("ConvenioCriador")
+  convenios       Convenio[]       @relation("ConvenioCriador")
 }
 
 model Professional {
-  id                   String       @id @default(uuid())
-  email                String       @unique
+  id                   String            @id @default(uuid())
+  email                String            @unique
   name                 String
   password             String
   avatarUrl            String?
   especialidade        String?
-  registroProfissional String?      // ex: "CRM 54.321 · SP" ou "CREF 77.001 · GO"
+  registroProfissional String? // ex: "CRM 54.321 · SP" ou "CREF 77.001 · GO"
   telefone             String?
-  username             String?      @unique
+  username             String?           @unique
   cidade               String?
   uf                   String?
   convenios            String[]
-  notificacoes         Json?        @default("{}")
-  cpf                  String?      @unique
-  status               UserStatus   @default(ATIVO)
-  plano                String?      // ex: "Pro Anual", "Pro Mensal"
-  banidoPorId          String?      // admin que baniu (OWASP A09)
+  notificacoes         Json?             @default("{}")
+  cpf                  String?           @unique
+  status               UserStatus        @default(ATIVO)
+  plano                String? // ex: "Pro Anual", "Pro Mensal"
+  banidoPorId          String? // admin que baniu (OWASP A09)
   banidoEm             DateTime?
   motivoBan            String?
-  createdAt            DateTime     @default(now())
+  createdAt            DateTime          @default(now())
   consultas            Consulta[]
   publicacoes          Publicacao[]
   disponibilidades     Disponibilidade[]
   curtidas_            CurtidaFeed[]
   comentarios_         ComentarioFeed[]
-  banidoPor            Admin?       @relation("ProfessionalBanidor", fields: [banidoPorId], references: [id])
+  banidoPor            Admin?            @relation("ProfessionalBanidor", fields: [banidoPorId], references: [id])
 }
 
 model Client {
-  id          String     @id @default(uuid())
-  email       String     @unique
+  id          String              @id @default(uuid())
+  email       String              @unique
   name        String
   telefone    String?
-  username    String?    @unique
+  username    String?             @unique
   password    String
   avatarUrl   String?
-  cpf         String?    @unique
-  objetivo    String?    // ex: "Hipertrofia", "Emagrecimento" — objetivo fitness selecionado pelo cliente
-  status      UserStatus @default(ATIVO)
-  plano       String?    // ex: "Premium", "Básico"
-  banidoPorId String?    // admin que baniu (OWASP A09)
+  cpf         String?             @unique
+  objetivo    String? // ex: "Hipertrofia", "Emagrecimento" — objetivo fitness selecionado pelo cliente
+  status      UserStatus          @default(ATIVO)
+  plano       String? // ex: "Premium", "Básico"
+  banidoPorId String? // admin que baniu (OWASP A09)
   banidoEm    DateTime?
   motivoBan   String?
-  createdAt   DateTime   @default(now())
+  createdAt   DateTime            @default(now())
   consultas   Consulta[]
   denuncias   Denuncia[]
-  banidoPor   Admin?             @relation("ClientBanidor", fields: [banidoPorId], references: [id])
-  curtidas    CurtidaFeed[]      // curtidas que o cliente deu (OWASP A01)
+  banidoPor   Admin?              @relation("ClientBanidor", fields: [banidoPorId], references: [id])
+  curtidas    CurtidaFeed[] // curtidas que o cliente deu (OWASP A01)
   comentarios ComentarioFeed[]
   avaliacoes  AvaliacaoConsulta[] // avaliações feitas pelo cliente (OWASP A09 — rastreabilidade)
-  notifPrefs  ClientNotifPrefs?  // preferências de notificação — relação 1:1
+  notifPrefs  ClientNotifPrefs? // preferências de notificação — relação 1:1
 }
 
 model Consulta {
@@ -140,17 +139,17 @@ model Consulta {
   especialidade  String
   tipo           ConsultaTipo
   dataHora       DateTime
-  valorCentavos  Int                  // valor em centavos — evita erros de float (OWASP A02)
+  valorCentavos  Int // valor em centavos — evita erros de float (OWASP A02)
   taxaPlataforma Int                  @default(10) // percentual retido pela plataforma
-  status         ConsultaStatus       @default(PENDENTE)  // status financeiro: PENDENTE | PAGO | ESTORNO
-  statusAgenda   ConsultaStatusAgenda @default(AGENDADA)  // status de agenda: AGENDADA | CONFIRMADA | CANCELADA | CONCLUIDA
-  repasseEm      DateTime?            // data/hora em que o repasse foi processado
-  estornoMotivo  String?              // motivo do estorno, se aplicável
+  status         ConsultaStatus       @default(PENDENTE) // status financeiro: PENDENTE | PAGO | ESTORNO
+  statusAgenda   ConsultaStatusAgenda @default(AGENDADA) // status de agenda: AGENDADA | CONFIRMADA | CANCELADA | CONCLUIDA
+  repasseEm      DateTime? // data/hora em que o repasse foi processado
+  estornoMotivo  String? // motivo do estorno, se aplicável
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
 
-  profissional Professional      @relation(fields: [profissionalId], references: [id])
-  cliente      Client            @relation(fields: [clienteId], references: [id])
+  profissional Professional       @relation(fields: [profissionalId], references: [id])
+  cliente      Client             @relation(fields: [clienteId], references: [id])
   repasses     Repasse[]
   avaliacao    AvaliacaoConsulta? // relação 1:1 — OWASP A08: idempotência garantida pelo @unique
 }
@@ -159,7 +158,7 @@ model Repasse {
   id            String   @id @default(uuid())
   consultaId    String
   adminId       String
-  valorCentavos Int      // valor repassado ao profissional em centavos
+  valorCentavos Int // valor repassado ao profissional em centavos
   processadoEm  DateTime @default(now())
 
   consulta Consulta @relation(fields: [consultaId], references: [id])
@@ -170,20 +169,20 @@ model Publicacao {
   id             String           @id @default(uuid())
   profissionalId String
   topico         String
-  caption        String           // texto do post
+  caption        String // texto do post
   imagemUrl      String
-  aspectRatio    Float            @default(1.0)   // largura/altura da imagem
+  aspectRatio    Float            @default(1.0) // largura/altura da imagem
   likes          Int              @default(0)
   comentarios    Int              @default(0)
   status         PublicacaoStatus @default(ATIVA)
-  motivoBan      String?          // motivo informado pelo admin ao banir
-  moderadoPorId  String?          // qual admin moderou (OWASP A09 — auditoria)
-  moderadoEm     DateTime?        // quando foi moderado
+  motivoBan      String? // motivo informado pelo admin ao banir
+  moderadoPorId  String? // qual admin moderou (OWASP A09 — auditoria)
+  moderadoEm     DateTime? // quando foi moderado
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
-  profissional Professional  @relation(fields: [profissionalId], references: [id])
-  moderadoPor  Admin?        @relation("PublicacaoModerador", fields: [moderadoPorId], references: [id])
+  profissional Professional     @relation(fields: [profissionalId], references: [id])
+  moderadoPor  Admin?           @relation("PublicacaoModerador", fields: [moderadoPorId], references: [id])
   denuncias    Denuncia[]
   curtidas     CurtidaFeed[]
   comentarios_ ComentarioFeed[]
@@ -192,8 +191,8 @@ model Publicacao {
 model Denuncia {
   id           String   @id @default(uuid())
   publicacaoId String
-  clienteId    String?  // quem denunciou (null = anônimo)
-  motivo       String   // "spam", "conteúdo impróprio", etc.
+  clienteId    String? // quem denunciou (null = anônimo)
+  motivo       String // "spam", "conteúdo impróprio", etc.
   createdAt    DateTime @default(now())
 
   publicacao Publicacao @relation(fields: [publicacaoId], references: [id])
@@ -201,17 +200,17 @@ model Denuncia {
 }
 
 model Plano {
-  id            String          @id @default(uuid())
+  id            String         @id @default(uuid())
   nome          String
   tipo          PlanoPeriodo
-  audiencia     PlanoAudiencia  @default(CLIENTE)   // CLIENTE | PROFISSIONAL
-  valorCentavos Int             // valor em centavos — evita erros de ponto flutuante (OWASP A02)
-  consultas     Int             // quantidade de consultas incluídas no plano
-  taxa          Int             // percentual retido pela plataforma (ex: 6 = 6%)
-  ativo         Boolean         @default(true)
-  criadoPorId   String          // OWASP A09 — rastreabilidade: qual admin criou
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  audiencia     PlanoAudiencia @default(CLIENTE) // CLIENTE | PROFISSIONAL
+  valorCentavos Int // valor em centavos — evita erros de ponto flutuante (OWASP A02)
+  consultas     Int // quantidade de consultas incluídas no plano
+  taxa          Int // percentual retido pela plataforma (ex: 6 = 6%)
+  ativo         Boolean        @default(true)
+  criadoPorId   String // OWASP A09 — rastreabilidade: qual admin criou
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   criadoPor Admin @relation("PlanoCriador", fields: [criadoPorId], references: [id])
 }
@@ -236,9 +235,9 @@ model AdminNotifPrefs {
 model Convenio {
   id          String   @id @default(uuid())
   nome        String   @unique
-  categoria   String   // Nacional | Regional | Empresarial | Odontológico | Outro
+  categoria   String // Nacional | Regional | Empresarial | Odontológico | Outro
   ativo       Boolean  @default(true)
-  criadoPorId String   // OWASP A09 — rastreabilidade
+  criadoPorId String // OWASP A09 — rastreabilidade
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -247,36 +246,37 @@ model Convenio {
 
 /// Slots de disponibilidade da agenda do profissional
 model Disponibilidade {
-  id             String               @id @default(uuid())
+  id             String                @id @default(uuid())
   profissionalId String
-  dia            String               // "2026-04-23" (ISO date)
-  hora           String               // "09:00"
+  dia            String // "2026-04-23" (ISO date)
+  hora           String // "09:00"
   estado         DisponibilidadeEstado @default(DISPONIVEL)
-  modalidade     String?              // "Online" ou "Presencial"
-  endereco       String?              // Endereço completo
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  modalidade     String? // "Online" ou "Presencial"
+  endereco       String? // Endereço completo
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
 
   profissional Professional @relation(fields: [profissionalId], references: [id])
 
   @@unique([profissionalId, dia, hora])
   @@index([profissionalId, dia])
 }
+
 /// Curtidas do feed — suporta profissional OU cliente (OWASP A01)
 model CurtidaFeed {
   id             String   @id @default(uuid())
   publicacaoId   String
-  profissionalId String?  // curtida por profissional
-  clienteId      String?  // curtida por cliente
+  profissionalId String? // curtida por profissional
+  clienteId      String? // curtida por cliente
   criadoEm       DateTime @default(now())
 
   profissional Professional? @relation(fields: [profissionalId], references: [id])
-  cliente      Client?       @relation(fields: [clienteId],      references: [id])
-  publicacao   Publicacao    @relation(fields: [publicacaoId],   references: [id])
+  cliente      Client?       @relation(fields: [clienteId], references: [id])
+  publicacao   Publicacao    @relation(fields: [publicacaoId], references: [id])
 
   // Garante que cada profissional ou cliente só curte uma vez por post (OWASP A01)
   @@unique([profissionalId, publicacaoId])
-  @@unique([clienteId,      publicacaoId])
+  @@unique([clienteId, publicacaoId])
   @@index([publicacaoId])
 }
 
@@ -284,14 +284,14 @@ model CurtidaFeed {
 model ComentarioFeed {
   id             String   @id @default(uuid())
   publicacaoId   String
-  profissionalId String?  // comentado por profissional
-  clienteId      String?  // comentado por cliente
+  profissionalId String? // comentado por profissional
+  clienteId      String? // comentado por cliente
   texto          String
   criadoEm       DateTime @default(now())
 
-  publicacao   Publicacao    @relation(fields: [publicacaoId],   references: [id])
+  publicacao   Publicacao    @relation(fields: [publicacaoId], references: [id])
   profissional Professional? @relation(fields: [profissionalId], references: [id])
-  cliente      Client?       @relation(fields: [clienteId],      references: [id])
+  cliente      Client?       @relation(fields: [clienteId], references: [id])
 
   @@index([publicacaoId])
 }
@@ -300,15 +300,15 @@ model ComentarioFeed {
 /// OWASP A08 — @unique em consultaId garante idempotência (um cliente, uma avaliação por consulta)
 model AvaliacaoConsulta {
   id           String   @id @default(uuid())
-  consultaId   String   @unique            // 1:1 com Consulta (OWASP A08 — idempotência)
-  clienteId    String                      // OWASP A01 — rastreabilidade: quem avaliou
-  nota         Int                         // 1 a 5 estrelas (validado no service via Zod)
-  comentario   String?                     // texto opcional — máx. 500 chars (validado no service)
-  criadoEm    DateTime @default(now())
+  consultaId   String   @unique // 1:1 com Consulta (OWASP A08 — idempotência)
+  clienteId    String // OWASP A01 — rastreabilidade: quem avaliou
+  nota         Int // 1 a 5 estrelas (validado no service via Zod)
+  comentario   String? // texto opcional — máx. 500 chars (validado no service)
+  criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
 
   consulta Consulta @relation(fields: [consultaId], references: [id])
-  cliente  Client   @relation(fields: [clienteId],  references: [id])
+  cliente  Client   @relation(fields: [clienteId], references: [id])
 
   @@index([clienteId])
 }
@@ -317,11 +317,11 @@ model AvaliacaoConsulta {
 /// Espelha AdminNotifPrefs, adaptado para o contexto do paciente
 model ClientNotifPrefs {
   clienteId          String   @id
-  confirmacao        Boolean  @default(true)   // confirmação de agendamento
-  lembrete           Boolean  @default(true)   // lembrete 1h antes da consulta
-  cancelamento       Boolean  @default(true)   // cancelamentos e reagendamentos
-  novosProfissionais Boolean  @default(false)  // novos profissionais compatíveis com o objetivo
-  dicas              Boolean  @default(false)  // dicas de saúde personalizadas
+  confirmacao        Boolean  @default(true) // confirmação de agendamento
+  lembrete           Boolean  @default(true) // lembrete 1h antes da consulta
+  cancelamento       Boolean  @default(true) // cancelamentos e reagendamentos
+  novosProfissionais Boolean  @default(false) // novos profissionais compatíveis com o objetivo
+  dicas              Boolean  @default(false) // dicas de saúde personalizadas
   canalEmail         Boolean  @default(true)
   canalWhatsapp      Boolean  @default(false)
   canalPush          Boolean  @default(true)

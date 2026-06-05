@@ -4,6 +4,9 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
+import dynamic from "next/dynamic";
+
+const VideoRoomModal = dynamic(() => import("@/components/VideoRoomModal"), { ssr: false });
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -168,6 +171,7 @@ function ConsultaDetalheInner() {
   const [ausenteDone,setAusenteDone]  = useState(false);
   const [loading, setLoading]         = useState(false);
   const [apiError, setApiError]       = useState<string | null>(null);
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
 
   // Consulta já passou? (para exibir os botões de resultado)
   const consultaDataHoraParam = searchParams.get("dataHoraISO") ?? "";
@@ -312,6 +316,24 @@ function ConsultaDetalheInner() {
             <div style={{ background:"rgba(244,63,94,0.08)", border:"1px solid rgba(244,63,94,0.3)", borderRadius:10, padding:"10px 16px", color:"#f43f5e", fontSize:13 }}>
               ⚠️ {apiError}
             </div>
+          )}
+
+          {consultaMod === "Online" && consultaStatus !== "cancelada" && (
+            <button
+              onClick={() => setIsVideoModalOpen(true)}
+              style={{
+                width: "100%", padding: "16px 0", borderRadius: "14px", fontSize: "16px", fontWeight: 800,
+                background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                boxShadow: "0 6px 20px rgba(16,185,129,0.25)", border: "none", color: "#fff",
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+                transition: "all 0.2s"
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-2px)"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)"; }}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+              Iniciar Videochamada
+            </button>
           )}
 
           {/* ── MENU ── */}
@@ -550,6 +572,13 @@ function ConsultaDetalheInner() {
 
         </div>
       </div>
+
+      <VideoRoomModal
+        isOpen={isVideoModalOpen}
+        onClose={() => setIsVideoModalOpen(false)}
+        channelName={`consulta_${consultaId}`}
+        userName="Profissional"
+      />
     </>
   );
 }

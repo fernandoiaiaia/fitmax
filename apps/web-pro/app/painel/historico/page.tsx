@@ -8,7 +8,7 @@ type StatusPagamento = "pago" | "pendente" | "reembolsado";
 
 interface ConsultaHistorico {
   id: number; data: string; dataISO: string; horario: string;
-  paciente: string; especialidade: string; modalidade: "Presencial" | "Online";
+  paciente: string; especialidade: string; modalidade: "Online";
   avatar: string; valor: string; statusPagamento: StatusPagamento; nota?: number;
 }
 
@@ -114,7 +114,7 @@ export default function HistoricoPage() {
         horario:         new Date(c.dataHora).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }),
         paciente:        c.paciente.nome,
         especialidade:   c.especialidade,
-        modalidade:      c.modalidade === 'PRESENCIAL' ? 'Presencial' : 'Online',
+        modalidade:      'Online',
         avatar:          c.paciente.avatarUrl || `https://picsum.photos/200/200?random=30`,
         valor:           `R$ ${Number(c.valorReais).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`,
         statusPagamento: c.statusPagamento,

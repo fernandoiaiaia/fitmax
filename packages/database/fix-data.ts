@@ -1,0 +1,1 @@
+import { PrismaClient } from '@prisma/client'; const prisma = new PrismaClient(); async function main() { await prisma.$executeRaw`UPDATE \"Consulta\" SET tipo = 'ONLINE' WHERE tipo::text = 'PRESENCIAL'`; console.log('Fixed'); } main().catch(console.error).finally(() => prisma.$disconnect());

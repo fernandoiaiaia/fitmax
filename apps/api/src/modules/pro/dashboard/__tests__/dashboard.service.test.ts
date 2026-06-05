@@ -41,7 +41,7 @@ describe('DashboardProService (Backend Unit Tests)', () => {
         id: 'c-1',
         dataHora: new Date(mockHoje.getTime() + 3600000), // daqui a 1 hora
         especialidade: 'Fisioterapia',
-        tipo: 'PRESENCIAL',
+        tipo: 'ONLINE',
         status: 'PENDENTE',
         cliente: {
           id: 'cli-1',
@@ -89,7 +89,7 @@ describe('DashboardProService (Backend Unit Tests)', () => {
       id: 'c-1',
       dataHora: expect.any(String),
       especialidade: 'Fisioterapia',
-      modalidade: 'PRESENCIAL',
+      modalidade: 'ONLINE',
       status: 'agendada',
       paciente: {
         id: 'cli-1',

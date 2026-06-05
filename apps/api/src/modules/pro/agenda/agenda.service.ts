@@ -11,7 +11,7 @@ export const salvarDisponibilidadeSchema = z.object({
     estado: z.enum(['DISPONIVEL', 'BLOQUEADO']),
     modalidade: z.string().optional().nullable(),
     endereco:   z.string().optional().nullable(),
-  })).min(1).max(48), // máx 48 slots por dia (a cada 30min)
+  })).min(1).max(96), // máx 96 slots por dia (a cada 15min)
 });
 
 export const recorrenciaSchema = z.object({
@@ -20,7 +20,7 @@ export const recorrenciaSchema = z.object({
   horaFim:    z.string().regex(/^\d{2}:\d{2}$/),
   duracaoMin: z.number().int().min(15).max(120), // em minutos
   // modalidade: define o tipo padrão dos slots criados (null = ambos os tipos)
-  modalidade: z.enum(['Presencial', 'Online']).nullable().optional(),
+  modalidade: z.enum(['Online']).nullable().optional(),
   // mes e ano são opcionais: se omitidos, usa o mês/ano corrente
   mes:        z.number().int().min(1).max(12).optional(),
   ano:        z.number().int().min(2024).optional(),
@@ -76,10 +76,14 @@ export class AgendaProService {
       prisma.consulta.findMany({
         where: {
           profissionalId,
-          dataHora: {
-            gte: new Date(`${dia}T00:00:00`),
-            lte: new Date(`${dia}T23:59:59`),
-          },
+          dataHora: (() => {
+            // Brasília = UTC-3. Meia-noite local = 03:00 UTC do mesmo dia.
+            // Final do dia local (23:59:59) = 02:59:59 UTC do DIA SEGUINTE.
+            const [y, m, d2] = dia.split('-').map(Number);
+            const gte = new Date(Date.UTC(y, m - 1, d2, 3, 0, 0, 0));      // 00:00 BRT
+            const lte = new Date(Date.UTC(y, m - 1, d2 + 1, 2, 59, 59, 999)); // 23:59:59 BRT
+            return { gte, lte };
+          })(),
           // Consultas canceladas liberam o slot automaticamente na agenda do Pro
           statusAgenda: { not: 'CANCELADA' },
         },
@@ -90,10 +94,16 @@ export class AgendaProService {
       }),
     ]);
 
-    // Indexa consultas por hora "HH:MM"
+    // Indexa consultas por hora "HH:MM" — usa horário de Brasília (UTC-3) para
+    // coincidir com os slots criados pelo profissional no mesmo fuso.
     const consultasPorHora = new Map<string, typeof consultas[0]>();
     for (const c of consultas) {
-      const hora = c.dataHora.toISOString().slice(11, 16); // "HH:MM" UTC
+      const hora = c.dataHora.toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'America/Sao_Paulo',
+        hour12: false,
+      }).slice(0, 5); // "HH:MM"
       consultasPorHora.set(hora, c);
     }
 
@@ -258,13 +268,13 @@ export class AgendaProService {
       const inicio = new Date(anoAlvo, mesAlvo - 1, 1);
       const fim    = new Date(anoAlvo, mesAlvo, 0);
 
-      const diasAlvo: { profissionalId: string; dia: string; hora: string; estado: 'DISPONIVEL'; modalidade: string | null }[] = [];
+      const diasAlvo: { profissionalId: string; dia: string; hora: string; estado: 'DISPONIVEL' | 'BLOQUEADO'; modalidade: string | null }[] = [];
 
       for (let d = new Date(inicio); d <= fim; d.setDate(d.getDate() + 1)) {
         if (diasSemana.includes(d.getDay())) {
           const diaStr = d.toISOString().slice(0, 10);
           for (const hora of horarios) {
-            diasAlvo.push({ profissionalId, dia: diaStr, hora, estado: 'DISPONIVEL', modalidade: modalidadeSlot });
+            diasAlvo.push({ profissionalId, dia: diaStr, hora, estado: 'BLOQUEADO', modalidade: modalidadeSlot });
           }
         }
       }
@@ -274,13 +284,28 @@ export class AgendaProService {
 
       await prisma.$transaction(async (tx) => {
         const diasStr = [...new Set(diasAlvo.map(d => d.dia))];
-        // Limpa todos os slots dos dias alvo e recria do zero
-        // (Consultas existentes não são afetadas pois ficam na tabela Consulta)
-        await tx.disponibilidade.deleteMany({
+        
+        // 1. Busca slots existentes para não sobrescrever os "DISPONIVEL" (liberados pelo profissional)
+        const existingSlots = await tx.disponibilidade.findMany({
           where: { profissionalId, dia: { in: diasStr } },
         });
-        await tx.disponibilidade.createMany({ data: diasAlvo, skipDuplicates: true });
-        totalSlotsCriados += diasAlvo.length;
+        const liberados = new Set(
+          existingSlots.filter(s => s.estado === 'DISPONIVEL').map(s => `${s.dia}_${s.hora}`)
+        );
+
+        // 2. Limpa APENAS os slots BLOQUEADOS, preservando os horários já liberados intactos
+        await tx.disponibilidade.deleteMany({
+          where: { profissionalId, dia: { in: diasStr }, estado: 'BLOQUEADO' },
+        });
+
+        // 3. Filtra a nova grade para não tentar criar horários que já estão liberados
+        const slotsToCreate = diasAlvo.filter(d => !liberados.has(`${d.dia}_${d.hora}`));
+
+        // 4. Cria os novos slots da grade (todos nascem como BLOQUEADO, conforme exigido)
+        if (slotsToCreate.length > 0) {
+          await tx.disponibilidade.createMany({ data: slotsToCreate, skipDuplicates: true });
+          totalSlotsCriados += slotsToCreate.length;
+        }
       });
     }
 

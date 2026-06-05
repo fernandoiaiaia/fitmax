@@ -137,7 +137,7 @@ export default function RelatoriosPage() {
     horario: new Date(c.dataHora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     paciente: c.paciente?.nome || 'Desconhecido',
     especialidade: c.especialidade,
-    modalidade: c.modalidade === 'PRESENCIAL' ? 'Presencial' : 'Online',
+    modalidade: 'Online',
     valor: Number(c.valorReais),
     status: c.status
   })) ?? [];
@@ -300,7 +300,7 @@ export default function RelatoriosPage() {
                              <span style={{ color:"#a1a1aa" }}><UserIcon /></span>
                              <span style={{ color:"#fafafa", fontSize:14, fontWeight:"bold" }}>{c.paciente}</span>
                            </div>
-                           <span style={{ color:"#a1a1aa", fontSize:12, marginLeft:21 }}>{c.especialidade} · {c.modalidade}</span>
+                           <span style={{ color:"#a1a1aa", fontSize:12, marginLeft:21 }}>{c.especialidade} · Videoconferência</span>
                         </div>
                         <div style={{ display:"flex", alignItems:"center", gap:12, minWidth:120, justifyContent:"flex-end" }}>
                            <span style={{ color:"#fafafa", fontSize:14, fontWeight:"bold" }}>{formatCurrency(c.valor)}</span>
@@ -336,26 +336,6 @@ export default function RelatoriosPage() {
                  </div>
               </div>
 
-              {/* Modalidade */}
-              <div className="sidebar-card">
-                 <p style={{ color:"#a1a1aa", fontSize:11, fontWeight:"bold", letterSpacing:1, textTransform:"uppercase", margin:"0 0 16px" }}>Modalidade de Atendimento</p>
-                 <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
-                    <div style={{ display:"flex", flexDirection:"column" }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:8 }}><span style={{ width:8, height:8, borderRadius:"50%", background:"#10b981" }} /><span style={{ color:"#a1a1aa", fontSize:12 }}>Presencial</span></div>
-                      <span style={{ color:"#fafafa", fontSize:18, fontWeight:"bold" }}>{presencial}</span>
-                      <span style={{ color:"#71717a", fontSize:11 }}>{totalMod > 0 ? Math.round((presencial / totalMod) * 100) : 0}%</span>
-                    </div>
-                    <div style={{ display:"flex", flexDirection:"column" }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:8 }}><span style={{ width:8, height:8, borderRadius:"50%", background:"#60a5fa" }} /><span style={{ color:"#a1a1aa", fontSize:12 }}>Online</span></div>
-                      <span style={{ color:"#fafafa", fontSize:18, fontWeight:"bold" }}>{online}</span>
-                      <span style={{ color:"#71717a", fontSize:11 }}>{totalMod > 0 ? Math.round((online / totalMod) * 100) : 0}%</span>
-                    </div>
-                 </div>
-                 <div style={{ display:"flex", height:8, borderRadius:999, overflow:"hidden", width:"100%" }}>
-                   <div style={{ height:"100%", background:"#10b981", width:`${totalMod > 0 ? (presencial / totalMod) * 100 : 50}%` }} />
-                   <div style={{ height:"100%", background:"#60a5fa", width:`${totalMod > 0 ? (online / totalMod) * 100 : 50}%` }} />
-                 </div>
-              </div>
 
               {/* Resumo */}
               <div className="sidebar-card">

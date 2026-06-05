@@ -49,11 +49,12 @@ export default function PainelPage() {
   }, []);
 
   // Consultas: usa API ou fallback mock
-  const consultas = summary?.proximasConsultas ?? [
-    { id: "m1", paciente: { nome: "Guilherme Augusto", avatarUrl: "https://picsum.photos/200/200?random=30" }, modalidade: "PRESENCIAL", dataHora: new Date().toISOString(), status: "agendada" },
-    { id: "m2", paciente: { nome: "Mariana Ferreira",  avatarUrl: "https://picsum.photos/200/200?random=31" }, modalidade: "ONLINE",      dataHora: new Date().toISOString(), status: "em_andamento" },
-    { id: "m3", paciente: { nome: "Lucas Mendes",      avatarUrl: "https://picsum.photos/200/200?random=32" }, modalidade: "PRESENCIAL", dataHora: new Date(Date.now() + 86400000).toISOString(), status: "agendada" },
+  const mockConsultas = [
+    { id: "m1", paciente: { nome: "Guilherme Augusto", avatarUrl: "https://picsum.photos/200/200?random=30" }, modalidade: "ONLINE", dataHora: new Date().toISOString(), status: "agendada" },
+    { id: "m2", paciente: { nome: "Mariana Ferreira",  avatarUrl: "https://picsum.photos/200/200?random=31" }, modalidade: "ONLINE", dataHora: new Date().toISOString(), status: "em_andamento" },
+    { id: "m3", paciente: { nome: "Lucas Mendes",      avatarUrl: "https://picsum.photos/200/200?random=32" }, modalidade: "ONLINE", dataHora: new Date(Date.now() + 86400000).toISOString(), status: "agendada" },
   ];
+  const consultas = summary?.proximasConsultas ?? mockConsultas;
 
   // Feed thumbnails: usa API ou fallback
   const feedThumbs = summary?.feedDestaques?.length
@@ -184,9 +185,9 @@ export default function PainelPage() {
                     return (
                       <div key={c.id} style={{ display:"flex", alignItems:"center", gap:8, background:C.bg, padding:8, borderRadius:8, border:`1px solid ${C.border}` }}>
                         <img src={c.paciente.avatarUrl || `https://picsum.photos/200/200?random=30`} style={{ width:32, height:32, borderRadius:"50%", objectFit:"cover", flexShrink:0 }} alt={c.paciente.nome} />
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <p style={{ color:"#fafafa", fontWeight:"bold", fontSize:13, margin:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.paciente.nome}</p>
-                          <p style={{ color:"#71717a", fontSize:11, margin:0 }}>{c.modalidade === "PRESENCIAL" ? "Presencial" : "Online"}</p>
+                        <div>
+                          <p style={{ color:"#fafafa", fontSize:13, fontWeight:"bold", margin:0 }}>{c.paciente.nome}</p>
+                          <p style={{ color:"#71717a", fontSize:11, margin:0 }}>Videoconferência</p>
                         </div>
                         <span style={{ background:badge.bg, color:badge.color, fontSize:10, fontWeight:"bold", padding:"2px 8px", borderRadius:999, flexShrink:0 }}>{formatHorario(c.dataHora)}</span>
                       </div>

@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { detalheConsulta } from "../../../../lib/consultas-api";
 import TimelineStatus from "../TimelineStatus";
 import { useStatusMap } from "../consultasStore";
+import dynamic from "next/dynamic";
+const VideoRoomModal = dynamic(() => import("@/components/VideoRoomModal"), { ssr: false });
 
 function formatDate(iso: string) {
   const [y,m,d] = iso.split("T")[0].split("-"); return `${d}/${m}/${y}`;
@@ -70,6 +72,7 @@ function StatusInner() {
   // ─ Dados reais da API ───────────────────────────────────────────────────────
   const [consulta, setConsulta] = useState(null);
   const [loading,  setLoading]  = useState(true);
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -121,14 +124,9 @@ function StatusInner() {
         </div>
         <div className="st-row">
           <span>📅</span>
-          <span className="st-txt"><strong>{formatDate(consulta.dataHora)}</strong> às {consulta.dataHora.substring(11,16)} · {consulta.tipo}</span>
+          <span className="st-txt"><strong>{formatDate(consulta.dataHora)}</strong> às {consulta.dataHora.substring(11,16)} · Videoconferência</span>
         </div>
-        {consulta.tipo === "PRESENCIAL" && consulta.profissional?.cidade && (
-          <div className="st-row">
-            <span>📍</span>
-            <span className="st-txt">{consulta.profissional.cidade}/{consulta.profissional.uf}</span>
-          </div>
-        )}
+
         <div className="st-row">
           <span>💳</span>
           <span className="st-txt">Particular</span>
@@ -148,12 +146,39 @@ function StatusInner() {
         </div>
       )}
 
-      {/* Banner confirmada */}
-      {status === "consulta_confirmada" && (
-        <div className="st-confirm-banner">
-          <span style={{ fontSize:28, display:"block", marginBottom:8 }}>🎉</span>
-          <span style={{ color:"#10b981", fontSize:15, fontWeight:"700", display:"block", marginBottom:4 }}>Consulta Confirmada!</span>
-          <span style={{ color:"#a1a1aa", fontSize:13 }}>Seu pagamento foi recebido. Até {formatDate(consulta.dataHora)} às {consulta.dataHora.substring(11,16)}!</span>
+      {/* Banner confirmada / em andamento */}
+      {(status === "consulta_confirmada" || status === "em_andamento") && (
+        <div className="st-confirm-banner" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div>
+            <span style={{ fontSize:28, display:"block", marginBottom:8 }}>🎉</span>
+            <span style={{ color:"#10b981", fontSize:15, fontWeight:"700", display:"block", marginBottom:4 }}>Consulta Confirmada!</span>
+            <span style={{ color:"#a1a1aa", fontSize:13 }}>Até {formatDate(consulta.dataHora)} às {consulta.dataHora.substring(11,16)}!</span>
+          </div>
+
+          {/* Botão sempre exibido se a consulta estiver em andamento ou confirmada */}
+          <button
+            onClick={() => setIsVideoModalOpen(true)}
+            style={{
+              background: "#10b981",
+              border: "none",
+              borderRadius: "10px",
+              padding: "12px 24px",
+              color: "#fff",
+              fontSize: "14px",
+              fontWeight: "bold",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              margin: "0 auto",
+              transition: "all 0.15s",
+              boxShadow: "0 0 16px rgba(16,185,129,0.3)"
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            Entrar na Sala de Vídeo
+          </button>
         </div>
       )}
 
@@ -169,6 +194,12 @@ function StatusInner() {
         />
       </div>
 
+      <VideoRoomModal
+        isOpen={isVideoModalOpen}
+        onClose={() => setIsVideoModalOpen(false)}
+        channelName={`consulta_${consulta.id}`}
+        userName="Paciente"
+      />
     </div>
   );
 }

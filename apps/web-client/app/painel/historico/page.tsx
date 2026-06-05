@@ -122,7 +122,7 @@ function ConsultaCard({ c, onAvaliar }: { c: ConsultaHistoricoResumo; onAvaliar:
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <span style={{ color:C.color11, fontSize:12 }}>{c.especialidade}</span>
             <div style={{ width:3, height:3, borderRadius:"50%", backgroundColor:"#52525b" }} />
-            <span style={{ color:C.color11, fontSize:12 }}>{c.modalidade === "PRESENCIAL" ? "Presencial" : "Online"}</span>
+            <span style={{ color:C.color11, fontSize:12 }}>Videoconferência</span>
           </div>
           {c.nota && (
             <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:4 }}>
@@ -383,7 +383,7 @@ export default function HistoricoPage() {
                             <div style={{ flex:1, paddingBottom:isLast?0:12 }}>
                               <span style={{ color:C.color10, fontSize:11, display:"block" }}>{isoToData(item.dataHora)}</span>
                               <span style={{ color:C.color12, fontSize:13, fontWeight:"500", display:"block" }}>
-                                {item.especialidade} · {item.modalidade === "PRESENCIAL" ? "Presencial" : "Online"}
+                                {item.especialidade} · Videoconferência
                               </span>
                               <span style={{ color:C.color11, fontSize:12, display:"block" }}>{item.profissionalNome}</span>
                             </div>

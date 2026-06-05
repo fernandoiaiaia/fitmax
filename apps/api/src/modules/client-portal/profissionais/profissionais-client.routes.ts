@@ -54,7 +54,7 @@ router.get('/', readLimit, async (req: Request, res: Response, next: NextFunctio
  */
 const disponibilidadeSchema = z.object({
   data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'data deve ser YYYY-MM-DD'),
-  tipo: z.enum(['Presencial', 'Online']).optional(),
+  tipo: z.enum(['Online']).optional(),
 });
 
 router.get('/:id/disponibilidade', readLimit, async (req: Request, res: Response, next: NextFunction) => {

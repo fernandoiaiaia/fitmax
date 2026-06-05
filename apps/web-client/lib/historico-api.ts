@@ -17,7 +17,7 @@ export interface ProfissionalHistoricoResumo {
 export interface ConsultaHistoricoResumo {
   id:              string;
   especialidade:   string;
-  modalidade:      'PRESENCIAL' | 'ONLINE';
+  modalidade:      'ONLINE';
   dataHora:        string;           // ISO8601
   valorReais:      string;           // ex: "320.00"
   status:          string;

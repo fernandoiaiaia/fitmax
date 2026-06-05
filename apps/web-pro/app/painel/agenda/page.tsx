@@ -10,7 +10,7 @@ import { api } from "@/lib/api";
 interface Consulta {
   id: number; hora: string; duracao: number; paciente: string;
   avatar: string; especialidade: string;
-  modalidade: "Presencial" | "Online";
+  modalidade: "Online";
   status: "confirmada" | "pendente" | "em_andamento" | "cancelada";
 }
 
@@ -295,7 +295,7 @@ function ConsultaCard({ c, onPress }: { c: Consulta; onPress?: () => void }) {
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <span style={{color:"#a1a1aa",fontSize:12}}>{c.especialidade}</span>
               <div style={{width:3,height:3,borderRadius:"50%",background:"#52525b"}} />
-              <span style={{color:"#a1a1aa",fontSize:12}}>{c.modalidade}</span>
+              <span style={{color:"#a1a1aa",fontSize:12}}>Videoconferência</span>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:4,marginTop:2}}>
               <span style={{color:"#71717a"}}><ClockIcon/></span>
@@ -347,7 +347,7 @@ function ConsultaDetalhePanel({ consulta, onClose, onStatusChange }: {
           style={{width:48,height:48,borderRadius:"50%",objectFit:"cover",flexShrink:0,border:`2px solid ${st.color}44`}}/>
         <div style={{flex:1,minWidth:160}}>
           <div style={{color:"#f4f4f5",fontWeight:"bold",fontSize:15,marginBottom:2}}>{consulta.paciente}</div>
-          <div style={{color:"#a1a1aa",fontSize:12,marginBottom:4}}>{consulta.especialidade} · {consulta.modalidade}</div>
+          <div style={{color:"#a1a1aa",fontSize:12,marginBottom:4}}>{consulta.especialidade} · Videoconferência</div>
           <div style={{color:"#71717a",fontSize:11,display:"flex",alignItems:"center",gap:5}}>
             <ClockIcon/> {consulta.hora} · {consulta.duracao}h
           </div>
@@ -398,18 +398,7 @@ function PainelSlots({ iso, slots, setSlots, highlightHora, consultasDia, onSave
   const [novoHor, setNovoHor] = useState("");
   const [saved, setSaved]     = useState(false);
 
-  // Modal states
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [activeSlotIdx, setActiveSlotIdx] = useState<number | null>(null);
-  const [tempModal, setTempModal] = useState<"Online" | "Presencial">("Online");
-  const [tempCep, setTempCep] = useState("");
-  const [tempLog, setTempLog] = useState("");
-  const [tempNum, setTempNum] = useState("");
-  const [tempComp, setTempComp] = useState("");
-  const [tempBairro, setTempBairro] = useState("");
-  const [tempCid, setTempCid] = useState("");
-  const [tempUf, setTempUf] = useState("");
-  const [tempLoadingCep, setTempLoadingCep] = useState(false);
+
 
   const d = new Date(iso+"T12:00:00");
   const label = d.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
@@ -427,110 +416,79 @@ function PainelSlots({ iso, slots, setSlots, highlightHora, consultasDia, onSave
     return { modalidade: "Online", endereco: "" };
   }
 
-  function handleToggle(i: number) {
-    openConfig(i);
+  function isPast(hora: string) {
+    const now = new Date();
+    const [hh, mm] = hora.split(":").map(Number);
+    // Parse iso "YYYY-MM-DD" securely
+    const [yy, mo, dd] = iso.split("-").map(Number);
+    const slotDate = new Date(yy, mo - 1, dd, hh, mm, 0, 0);
+    return slotDate < now;
   }
 
-  function openConfig(i: number) {
+  async function handleToggle(i: number) {
     const s = slots[i];
-    setActiveSlotIdx(i);
-    const detail = getDetail(s.hora);
-    setTempModal(detail.modalidade || "Online");
-    
-    const details = detail.addressDetails || {};
-    setTempCep(details.cep || "");
-    setTempLog(details.logradouro || "");
-    setTempNum(details.numero || "");
-    setTempComp(details.complemento || "");
-    setTempBairro(details.bairro || "");
-    setTempCid(details.cidade || "");
-    setTempUf(details.uf || "");
-    
-    setIsModalOpen(true);
-  }
-
-  async function handleTempCepChange(val: string) {
-    setTempCep(val);
-    const cleanCep = val.replace(/\D/g, "");
-    if (cleanCep.length === 8) {
-      setTempLoadingCep(true);
-      try {
-        const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-        const data = await response.json();
-        if (!data.erro) {
-          setTempLog(data.logradouro || "");
-          setTempBairro(data.bairro || "");
-          setTempCid(data.localidade || "");
-          setTempUf(data.uf || "");
-        }
-      } catch (err) {
-        console.error("Erro ao buscar CEP no modal:", err);
-      } finally {
-        setTempLoadingCep(false);
-      }
+    if (isPast(s.hora)) {
+      alert("Não é possível alterar um horário que já passou.");
+      return;
     }
-  }
-
-  function saveSlotConfig() {
-    if (activeSlotIdx === null) return;
-    const s = slots[activeSlotIdx];
-    
-    const detail = {
-      modalidade: tempModal,
-      endereco: tempModal === "Presencial" 
-        ? `${tempLog}, ${tempNum}${tempComp ? ` - ${tempComp}` : ""}, ${tempBairro}, ${tempCid} - ${tempUf.toUpperCase()}`
-        : "",
-      addressDetails: tempModal === "Presencial" ? {
-        cep: tempCep,
-        logradouro: tempLog,
-        numero: tempNum,
-        complemento: tempComp,
-        bairro: tempBairro,
-        cidade: tempCid,
-        uf: tempUf
-      } : null
-    };
-    
-    if (typeof window !== "undefined") {
-      localStorage.setItem(`slot_detail_${iso}_${s.hora}`, JSON.stringify(detail));
-    }
-    
-    setSlots(slots.map((x, idx) => idx === activeSlotIdx ? { ...x, estado: "disponivel" } : x));
-    setIsModalOpen(false);
-    setActiveSlotIdx(null);
+    const newSlots = slots.map((x, idx) => idx === i ? { ...x, estado: "disponivel" as const } : x);
+    setSlots(newSlots);
     setSaved(false);
+    // Auto-save
+    if (onSaveDia) {
+      try { await onSaveDia(iso, newSlots); setSaved(true); setTimeout(() => setSaved(false), 2500); }
+      catch { alert("Erro ao salvar horário. Tente novamente."); }
+    }
   }
 
-  function toggle(i:number){
+  async function toggle(i:number){
     const s = slots[i];
     if(s.estado==="agendado") return;
-    setSlots(slots.map((x,idx)=>idx===i ? {...x,estado:"bloqueado"} : x));
+    if (isPast(s.hora)) {
+      alert("Não é possível alterar um horário que já passou.");
+      return;
+    }
+    const newSlots = slots.map((x,idx)=>idx===i ? {...x,estado:"bloqueado" as const} : x);
     if (typeof window !== "undefined") {
       localStorage.removeItem(`slot_detail_${iso}_${s.hora}`);
     }
+    setSlots(newSlots);
     setSaved(false);
+    // Auto-save
+    if (onSaveDia) {
+      try { await onSaveDia(iso, newSlots); setSaved(true); setTimeout(() => setSaved(false), 2500); }
+      catch { alert("Erro ao salvar horário. Tente novamente."); }
+    }
   }
-  function bloquearTudo(){ 
-    setSlots(slots.map(s=>{
+  async function bloquearTudo(){
+    const newSlots = slots.map(s=>{
       if (s.estado === "disponivel" && typeof window !== "undefined") {
         localStorage.removeItem(`slot_detail_${iso}_${s.hora}`);
       }
-      return s.estado==="agendado" ? s : {...s,estado:"bloqueado"};
-    })); 
-    setSaved(false); 
+      return s.estado==="agendado" ? s : {...s,estado:"bloqueado" as const};
+    });
+    setSlots(newSlots);
+    setSaved(false);
+    if (onSaveDia) {
+      try { await onSaveDia(iso, newSlots); setSaved(true); setTimeout(() => setSaved(false), 2500); }
+      catch { alert("Erro ao salvar. Tente novamente."); }
+    }
   }
-  function liberarTudo(){  setSlots(slots.map(s=>s.estado==="agendado" ? s : {...s,estado:"disponivel"})); setSaved(false); }
+  async function liberarTudo(){
+    const newSlots = slots.map(s=>s.estado==="agendado" ? s : {...s,estado:"disponivel" as const});
+    setSlots(newSlots);
+    setSaved(false);
+    if (onSaveDia) {
+      try { await onSaveDia(iso, newSlots); setSaved(true); setTimeout(() => setSaved(false), 2500); }
+      catch { alert("Erro ao salvar. Tente novamente."); }
+    }
+  }
   function aplicarPadrao(){ setSlots(HORARIOS_DIA.map(h=>{ const c=consultasDia?.find(x=>x.hora===h.hora); return { hora:h.hora, estado:c?"agendado":h.disponivel?"disponivel":"bloqueado", paciente:c?.paciente }; })); setSaved(false); }
   function addHor(){
     if(!novoHor||slots.find(s=>s.hora===novoHor)) return;
     const newSlots = [...slots,{hora:novoHor,estado:"bloqueado"}].sort((a,b)=>a.hora.localeCompare(b.hora));
     setSlots(newSlots);
     setNovoHor(""); setSaved(false);
-    
-    const newIdx = newSlots.findIndex(s=>s.hora===novoHor);
-    setTimeout(() => {
-      openConfig(newIdx);
-    }, 0);
   }
   async function salvar(){ 
     if(onSaveDia){
@@ -564,29 +522,18 @@ function PainelSlots({ iso, slots, setSlots, highlightHora, consultasDia, onSave
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span className="ag-slot-label-disp">✓ Disponível</span>
                   <span style={{
-                    background: getDetail(s.hora).modalidade === "Presencial" ? "rgba(16,185,129,0.15)" : "rgba(96,165,250,0.15)",
-                    color: getDetail(s.hora).modalidade === "Presencial" ? "#10b981" : "#60a5fa",
+                    background: "rgba(96,165,250,0.15)",
+                    color: "#60a5fa",
                     fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99
                   }}>
-                    {getDetail(s.hora).modalidade === "Presencial" ? "📍 Presencial" : "💻 Online"}
+                    💻 Online
                   </span>
                 </div>
               )}
               {s.estado==="bloqueado" && <span className="ag-slot-label-blq">Bloqueado</span>}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              {s.estado === "disponivel" && (
-                <span
-                  onClick={(e) => { e.stopPropagation(); openConfig(i); }}
-                  style={{
-                    cursor: "pointer", fontSize: 11, display: "inline-flex",
-                    alignItems: "center", justifyContent: "center", padding: "4px 8px",
-                    background: "rgba(255,255,255,0.06)", borderRadius: 6, color: "#a1a1aa", border: "1px solid rgba(255,255,255,0.08)"
-                  }}
-                >
-                  ✏ Editar
-                </span>
-              )}
+
               {s.estado!=="agendado" && (
                 <span className="ag-slot-icon" style={{color:s.estado==="disponivel"?"#10b981":"#3f3f46"}}>
                   {s.estado==="disponivel"?"🔒":"🔓"}
@@ -599,12 +546,7 @@ function PainelSlots({ iso, slots, setSlots, highlightHora, consultasDia, onSave
               })()}
             </div>
           </div>
-          {s.estado === "disponivel" && getDetail(s.hora).modalidade === "Presencial" && getDetail(s.hora).endereco && (
-            <div style={{ color: "#71717a", fontSize: 11, display: "flex", alignItems: "center", gap: 4, paddingLeft: 56, marginTop: -2, width: "100%", textAlign: "left" }}>
-              <span>📍</span>
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{getDetail(s.hora).endereco}</span>
-            </div>
-          )}
+
         </div>
       ))}
 
@@ -620,152 +562,7 @@ function PainelSlots({ iso, slots, setSlots, highlightHora, consultasDia, onSave
       </button>
 
       {/* Floating Configuration Modal */}
-      {isModalOpen && activeSlotIdx !== null && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ width: "450px" }}>
-            <div className="modal-header">
-              <h3 style={{ color: "#fafafa", fontSize: 15, fontWeight: 700, margin: 0 }}>
-                Configurar Horário — {slots[activeSlotIdx]?.hora}
-              </h3>
-              <button 
-                onClick={() => setIsModalOpen(false)} 
-                style={{ background: "transparent", border: "none", color: "#a1a1aa", fontSize: 16, cursor: "pointer" }}
-              >
-                ✕
-              </button>
-            </div>
-            <div className="modal-body">
-              <div>
-                <label className="g-label" style={{ display: "block", marginBottom: 8, fontSize: 11, color: "#71717a", textTransform: "uppercase", fontWeight: 600 }}>Modalidade de Atendimento</label>
-                <div className="ag-seg">
-                  <button 
-                    className={`ag-seg-btn${tempModal === "Online" ? " active" : ""}`}
-                    onClick={() => setTempModal("Online")}
-                  >
-                    💻 Online
-                  </button>
-                  <button 
-                    className={`ag-seg-btn${tempModal === "Presencial" ? " active" : ""}`}
-                    onClick={() => setTempModal("Presencial")}
-                  >
-                    📍 Presencial
-                  </button>
-                </div>
-              </div>
 
-              {tempModal === "Presencial" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "agFadeUp 0.2s ease" }}>
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    <div style={{ flex: "1 1 110px", position: "relative" }}>
-                      <label className="g-label" style={{ display: "block", marginBottom: 4, fontSize: 10, color: "#71717a", textTransform: "uppercase", fontWeight: 600 }}>CEP</label>
-                      <input
-                        type="text"
-                        value={tempCep}
-                        onChange={e=>handleTempCepChange(e.target.value)}
-                        placeholder={tempLoadingCep ? "..." : "00000-000"}
-                        className="ag-add-input"
-                        style={{ width: "100%" }}
-                        disabled={tempLoadingCep}
-                      />
-                      {tempLoadingCep && (
-                        <div style={{ position: "absolute", right: 10, bottom: 10, width: 14, height: 14, border: "2px solid #10b981", borderTopColor: "transparent", borderRadius: "50%", animation: "agFadeUp 0.6s linear infinite" }} />
-                      )}
-                    </div>
-                    <div style={{ flex: "3 1 180px" }}>
-                      <label className="g-label" style={{ display: "block", marginBottom: 4, fontSize: 10, color: "#71717a", textTransform: "uppercase", fontWeight: 600 }}>Logradouro (Rua, Av.)</label>
-                      <input
-                        type="text"
-                        value={tempLog}
-                        onChange={e=>setTempLog(e.target.value)}
-                        placeholder="Av. Paulista"
-                        className="ag-add-input"
-                        style={{ width: "100%" }}
-                      />
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    <div style={{ flex: "1 1 100px" }}>
-                      <label className="g-label" style={{ display: "block", marginBottom: 4, fontSize: 10, color: "#71717a", textTransform: "uppercase", fontWeight: 600 }}>Número</label>
-                      <input
-                        type="text"
-                        value={tempNum}
-                        onChange={e=>setTempNum(e.target.value)}
-                        placeholder="1500"
-                        className="ag-add-input"
-                        style={{ width: "100%" }}
-                      />
-                    </div>
-                    <div style={{ flex: "2 1 160px" }}>
-                      <label className="g-label" style={{ display: "block", marginBottom: 4, fontSize: 10, color: "#71717a", textTransform: "uppercase", fontWeight: 600 }}>Complemento</label>
-                      <input
-                        type="text"
-                        value={tempComp}
-                        onChange={e=>setTempComp(e.target.value)}
-                        placeholder="Sala 42"
-                        className="ag-add-input"
-                        style={{ width: "100%" }}
-                      />
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                    <div style={{ flex: "2 1 120px" }}>
-                      <label className="g-label" style={{ display: "block", marginBottom: 4, fontSize: 10, color: "#71717a", textTransform: "uppercase", fontWeight: 600 }}>Bairro</label>
-                      <input
-                        type="text"
-                        value={tempBairro}
-                        onChange={e=>setTempBairro(e.target.value)}
-                        placeholder="Bela Vista"
-                        className="ag-add-input"
-                        style={{ width: "100%" }}
-                      />
-                    </div>
-                    <div style={{ flex: "2 1 120px" }}>
-                      <label className="g-label" style={{ display: "block", marginBottom: 4, fontSize: 10, color: "#71717a", textTransform: "uppercase", fontWeight: 600 }}>Cidade</label>
-                      <input
-                        type="text"
-                        value={tempCid}
-                        onChange={e=>setTempCid(e.target.value)}
-                        placeholder="São Paulo"
-                        className="ag-add-input"
-                        style={{ width: "100%" }}
-                      />
-                    </div>
-                    <div style={{ flex: "1 1 50px" }}>
-                      <label className="g-label" style={{ display: "block", marginBottom: 4, fontSize: 10, color: "#71717a", textTransform: "uppercase", fontWeight: 600 }}>UF</label>
-                      <input
-                        type="text"
-                        value={tempUf}
-                        onChange={e=>setTempUf(e.target.value)}
-                        placeholder="SP"
-                        maxLength={2}
-                        className="ag-add-input"
-                        style={{ width: "100%", textTransform: "uppercase" }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="modal-footer">
-              <button 
-                className="ag-btn-sm" 
-                onClick={() => setIsModalOpen(false)}
-              >
-                Cancelar
-              </button>
-              <button 
-                className="ag-btn-primary" 
-                style={{ padding: "8px 16px", fontSize: 12 }}
-                onClick={saveSlotConfig}
-              >
-                Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -775,15 +572,14 @@ function PainelSlots({ iso, slots, setSlots, highlightHora, consultasDia, onSave
 
 // ─── Recorrência Semanal ──────────────────────────────────────────────────────
 
-const DUR_OPTS = ["30min","45min","60min","90min"];
+const DUR_OPTS = ["15min","30min","45min","60min","90min"];
 
 function RecorrenciaSemanal({ onApply }: { onApply?: (data: any) => Promise<void> }){
   const [inicio,  setInicio]  = useState("08:00");
   const [fim,     setFim]     = useState("17:00");
   const [saved,   setSaved]   = useState(false);
   const [loading, setLoading] = useState(false);
-  // null = ambas modalidades, 'Presencial' ou 'Online' = exclusiva
-  const [modalidadePad, setModalidadePad] = useState<'Presencial'|'Online'|null>(null);
+  const [modalidadePad, setModalidadePad] = useState<'Online'|null>(null);
 
   // duração por dia: { 0: "60min", 1: "30min", ... }
   const [duracaoPorDia, setDuracaoPorDia] = useState<Record<number,string>>({
@@ -823,29 +619,7 @@ function RecorrenciaSemanal({ onApply }: { onApply?: (data: any) => Promise<void
     <div className="ag-recorr-wrap">
       <p className="ag-recorr-title">🔁 Configurar Horário Semanal Padrão</p>
 
-      {/* Modalidade padrão dos slots */}
-      <div className="ag-recorr-row" style={{marginBottom:16,flexDirection:'column',gap:8}}>
-        <span className="ag-recorr-label">Modalidade padrão dos slots</span>
-        <div style={{display:'flex',gap:6}}>
-          {(['Presencial','Online',null] as const).map((m)=>{
-            const label = m === null ? '🌐 Ambas' : m === 'Presencial' ? '🏥 Presencial' : '💻 Online';
-            const active = modalidadePad === m;
-            return (
-              <button key={String(m)} onClick={()=>{setModalidadePad(m);setSaved(false);}} style={{
-                flex:1,padding:'6px 8px',borderRadius:8,fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',transition:'all 0.15s',
-                background:active?'rgba(16,185,129,0.2)':'rgba(255,255,255,0.04)',
-                border:`1.5px solid ${active?'#10b981':'rgba(255,255,255,0.1)'}`,
-                color:active?'#10b981':'#71717a',
-              }}>{label}</button>
-            );
-          })}
-        </div>
-        {modalidadePad !== null && (
-          <span style={{fontSize:11,color:'#a1a1aa',marginTop:2}}>
-            Slots criarão exclusivamente para <strong style={{color:'#10b981'}}>{modalidadePad}</strong> — clientes de outro tipo não verão esses horários.
-          </span>
-        )}
-      </div>
+
 
       {/* Hora início / fim — globais */}
       <div className="ag-recorr-row" style={{marginBottom:16}}>
@@ -1065,7 +839,7 @@ export default function AgendaPage() {
       paciente: s.consulta.paciente.nome,
       avatar: s.consulta.paciente.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.consulta.paciente.nome)}&background=random`,
       especialidade: s.consulta.especialidade,
-      modalidade: s.consulta.modalidade === 'PRESENCIAL' ? 'Presencial' : 'Online',
+      modalidade: 'Online',
       status: s.consulta.status
     }));
   }

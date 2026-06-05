@@ -53,7 +53,7 @@ describe('DashboardClientService (Backend Patient Unit Tests)', () => {
         id: 'cons-today',
         dataHora: new Date(mockNow.getTime() + 7200000), // daqui a 2 horas (ainda hoje)
         especialidade: 'Fisioterapia',
-        tipo: 'PRESENCIAL',
+        tipo: 'ONLINE',
         status: 'PENDENTE',
         profissional: {
           name: 'Dr. Roberto Alves',

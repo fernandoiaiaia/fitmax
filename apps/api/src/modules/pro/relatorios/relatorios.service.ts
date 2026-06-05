@@ -119,18 +119,15 @@ export class RelatoriosProService {
     const period = buildPeriodFilter(from, to);
     const where = { profissionalId, status: 'PAGO' as const, dataHora: period };
 
-    const [presencial, online] = await Promise.all([
-      prisma.consulta.aggregate({
-        where: { ...where, tipo: 'PRESENCIAL' },
-        _sum: { valorCentavos: true }, _count: { id: true },
-      }),
+    const [online] = await Promise.all([
       prisma.consulta.aggregate({
         where: { ...where, tipo: 'ONLINE' },
-        _sum: { valorCentavos: true }, _count: { id: true },
-      }),
+        _count: { id: true },
+        _sum: { valorCentavos: true },
+      })
     ]);
 
-    const totalCount = (presencial._count.id ?? 0) + (online._count.id ?? 0);
+    const totalCount = online._count.id ?? 0;
 
     logger.info({
       event: 'relatorio_modalidade_acessado',
@@ -142,9 +139,9 @@ export class RelatoriosProService {
 
     return {
       presencial: {
-        total:      presencial._count.id ?? 0,
-        faturamento: centavosParaReais(presencial._sum.valorCentavos ?? 0),
-        pct:        totalCount > 0 ? parseFloat((((presencial._count.id ?? 0) / totalCount) * 100).toFixed(1)) : 0,
+        total:      0,
+        faturamento: "0,00",
+        pct:        0,
       },
       online: {
         total:      online._count.id ?? 0,

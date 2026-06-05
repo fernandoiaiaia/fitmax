@@ -152,9 +152,8 @@ const S = `
 const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const WDAYS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
 const MOTIVOS = ["Férias","Feriado","Evento","Outro"];
-const DURACOES = ["30min","45min","60min","90min"];
+const DURACOES = ["15min","30min","45min","60min","90min"];
 const INTERVALOS = ["0min","10min","15min","20min"];
-const MODALIDADES = ["Presencial","Online","Ambas"];
 
 function buildCal(y:number, m:number) {
   const fd = new Date(y,m,1).getDay();
@@ -200,18 +199,6 @@ function AbaDisponibilidade() {
   const [novoHor, setNovoHor] = useState("");
   const [saved, setSaved] = useState(false);
 
-  // Modal states
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [activeSlotIdx, setActiveSlotIdx] = useState<number | null>(null);
-  const [tempModal, setTempModal] = useState<"Online" | "Presencial">("Online");
-  const [tempCep, setTempCep] = useState("");
-  const [tempLog, setTempLog] = useState("");
-  const [tempNum, setTempNum] = useState("");
-  const [tempComp, setTempComp] = useState("");
-  const [tempBairro, setTempBairro] = useState("");
-  const [tempCid, setTempCid] = useState("");
-  const [tempUf, setTempUf] = useState("");
-  const [tempLoadingCep, setTempLoadingCep] = useState(false);
 
   const days = buildCal(cy, cm);
 
@@ -231,80 +218,25 @@ function AbaDisponibilidade() {
     }
   }, [cy, cm, selDay]);
 
+  function isPast(hora: string) {
+    if (selDay === null) return false;
+    const now = new Date();
+    const [hh, mm] = hora.split(":").map(Number);
+    const slotDate = new Date(cy, cm, selDay, hh, mm, 0, 0);
+    return slotDate < now;
+  }
+
   function handleToggleSlot(i: number) {
     const s = slots[i];
+    if (isPast(s.hora)) {
+      alert("Não é possível alterar um horário que já passou.");
+      return;
+    }
     if (s.on) {
-      // Toggle off: block slot and clear modality/address
       setSlots(prev => prev.map((item, idx) => idx === i ? { ...item, on: false, modalidade: undefined, endereco: undefined, addressDetails: undefined } : item));
-      setSaved(false);
     } else {
-      // Toggle on: open configuration modal
-      openConfigModal(i);
+      setSlots(prev => prev.map((item, idx) => idx === i ? { ...item, on: true, modalidade: "Online" } : item));
     }
-  }
-
-  function openConfigModal(i: number) {
-    const s = slots[i];
-    setActiveSlotIdx(i);
-    setTempModal(s.modalidade || "Online");
-    
-    const details = s.addressDetails || {};
-    setTempCep(details.cep || "");
-    setTempLog(details.logradouro || "");
-    setTempNum(details.numero || "");
-    setTempComp(details.complemento || "");
-    setTempBairro(details.bairro || "");
-    setTempCid(details.cidade || "");
-    setTempUf(details.uf || "");
-    
-    setIsModalOpen(true);
-  }
-
-  async function handleTempCepChange(val: string) {
-    setTempCep(val);
-    const cleanCep = val.replace(/\D/g, "");
-    if (cleanCep.length === 8) {
-      setTempLoadingCep(true);
-      try {
-        const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-        const data = await response.json();
-        if (!data.erro) {
-          setTempLog(data.logradouro || "");
-          setTempBairro(data.bairro || "");
-          setTempCid(data.localidade || "");
-          setTempUf(data.uf || "");
-        }
-      } catch (err) {
-        console.error("Erro ao buscar CEP no modal:", err);
-      } finally {
-        setTempLoadingCep(false);
-      }
-    }
-  }
-
-  function saveSlotConfig() {
-    if (activeSlotIdx === null) return;
-    
-    setSlots(prev => prev.map((s, idx) => idx === activeSlotIdx ? {
-      ...s,
-      on: true,
-      modalidade: tempModal,
-      endereco: tempModal === "Presencial" 
-        ? `${tempLog}, ${tempNum}${tempComp ? ` - ${tempComp}` : ""}, ${tempBairro}, ${tempCid} - ${tempUf.toUpperCase()}`
-        : "",
-      addressDetails: tempModal === "Presencial" ? {
-        cep: tempCep,
-        logradouro: tempLog,
-        numero: tempNum,
-        complemento: tempComp,
-        bairro: tempBairro,
-        cidade: tempCid,
-        uf: tempUf
-      } : null
-    } : s));
-    
-    setIsModalOpen(false);
-    setActiveSlotIdx(null);
     setSaved(false);
   }
 
@@ -316,14 +248,8 @@ function AbaDisponibilidade() {
     const newSlot = { hora: novoHor, on: false, consulta: null, modalidade: "Online" };
     const nextSlots = [...slots, newSlot].sort((a,b)=>a.hora.localeCompare(b.hora));
     setSlots(nextSlots);
-    
-    const newIdx = nextSlots.findIndex(s=>s.hora===novoHor);
     setNovoHor("");
     setSaved(false);
-    
-    setTimeout(() => {
-      openConfigModal(newIdx);
-    }, 0);
   }
 
   function applyPadrao() {
@@ -409,11 +335,11 @@ function AbaDisponibilidade() {
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{color:"#10b981",fontSize:12,fontWeight:600}}>Disponível</span>
                       <span style={{
-                        background: s.modalidade === "Presencial" ? "rgba(16,185,129,0.15)" : "rgba(96,165,250,0.15)",
-                        color: s.modalidade === "Presencial" ? "#10b981" : "#60a5fa",
+                        background: "rgba(96,165,250,0.15)",
+                        color: "#60a5fa",
                         fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99
                       }}>
-                        {s.modalidade === "Presencial" ? "📍 Presencial" : "💻 Online"}
+                        💻 Online
                       </span>
                     </div>
                   ) : (
@@ -421,26 +347,12 @@ function AbaDisponibilidade() {
                   )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  {s.on && !s.consulta && (
-                    <button
-                      onClick={() => openConfigModal(i)}
-                      style={{ background: "transparent", border: "none", color: "#71717a", cursor: "pointer", fontSize: 13 }}
-                      onMouseEnter={e => e.currentTarget.style.color = "#10b981"}
-                      onMouseLeave={e => e.currentTarget.style.color = "#71717a"}
-                    >
-                      ✏️
-                    </button>
-                  )}
+
                   <Toggle on={s.on} disabled={!!s.consulta} onToggle={()=>handleToggleSlot(i)} />
                 </div>
               </div>
               
-              {s.on && s.modalidade === "Presencial" && s.endereco && (
-                <div style={{ color: "#71717a", fontSize: 11, display: "flex", alignItems: "center", gap: 4, paddingLeft: 60, marginTop: -2 }}>
-                  <span>📍</span>
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.endereco}</span>
-                </div>
-              )}
+
             </div>
           ))}
 
@@ -456,148 +368,7 @@ function AbaDisponibilidade() {
         </div>
       )}
 
-      {/* Floating Configuration Modal */}
-      {isModalOpen && activeSlotIdx !== null && (
-        <div className="g-modal-overlay">
-          <div className="g-modal-content">
-            <div className="g-modal-header">
-              <h3 style={{ color: "#fafafa", fontSize: 16, fontWeight: 700, margin: 0 }}>
-                Configurar Horário — {slots[activeSlotIdx]?.hora}
-              </h3>
-              <button 
-                onClick={() => setIsModalOpen(false)} 
-                style={{ background: "transparent", border: "none", color: "#a1a1aa", fontSize: 18, cursor: "pointer" }}
-              >
-                ✕
-              </button>
-            </div>
-            <div className="g-modal-body">
-              <div>
-                <label className="g-label">Modalidade de Atendimento</label>
-                <div className="g-seg">
-                  <button 
-                    className={`g-seg-btn${tempModal === "Online" ? " active" : ""}`}
-                    onClick={() => setTempModal("Online")}
-                  >
-                    💻 Online
-                  </button>
-                  <button 
-                    className={`g-seg-btn${tempModal === "Presencial" ? " active" : ""}`}
-                    onClick={() => setTempModal("Presencial")}
-                  >
-                    📍 Presencial
-                  </button>
-                </div>
-              </div>
 
-              {tempModal === "Presencial" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "gfadeUp 0.2s ease" }}>
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    <div style={{ flex: "1 1 120px", position: "relative" }}>
-                      <label className="g-label">CEP</label>
-                      <input
-                        type="text"
-                        value={tempCep}
-                        onChange={e=>handleTempCepChange(e.target.value)}
-                        placeholder={tempLoadingCep ? "Buscando..." : "00000-000"}
-                        className="g-field"
-                        disabled={tempLoadingCep}
-                      />
-                      {tempLoadingCep && (
-                        <div style={{ position: "absolute", right: 10, bottom: 10, width: 14, height: 14, border: "2px solid #10b981", borderTopColor: "transparent", borderRadius: "50%", animation: "gfadeUp 0.6s linear infinite" }} />
-                      )}
-                    </div>
-                    <div style={{ flex: "3 1 200px" }}>
-                      <label className="g-label">Logradouro (Rua, Av.)</label>
-                      <input
-                        type="text"
-                        value={tempLog}
-                        onChange={e=>setTempLog(e.target.value)}
-                        placeholder="Av. Paulista"
-                        className="g-field"
-                      />
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    <div style={{ flex: "1 1 100px" }}>
-                      <label className="g-label">Número</label>
-                      <input
-                        type="text"
-                        value={tempNum}
-                        onChange={e=>setTempNum(e.target.value)}
-                        placeholder="1500"
-                        className="g-field"
-                      />
-                    </div>
-                    <div style={{ flex: "2 1 180px" }}>
-                      <label className="g-label">Complemento</label>
-                      <input
-                        type="text"
-                        value={tempComp}
-                        onChange={e=>setTempComp(e.target.value)}
-                        placeholder="Sala 42"
-                        className="g-field"
-                      />
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                    <div style={{ flex: "2 1 130px" }}>
-                      <label className="g-label">Bairro</label>
-                      <input
-                        type="text"
-                        value={tempBairro}
-                        onChange={e=>setTempBairro(e.target.value)}
-                        placeholder="Bela Vista"
-                        className="g-field"
-                      />
-                    </div>
-                    <div style={{ flex: "2 1 130px" }}>
-                      <label className="g-label">Cidade</label>
-                      <input
-                        type="text"
-                        value={tempCid}
-                        onChange={e=>setTempCid(e.target.value)}
-                        placeholder="São Paulo"
-                        className="g-field"
-                      />
-                    </div>
-                    <div style={{ flex: "1 1 50px" }}>
-                      <label className="g-label">UF</label>
-                      <input
-                        type="text"
-                        value={tempUf}
-                        onChange={e=>setTempUf(e.target.value)}
-                        placeholder="SP"
-                        maxLength={2}
-                        className="g-field"
-                        style={{ textTransform: "uppercase" }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="g-modal-footer">
-              <button 
-                className="g-btn-ghost" 
-                style={{ padding: "8px 16px", fontSize: 13 }}
-                onClick={() => setIsModalOpen(false)}
-              >
-                Cancelar
-              </button>
-              <button 
-                className="g-btn-primary" 
-                style={{ padding: "8px 18px", fontSize: 13 }}
-                onClick={saveSlotConfig}
-              >
-                Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -739,14 +510,7 @@ function AbaConfiguracoes() {
         </div>
       </div>
 
-      <div style={{marginBottom:20}}>
-        <label className="g-label">Modalidade Padrão</label>
-        <div className="g-seg">
-          {MODALIDADES.map(m=>(
-            <button key={m} className={`g-seg-btn${modal===m?" active":""}`} onClick={()=>setModal(m)}>{m}</button>
-          ))}
-        </div>
-      </div>
+
 
       <div style={{display:"flex",gap:12,marginBottom:24,flexWrap:"wrap"}}>
         <div style={{flex:1,minWidth:120}}>

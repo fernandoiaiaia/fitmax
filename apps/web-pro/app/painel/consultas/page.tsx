@@ -4,6 +4,8 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import dynamic from "next/dynamic";
+const VideoRoomModal = dynamic(() => import("@/components/VideoRoomModal"), { ssr: false });
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -11,18 +13,18 @@ type ConsultaStatus = "agendada" | "pendente" | "a_confirmar" | "em_andamento" |
 
 interface Consulta {
   id: number; horario: string; nome: string; especialidade: string;
-  modalidade: "Presencial" | "Online"; data: string; dataISO: string;
+  modalidade: "Online"; data: string; dataISO: string;
   avatar: string; status: ConsultaStatus;
 }
 
 // ─── Mock Fallbacks (usados enquanto API carrega) ────────────────────────────
 
 const consultasFallback: Consulta[] = [
-  { id: 1, horario:"09:00", nome:"Fernanda Lima",     especialidade:"Cardiologia", modalidade:"Presencial", data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=41", status:"agendada" },
-  { id: 2, horario:"11:00", nome:"Guilherme Augusto", especialidade:"Cardiologia", modalidade:"Presencial", data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=30", status:"em_andamento" },
+  { id: 1, horario:"09:00", nome:"Fernanda Lima",     especialidade:"Cardiologia", modalidade:"Online", data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=41", status:"agendada" },
+  { id: 2, horario:"11:00", nome:"Guilherme Augusto", especialidade:"Cardiologia", modalidade:"Online", data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=30", status:"em_andamento" },
   { id: 3, horario:"13:00", nome:"Mariana Ferreira",  especialidade:"Cardiologia", modalidade:"Online",     data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=31", status:"pendente" },
-  { id: 4, horario:"15:30", nome:"Ricardo Nunes",     especialidade:"Check-up",    modalidade:"Presencial", data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=45", status:"a_confirmar" },
-  { id: 5, horario:"09:00", nome:"Lucas Mendes",      especialidade:"Check-up",    modalidade:"Presencial", data:"Amanhã, 24/04", dataISO:"2026-04-24", avatar:"https://picsum.photos/200/200?random=32", status:"agendada" },
+  { id: 4, horario:"15:30", nome:"Ricardo Nunes",     especialidade:"Check-up",    modalidade:"Online", data:"Hoje, 23/04",   dataISO:"2026-04-23", avatar:"https://picsum.photos/200/200?random=45", status:"a_confirmar" },
+  { id: 5, horario:"09:00", nome:"Lucas Mendes",      especialidade:"Check-up",    modalidade:"Online", data:"Amanhã, 24/04", dataISO:"2026-04-24", avatar:"https://picsum.photos/200/200?random=32", status:"agendada" },
 ];
 
 const statusConfig: Record<ConsultaStatus, { label: string; bg: string; color: string }> = {
@@ -69,7 +71,7 @@ function useOutsideClick(ref: React.RefObject<HTMLElement>, cb: () => void) {
 
 const C = { bg:"#111111", card:"#141414", card2:"#1a1a1a", border:"rgba(255,255,255,0.07)" };
 
-function ConsultaRow({ c }: { c: Consulta }) {
+function ConsultaRow({ c, onStartVideo }: { c: Consulta; onStartVideo?: (c: Consulta) => void }) {
   const router = useRouter();
   const cfg = statusConfig[c.status];
 
@@ -114,7 +116,23 @@ function ConsultaRow({ c }: { c: Consulta }) {
           {/* Badge + seta */}
           <div className="pro-cons-card-actions" style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
             <span style={{ background:cfg.bg, border:`1px solid ${cfg.color}44`, color:cfg.color, fontSize:10, fontWeight:"bold", padding:"3px 10px", borderRadius:999 }}>{cfg.label}</span>
-            <span className="pro-cons-arrow-icon">
+            {c.modalidade === "Online" && (
+              <button
+                onClick={(e) => { e.stopPropagation(); if (onStartVideo) onStartVideo(c); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 4, background: "rgba(16,185,129,0.1)",
+                  border: "1px solid rgba(16,185,129,0.3)", color: "#10b981", fontSize: 11,
+                  fontWeight: "bold", padding: "4px 10px", borderRadius: 8, cursor: "pointer",
+                  transition: "all 0.15s"
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(16,185,129,0.2)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(16,185,129,0.1)"; }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                Iniciar
+              </button>
+            )}
+            <span className="pro-cons-arrow-icon" style={{ marginLeft: 4 }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
               </svg>
@@ -140,6 +158,8 @@ export default function ConsultasPage() {
   const dateRef = useRef<HTMLDivElement>(null);
   useOutsideClick(dateRef, useCallback(() => setShowDatePicker(false), []));
 
+  const [activeVideoConsulta, setActiveVideoConsulta] = useState<Consulta | null>(null);
+
   // ── Estado real da API ────────────────────────────────────────────────────
   const [consultas, setConsultas] = useState<Consulta[]>([]);
   const [summary,   setSummary]   = useState({ total: 0, agendada: 0, cancelada: 0 });
@@ -163,7 +183,7 @@ export default function ConsultasPage() {
           horario:      new Date(c.dataHora).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', timeZone:'America/Sao_Paulo' }),
           nome:         c.paciente.nome,
           especialidade: c.especialidade,
-          modalidade:   c.modalidade === 'PRESENCIAL' ? 'Presencial' : 'Online',
+          modalidade:   'Online',
           data:         new Date(c.dataHora).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }),
           dataISO:      c.dataHora,  // ISO completo (inclui hora) para detectar se já passou
           avatar:       c.paciente.avatarUrl || `https://picsum.photos/200/200?random=${Math.floor(Math.random()*90)+10}`,
@@ -346,16 +366,28 @@ export default function ConsultasPage() {
                     </div>
                   </div>
                   {consultaEmAndamento ? (
-                    <div style={{ display:"flex", gap:12, alignItems:"center" }}>
-                      <img src={consultaEmAndamento.avatar} alt={consultaEmAndamento.nome} style={{ width:44, height:44, borderRadius:"50%", objectFit:"cover", border:"2px solid rgba(96,165,250,0.4)", flexShrink:0 }} />
-                      <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                        <span style={{ color:"#fafafa", fontSize:14, fontWeight:"bold" }}>{consultaEmAndamento.nome}</span>
-                        <span style={{ color:"#a1a1aa", fontSize:12 }}>{consultaEmAndamento.especialidade}</span>
-                        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-                          <span style={{ color:"#60a5fa" }}><ClockIcon /></span>
-                          <span style={{ color:"#60a5fa", fontSize:12 }}>{consultaEmAndamento.horario}</span>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:12 }}>
+                      <div style={{ display:"flex", gap:12, alignItems:"center" }}>
+                        <img src={consultaEmAndamento.avatar} alt={consultaEmAndamento.nome} style={{ width:44, height:44, borderRadius:"50%", objectFit:"cover", border:"2px solid rgba(96,165,250,0.4)", flexShrink:0 }} />
+                        <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                          <span style={{ color:"#fafafa", fontSize:14, fontWeight:"bold" }}>{consultaEmAndamento.nome}</span>
+                          <span style={{ color:"#a1a1aa", fontSize:12 }}>{consultaEmAndamento.especialidade}</span>
+                          <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                            <span style={{ color:"#60a5fa" }}><ClockIcon /></span>
+                            <span style={{ color:"#60a5fa", fontSize:12 }}>{consultaEmAndamento.horario}</span>
+                          </div>
                         </div>
                       </div>
+                      
+                      {consultaEmAndamento.modalidade === "Online" && (
+                        <button
+                          onClick={() => setActiveVideoConsulta(consultaEmAndamento)}
+                          className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-xl transition-all shadow-[0_0_12px_rgba(16,185,129,0.3)] hover:shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                          Iniciar Chamada
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <div style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0" }}>
@@ -403,13 +435,22 @@ export default function ConsultasPage() {
                   <span style={{ color:"#a1a1aa", fontSize:14 }}>Nenhuma consulta encontrada no período.</span>
                 </div>
               ) : (
-                filtered.map((c) => <ConsultaRow key={c.id} c={c} />)
+                filtered.map((c) => <ConsultaRow key={c.id} c={c} onStartVideo={(cons) => setActiveVideoConsulta(cons)} />)
               )}
             </div>
           </div>
 
         </div>
       </div>
+      
+      {activeVideoConsulta && activeVideoConsulta.modalidade === "Online" && (
+        <VideoRoomModal
+          isOpen={true}
+          onClose={() => setActiveVideoConsulta(null)}
+          channelName={`consulta_${activeVideoConsulta.id}`}
+          userName="Profissional"
+        />
+      )}
     </>
   );
 }

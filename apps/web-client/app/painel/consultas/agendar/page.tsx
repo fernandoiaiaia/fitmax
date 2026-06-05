@@ -4,6 +4,9 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cancelarConsulta, reagendarConsulta, listarProfissionais, agendarConsulta, listarEspecialidades, buscarDisponibilidade, listarConvenios } from "../../../../lib/consultas-api";
+import dynamic from "next/dynamic";
+
+const VideoRoomModal = dynamic(() => import("@/components/VideoRoomModal"), { ssr: false });
 
 // ─── Tamagui Shims (migration compatibility layer) ────────────────────────────
 const ScrollView = ({ children, ...p }: any) => <div style={{ flex:1, overflowY:"auto", ...p.style }}>{children}</div>;
@@ -54,13 +57,13 @@ const CONFIG_ACEITA_CONVENIO = true;
 const CONVENIO_OUTROS_ID = "outros";
 
 const profissionais = [
-  { id: 1, nome: "Dr. Roberto Alves",    especialidade: [1,2],   avatar: "https://picsum.photos/200/200?random=21", avaliacao: 4.9, modalidades: ["Presencial","Online"], clinica: { nome: "SportMed Clínica",      logradouro: "Av. Paulista",       numero: "1374", complemento: "10º andar", bairro: "Bela Vista",    cidade: "São Paulo",       uf: "SP" } },
+  { id: 1, nome: "Dr. Roberto Alves",    especialidade: [1,2],   avatar: "https://picsum.photos/200/200?random=21", avaliacao: 4.9, modalidades: ["Online"], clinica: { nome: "SportMed Clínica",      logradouro: "Av. Paulista",       numero: "1374", complemento: "10º andar", bairro: "Bela Vista",    cidade: "São Paulo",       uf: "SP" } },
   { id: 2, nome: "Dra. Ana Souza",       especialidade: [1,8],   avatar: "https://picsum.photos/200/200?random=23", avaliacao: 4.8, modalidades: ["Online"],              clinica: null },
-  { id: 3, nome: "Dra. Letícia Marques", especialidade: [5],     avatar: "https://picsum.photos/200/200?random=50", avaliacao: 4.7, modalidades: ["Presencial","Online"], clinica: { nome: "Endoclínica Campinas",   logradouro: "Av. Brasil",         numero: "320",  complemento: "Sala 5",    bairro: "Centro",         cidade: "Campinas",        uf: "SP" } },
+  { id: 3, nome: "Dra. Letícia Marques", especialidade: [5],     avatar: "https://picsum.photos/200/200?random=50", avaliacao: 4.7, modalidades: ["Online"], clinica: { nome: "Endoclínica Campinas",   logradouro: "Av. Brasil",         numero: "320",  complemento: "Sala 5",    bairro: "Centro",         cidade: "Campinas",        uf: "SP" } },
   { id: 4, nome: "Dr. Vinícius Almeida", especialidade: [8,1],   avatar: "https://picsum.photos/200/200?random=60", avaliacao: 4.9, modalidades: ["Online"],              clinica: null },
-  { id: 5, nome: "Marcelo Strong",       especialidade: [3,4],   avatar: "https://picsum.photos/200/200?random=52", avaliacao: 5.0, modalidades: ["Presencial"],          clinica: { nome: "Studio Strong",         logradouro: "Rua da Saúde",       numero: "87",   complemento: "",          bairro: "Moema",          cidade: "São Paulo",       uf: "SP" } },
-  { id: 6, nome: "Bruno Silva",          especialidade: [6],     avatar: "https://picsum.photos/200/200?random=25", avaliacao: 4.6, modalidades: ["Presencial","Online"], clinica: { nome: "Instituto Atlântica",    logradouro: "Av. Atlântica",      numero: "1500", complemento: "",          bairro: "Copacabana",     cidade: "Rio de Janeiro",  uf: "RJ" } },
-  { id: 7, nome: "Dra. Camila Nery",    especialidade: [3,4,6], avatar: "https://picsum.photos/200/200?random=22", avaliacao: 4.8, modalidades: ["Presencial"],          clinica: { nome: "Centro Fitness Augusta", logradouro: "Rua Augusta",        numero: "44",   complemento: "Conj. 12",  bairro: "Consolação",     cidade: "São Paulo",       uf: "SP" } },
+  { id: 5, nome: "Marcelo Strong",       especialidade: [3,4],   avatar: "https://picsum.photos/200/200?random=52", avaliacao: 5.0, modalidades: ["Online"],          clinica: { nome: "Studio Strong",         logradouro: "Rua da Saúde",       numero: "87",   complemento: "",          bairro: "Moema",          cidade: "São Paulo",       uf: "SP" } },
+  { id: 6, nome: "Bruno Silva",          especialidade: [6],     avatar: "https://picsum.photos/200/200?random=25", avaliacao: 4.6, modalidades: ["Online"], clinica: { nome: "Instituto Atlântica",    logradouro: "Av. Atlântica",      numero: "1500", complemento: "",          bairro: "Copacabana",     cidade: "Rio de Janeiro",  uf: "RJ" } },
+  { id: 7, nome: "Dra. Camila Nery",    especialidade: [3,4,6], avatar: "https://picsum.photos/200/200?random=22", avaliacao: 4.8, modalidades: ["Online"],          clinica: { nome: "Centro Fitness Augusta", logradouro: "Rua Augusta",        numero: "44",   complemento: "Conj. 12",  bairro: "Consolação",     cidade: "São Paulo",       uf: "SP" } },
 ];
 
 const horarios = ["08:00","09:00","10:00","11:00","13:00","14:00","15:00","16:00","17:00"];
@@ -686,6 +689,7 @@ function AgendarConsultaInner() {
 
 
   const [manageView, setManageView] = useState<string>("menu");
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [payMethod,  setPayMethod]  = useState<string | null>(null);
   const [payDone,    setPayDone]    = useState(false);
   const [payLoading, setPayLoading] = useState(false);
@@ -724,10 +728,10 @@ function AgendarConsultaInner() {
   }
 
   // ── Agendamento flow states (must be before any conditional return for Rules of Hooks) ──
-  const [step, setStep] = useState(0); // 0(tipo)|1(conv)|2(esp)|3(pro)|4(data)|5(obs)|6(sucesso)
+  const [step, setStep] = useState(1); // 0(tipo)|1(conv)|2(esp)|3(pro)|4(data)|5(obs)|6(sucesso)
 
-  // Step 0 — Tipo de consulta
-  const [tipoConsulta, setTipoConsulta] = useState<"Online" | "Presencial" | null>(null);
+  // Step 0 — Tipo de consulta (padrão Online para plataforma exclusiva)
+  const [tipoConsulta, setTipoConsulta] = useState<"Online" | null>("Online");
 
   // Step 1 — Convênio
   const [usaConvenio,    setUsaConvenio]    = useState<boolean | null>(null);
@@ -740,7 +744,7 @@ function AgendarConsultaInner() {
 
   // Step 3
   const [proSel, setProSel] = useState<number | null>(null);
-  const [modalidade, setModalidade] = useState<"Presencial" | "Online">("Presencial");
+  const [modalidade, setModalidade] = useState<"Presencial" | "Online">("Online");
 
   // Step 4
   const today = new Date();
@@ -841,11 +845,28 @@ function AgendarConsultaInner() {
               <YStack gap="$4">
                 <Text color="$color11" fontSize={13} fontWeight="600">O que você deseja fazer?</Text>
                 <div className="mg-actions-grid">
+                  {/* Entrar na Chamada */}
+                  {consultaMod === "Online" && (
+                    <div
+                      id="btn-manage-video"
+                      className="mg-action-card video-chamada"
+                      onClick={() => setIsVideoModalOpen(true)}
+                      style={{ gridColumn: "span 2", background: "rgba(16,185,129,0.05)", borderColor: "rgba(16,185,129,0.2)" }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(16,185,129,0.1)"; e.currentTarget.style.borderColor = "#10b981"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "rgba(16,185,129,0.05)"; e.currentTarget.style.borderColor = "rgba(16,185,129,0.2)"; }}
+                    >
+                      <div className="mg-action-icon" style={{ background: "rgba(16,185,129,0.15)" }}>🎥</div>
+                      <p className="mg-action-title" style={{ color: "#10b981" }}>Entrar na Chamada</p>
+                      <p className="mg-action-sub">Acesse a sala de vídeo para o seu atendimento online</p>
+                    </div>
+                  )}
+
                   {/* Reagendar */}
                   <div
                     id="btn-manage-reagendar"
                     className="mg-action-card reagendar"
                     onClick={() => setManageView("reagendando")}
+                    style={{ gridColumn: consultaMod === "Online" && consultaStatus !== "pendente" ? "auto" : "auto" }}
                   >
                     <div className="mg-action-icon" style={{ background: "rgba(96,165,250,0.12)" }}>📅</div>
                     <p className="mg-action-title" style={{ color: "#60a5fa" }}>Reagendar</p>
@@ -870,7 +891,7 @@ function AgendarConsultaInner() {
                     id="btn-manage-cancelar"
                     className="mg-action-card cancelar"
                     onClick={() => setManageView("cancelar")}
-                    style={{ gridColumn: consultaStatus !== "pendente" ? "span 2" : "auto" }}
+                    style={{ gridColumn: consultaStatus !== "pendente" && consultaMod !== "Online" ? "span 2" : "auto" }}
                   >
                     <div className="mg-action-icon" style={{ background: "rgba(244,63,94,0.1)" }}>🗑️</div>
                     <p className="mg-action-title" style={{ color: "#f43f5e" }}>Cancelar Consulta</p>
@@ -991,6 +1012,15 @@ function AgendarConsultaInner() {
                 </button>
               </div>
             )}
+            
+            {consultaMod === "Online" && isVideoModalOpen && (
+              <VideoRoomModal
+                isOpen={isVideoModalOpen}
+                onClose={() => setIsVideoModalOpen(false)}
+                channelName={`consulta_${consultaId}`}
+                userName="Paciente"
+              />
+            )}
 
           </YStack>
         </ScrollView>
@@ -1008,7 +1038,7 @@ function AgendarConsultaInner() {
         avatar:      p.avatarUrl ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}&background=10b981&color=fff`,
         especialidade: [p.especialidade].filter(Boolean) as string[],
         avaliacao:   4.8,
-        modalidades: ["Online", "Presencial"],
+        modalidades: ["Online"],
         clinica:     p.cidade ? `${p.cidade}, ${p.uf}` : null,
       }))
     : profissionais;  // fallback para mock
@@ -1191,27 +1221,6 @@ function AgendarConsultaInner() {
                   </span>
                 </div>
 
-                {/* Card Presencial */}
-                <div
-                  id="card-tipo-presencial"
-                  className={`ag-tipo-card${tipoConsulta === "Presencial" ? " active" : ""}`}
-                  onClick={() => setTipoConsulta("Presencial")}
-                >
-                  <div className="ag-tipo-check">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  </div>
-                  <span className="ag-tipo-icon">📍</span>
-                  <p className="ag-tipo-title">Presencial</p>
-                  <p className="ag-tipo-sub">Atendimento direto na clínica ou consultório</p>
-                  <span className="ag-tipo-badge">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-                    </svg>
-                    Na sua cidade
-                  </span>
-                </div>
               </div>
 
               <XStack justifyContent="flex-end" marginTop="$5">
@@ -1297,7 +1306,7 @@ function AgendarConsultaInner() {
               </div>
 
               <XStack justifyContent="space-between" marginTop="$5">
-                <button className="ag-btn-ghost" onClick={() => setStep(0)}>← Voltar</button>
+                <button className="ag-btn-ghost" onClick={() => router.push("/painel/consultas")}>← Voltar</button>
                 <button
                   className="ag-btn-primary"
                   disabled={!canProceedStep1}
@@ -1527,16 +1536,10 @@ function AgendarConsultaInner() {
                               <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
                               <div>
                                 <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700, color: "#f87171" }}>
-                                  Nenhum horário {tipoConsulta === "Presencial" ? "presencial" : "online"} disponível nesta data.
+                                  Nenhum horário online disponível nesta data.
                                 </p>
                                 <p style={{ margin: 0, fontSize: 12, color: "#71717a" }}>
-                                  Tente outra data ou{" "}
-                                  <button
-                                    onClick={() => setStep(0)}
-                                    style={{ background: "none", border: "none", color: "#60a5fa", cursor: "pointer", fontSize: 12, padding: 0, textDecoration: "underline", fontFamily: "inherit" }}
-                                  >
-                                    volte à etapa 1 para alterar o tipo de atendimento
-                                  </button>.
+                                  Tente selecionar outra data no calendário.
                                 </p>
                               </div>
                             </div>
