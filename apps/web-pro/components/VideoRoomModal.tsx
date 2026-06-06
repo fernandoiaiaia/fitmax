@@ -116,7 +116,7 @@ export default function VideoRoomModal({ isOpen, onClose, channelName, userName 
                   </div>
                 </div>
               ) : (
-                <AgoraRTCProvider client={clientRef.current}>
+                <AgoraRTCProvider client={clientRef.current as any}>
                   <AgoraRoom channelName={canalSanitizado} appId={appId} token={rtcToken} uid={1} />
                 </AgoraRTCProvider>
               )}
