@@ -39,6 +39,16 @@ jobs:
           script: |
             cd /root/fitmax
             
+            # Instalar o Docker automaticamente se ele não existir no servidor
+            if ! command -v docker &> /dev/null
+            then
+                echo "Docker não encontrado. Instalando..."
+                curl -fsSL https://get.docker.com -o get-docker.sh
+                sh get-docker.sh
+                systemctl enable docker
+                systemctl start docker
+            fi
+            
             # Criar o arquivo .env com os secrets do GitHub
             echo "NODE_ENV=production" > .env
             echo "PORT=3333" >> .env
