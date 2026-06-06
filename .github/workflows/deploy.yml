@@ -36,6 +36,7 @@ jobs:
           username: root
           key: ${{ secrets.DO_SSH_KEY }}
           password: ${{ secrets.DO_PASSWORD }}
+          command_timeout: 30m
           script: |
             cd /root/fitmax
             
