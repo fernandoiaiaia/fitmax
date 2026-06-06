@@ -1,9 +1,8 @@
 # Configurações globais de build para Netlify
 
 [build]
-  # O comando de build do Turborepo na raiz (ex: vai rodar em web-pro se configurado via UI do Netlify)
-  command = "npm run build"
-  
+  # Removido 'command = "npm run build"' para não forçar o build da API.
+  # Na interface da Netlify, use o comando: npx turbo run build --filter=web-pro...
 # Variáveis de ambiente que estarão disponíveis durante o build
 [build.environment]
   NODE_VERSION = "22"
