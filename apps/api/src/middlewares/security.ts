@@ -42,10 +42,12 @@ const allowedOrigins: string[] = [
   'http://localhost:3002', // web-admin dev
   'http://localhost:3003', // web-pro dev
   'http://localhost:3004', // web-client dev
-  ...(env.NODE_ENV === 'production' ? [
-    // Add production origins here
-  ] : []),
 ];
+
+if (env.ALLOWED_ORIGINS) {
+  const customOrigins = env.ALLOWED_ORIGINS.split(',').map((o) => o.trim());
+  allowedOrigins.push(...customOrigins);
+}
 
 export const corsMiddleware: RequestHandler = cors({
   origin: (origin, callback) => {

@@ -1,0 +1,26 @@
+# Configurações globais de build para Netlify
+
+[build]
+  # O comando de build do Turborepo na raiz (ex: vai rodar em web-pro se configurado via UI do Netlify)
+  command = "npm run build"
+  
+# Variáveis de ambiente que estarão disponíveis durante o build
+[build.environment]
+  NODE_VERSION = "22"
+  NPM_FLAGS = "--no-audit --no-fund"
+
+# Se for usar Server-Side Rendering (SSR) do Next.js
+# É recomendado que cada site na Netlify tenha seu Base Directory configurado via UI
+# Ex: apps/web-pro
+
+# Regras de Headers para segurança e cache (aplicado a todas as rotas)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+
+# Você pode adicionar plugins para facilitar o cache do Next.js
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
